@@ -34,6 +34,34 @@ uvicorn app.main:app --reload
 
 Open `http://127.0.0.1:8000`.
 
+## Play online with Render
+
+The FastAPI app serves both the game interface and API from one web service. The root `render.yaml` configures a free Render service, and `.python-version` selects Python 3.12 for hosting and CI.
+
+After merging the deployment setup:
+
+1. Sign in to [Render](https://dashboard.render.com/).
+2. Choose **New → Blueprint**, connect GitHub, and select `Data-is-life/football-team-manager`. If the repository is private, grant Render access to this repository.
+3. Use the `main` branch and the root `render.yaml`. Confirm that the web service uses the **Free** instance plan before creating the Blueprint.
+4. Wait for the first deploy to become live, then open the service URL shown by Render.
+
+Render builds with `python -m pip install -r requirements.txt` and starts the app with `python -m uvicorn app.main:app --host 0.0.0.0 --port $PORT`. The `/api/teams` route is the health check.
+
+### Try each merged PR
+
+GitHub Actions runs the league tests on pull requests and pushes to `main`. Once you merge a PR and the checks on `main` pass, Render automatically deploys that commit to the same URL. Wait for Render to show the new deploy as live, then refresh the game.
+
+Opening a PR alone does not update the main game URL. This setup does not create separate PR preview services.
+
+### Demo behavior
+
+- The free service sleeps after 15 minutes without traffic; the next visit can take about a minute to wake it.
+- No database or account is required. The current team and week live in browser memory, so refreshing the page resets your progress.
+- Weekly scores are deterministic for the team and season. Replaying the same season produces the same results.
+- This starter includes the regular season and playoff race; postseason games are the next build slice.
+
+See Render's [FastAPI guide](https://render.com/docs/deploy-fastapi), [free-tier limits](https://render.com/docs/free), and [automatic deploy settings](https://render.com/docs/deploys).
+
 ## Verify the schedule rules
 
 ```bash
