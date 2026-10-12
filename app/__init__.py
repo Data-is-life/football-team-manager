@@ -1,0 +1,2 @@
+"""Arcade League application package."""
+

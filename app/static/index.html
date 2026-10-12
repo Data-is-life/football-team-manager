@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="Choose a city and generate a 17-game Arcade League schedule." />
+    <title>Arcade League</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <header class="topbar">
+        <a class="brand" href="/" aria-label="Arcade League home">
+          <span class="brand-mark">AL</span>
+          <span>Arcade League</span>
+        </a>
+        <span class="season-label">Season <strong id="season-display">1</strong></span>
+      </header>
+
+      <section class="game-panel" aria-labelledby="page-title">
+        <div class="intro">
+          <p class="eyebrow">Franchise setup</p>
+          <h1 id="page-title">Choose your city.</h1>
+          <p>Every team plays 17 games. Pick a franchise to reveal its first-season schedule.</p>
+        </div>
+
+        <form id="team-form" class="selector-card">
+          <label for="team-select">Your team</label>
+          <div class="select-row">
+            <select id="team-select" required>
+              <option value="">Loading teams…</option>
+            </select>
+            <button type="submit">Start season</button>
+          </div>
+        </form>
+
+        <div id="error" class="error" role="alert" hidden></div>
+
+        <section id="schedule-section" class="schedule-section" hidden aria-live="polite">
+          <div class="schedule-heading">
+            <div>
+              <p id="team-group" class="eyebrow"></p>
+              <h2 id="team-name"></h2>
+            </div>
+            <div class="formula" aria-label="Schedule formula">
+              <span><strong>8</strong> group</span>
+              <span><strong>5</strong> same-place</span>
+              <span><strong>4</strong> rotating</span>
+            </div>
+          </div>
+          <p id="rotation-note" class="rotation-note"></p>
+          <div class="week-control">
+            <div>
+              <span class="control-label">Current record</span>
+              <strong id="season-record">0–0</strong>
+            </div>
+            <button id="simulate-button" type="button">Simulate Week 1</button>
+          </div>
+          <section id="result-panel" class="result-panel" hidden>
+            <div class="scoreboard">
+              <div class="score-team">
+                <span id="away-label" class="control-label">Away</span>
+                <strong id="away-name"></strong>
+                <span id="away-score" class="score"></span>
+              </div>
+              <div class="result-center">
+                <span id="result-week">Week 1 final</span>
+                <strong id="result-badge" class="result-badge"></strong>
+              </div>
+              <div class="score-team home-score">
+                <span id="home-label" class="control-label">Home</span>
+                <strong id="home-name"></strong>
+                <span id="home-score" class="score"></span>
+              </div>
+            </div>
+            <div id="team-comparison" class="team-comparison"></div>
+            <div class="box-score-tabs" role="tablist" aria-label="Team box scores">
+              <button id="away-tab" class="stat-tab active" type="button" role="tab"></button>
+              <button id="home-tab" class="stat-tab" type="button" role="tab"></button>
+            </div>
+            <div id="player-stats" class="player-stats"></div>
+          </section>
+          <section id="league-results-section" class="league-results-section" hidden>
+            <div class="section-title-row">
+              <div>
+                <p class="eyebrow">Around the league</p>
+                <h3 id="league-results-title">League Results</h3>
+              </div>
+              <span>14 other games</span>
+            </div>
+            <div id="league-results" class="league-results-grid"></div>
+          </section>
+          <section id="standings-section" class="standings-section" hidden>
+            <div class="section-title-row">
+              <div>
+                <p class="eyebrow">Updated after every final</p>
+                <h3 id="standings-title">Group Standings</h3>
+              </div>
+              <span>Six groups</span>
+            </div>
+            <div id="group-standings" class="group-standings-grid"></div>
+          </section>
+          <section id="playoff-section" class="playoff-section" hidden>
+            <div class="section-title-row">
+              <div>
+                <p class="eyebrow">If the season ended today</p>
+                <h3 id="playoff-title">Playoff Race</h3>
+              </div>
+              <span>14 teams</span>
+            </div>
+            <div class="playoff-table-wrap">
+              <table class="playoff-table">
+                <thead>
+                  <tr><th>Seed</th><th>Team</th><th>Path</th><th>Record</th><th>Diff</th></tr>
+                </thead>
+                <tbody id="playoff-race"></tbody>
+              </table>
+            </div>
+            <p id="tiebreaker-note" class="tiebreaker-note"></p>
+          </section>
+          <div id="schedule" class="schedule-grid"></div>
+        </section>
+      </section>
+    </main>
+    <script src="/static/app.js" defer></script>
+  </body>
+</html>
