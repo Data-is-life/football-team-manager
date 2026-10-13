@@ -147,3 +147,27 @@ tr.selected-team td { color: var(--cyan); background: rgba(72,230,210,0.07); }
   .score-team strong { font-size: 1rem; }
   h1 { font-size: clamp(3.2rem, 19vw, 5rem); }
 }
+
+/* Keep inactive screens hidden even when their layout uses flex or grid. */
+[hidden] { display: none !important; }
+.schedule-section { padding-top: 24px; }
+#team-name { margin: 0; font-size: clamp(2.8rem, 7vw, 5rem); line-height: 1; }
+.team-home { display: flex; align-items: center; justify-content: space-between; gap: 20px; flex-wrap: wrap; margin: 24px 0; }
+.team-ratings { display: flex; gap: 12px; }
+.team-ratings > div { display: grid; grid-template-columns: auto auto; gap: 4px 8px; padding: 16px 22px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; }
+.team-ratings .control-label { grid-column: 1 / -1; }
+.team-ratings strong { font-size: 2rem; color: var(--lime); }
+.rating-scale { align-self: end; padding-bottom: 5px; color: var(--muted); font-size: 0.8rem; }
+.team-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.secondary-button { color: var(--ink); background: var(--panel-2); border-color: var(--line); }
+#cancel-team-change { margin-top: 12px; }
+.roster-section { margin-bottom: 24px; padding: clamp(18px, 3vw, 28px); border: 1px solid var(--line); background: var(--panel); border-radius: 16px; }
+#roster-title { font-size: 1.5rem; margin-bottom: 10px; }
+.roster-note { color: var(--muted); font-size: 0.85rem; line-height: 1.5; max-width: 650px; }
+.roster-table { font-size: 0.9rem; }
+.roster-table th:nth-child(2), .roster-table td:nth-child(2) { text-align: left; }
+.roster-table td:last-child { color: var(--cyan); font-weight: 800; }
+@media (max-width: 560px) {
+  .team-ratings, .team-actions { width: 100%; }
+  .team-ratings > div, .team-actions button { flex: 1; }
+}

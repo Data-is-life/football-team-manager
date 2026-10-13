@@ -8,6 +8,10 @@ const resultPanel = document.querySelector("#result-panel");
 const leagueResultsSection = document.querySelector("#league-results-section");
 const standingsSection = document.querySelector("#standings-section");
 const playoffSection = document.querySelector("#playoff-section");
+const franchiseSetup = document.querySelector("#franchise-setup");
+const rosterSection = document.querySelector("#roster-section");
+const rosterButton = document.querySelector("#roster-button");
+const cancelTeamChange = document.querySelector("#cancel-team-change");
 let activeTeamId = null;
 let currentWeek = 0;
 let latestResult = null;
@@ -33,6 +37,24 @@ function renderTeamOptions(teams) {
     }
     select.append(optgroup);
   }
+}
+
+function renderTeamProfile(profile) {
+  document.querySelector("#offense-rating").textContent = profile.ratings.offense;
+  document.querySelector("#defense-rating").textContent = profile.ratings.defense;
+  const rows = profile.roster.map((player) => {
+    const row = document.createElement("tr");
+    for (const value of [player.position, player.name, player.rating]) {
+      const cell = document.createElement("td");
+      cell.textContent = value;
+      row.append(cell);
+    }
+    return row;
+  });
+  document.querySelector("#roster-players").replaceChildren(...rows);
+  rosterSection.hidden = false;
+  rosterButton.setAttribute("aria-expanded", "true");
+  rosterButton.textContent = "Hide roster";
 }
 
 function renderSchedule(data) {
@@ -63,7 +85,9 @@ function renderSchedule(data) {
   leagueResultsSection.hidden = true;
   standingsSection.hidden = true;
   playoffSection.hidden = true;
+  franchiseSetup.hidden = true;
   scheduleSection.hidden = false;
+  document.querySelector("#team-name").focus({ preventScroll: true });
   scheduleSection.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
@@ -209,16 +233,60 @@ async function loadTeams() {
   }
 }
 
+rosterButton.addEventListener("click", () => {
+  rosterSection.hidden = !rosterSection.hidden;
+  rosterButton.setAttribute("aria-expanded", String(!rosterSection.hidden));
+  rosterButton.textContent = rosterSection.hidden ? "View roster" : "Hide roster";
+});
+
+document.querySelector("#change-team-button").addEventListener("click", () => {
+  scheduleSection.hidden = true;
+  franchiseSetup.hidden = false;
+  cancelTeamChange.hidden = false;
+  document.querySelector("#new-season-note").hidden = false;
+  form.querySelector('button[type="submit"]').textContent = "Start new season";
+  errorBox.hidden = true;
+  select.focus();
+});
+
+cancelTeamChange.addEventListener("click", () => {
+  franchiseSetup.hidden = true;
+  scheduleSection.hidden = false;
+  errorBox.hidden = true;
+  document.querySelector("#change-team-button").focus();
+});
+
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
   if (!select.value) return;
+  const submit = form.querySelector('button[type="submit"]');
+  if (submit.disabled) return;
+  submit.disabled = true;
+  submit.textContent = "Loading team…";
+  select.disabled = true;
+  cancelTeamChange.disabled = true;
   errorBox.hidden = true;
   try {
-    const response = await fetch(`/api/schedule/${select.value}?season=1`);
-    if (!response.ok) throw new Error("That schedule could not be generated.");
-    renderSchedule(await response.json());
+    const teamId = select.value;
+    const [scheduleResponse, profileResponse] = await Promise.all([
+      fetch(`/api/schedule/${teamId}?season=1`),
+      fetch(`/api/team/${teamId}`),
+    ]);
+    if (!scheduleResponse.ok || !profileResponse.ok) {
+      throw new Error("Your team could not be loaded. Please try again.");
+    }
+    const [schedule, profile] = await Promise.all([
+      scheduleResponse.json(), profileResponse.json(),
+    ]);
+    renderTeamProfile(profile);
+    renderSchedule(schedule);
   } catch (error) {
     showError(error.message);
+  } finally {
+    submit.disabled = false;
+    submit.textContent = activeTeamId ? "Start new season" : "Start season";
+    select.disabled = false;
+    cancelTeamChange.disabled = false;
   }
 });
 
