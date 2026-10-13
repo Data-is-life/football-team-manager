@@ -129,7 +129,7 @@ function renderResult(data) {
   document.querySelector("#away-score").textContent = away.score;
   document.querySelector("#home-name").textContent = home.team.city;
   document.querySelector("#home-score").textContent = home.score;
-  document.querySelector("#result-week").textContent = `Week ${data.week} final`;
+  document.querySelector("#result-week").textContent = `Week ${data.week} final${latestResult.overtime ? " · OT" : ""}`;
   const badge = document.querySelector("#result-badge");
   badge.textContent = latestResult.outcome === "W" ? "WIN" : latestResult.outcome === "L" ? "LOSS" : "TIE";
   badge.dataset.outcome = latestResult.outcome;
@@ -161,6 +161,7 @@ function renderResult(data) {
     const homeWon = game.home_score > game.away_score;
     return `
       <article class="league-result-card">
+        ${game.overtime ? '<span class="overtime-label">Overtime</span>' : ""}
         <div class="league-team ${awayWon ? "winner" : ""}">
           <span>${game.away.city}</span><strong>${game.away_score}</strong>
         </div>

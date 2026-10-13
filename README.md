@@ -17,6 +17,8 @@ Python owns the league rules and schedule generation. The browser layer only ren
 - one-click, week-by-week simulation
 - deterministic fictional rosters and team ratings
 - final score, team comparison, and player box scores
+- simplified overtime: most regulation ties resolve with a winning field goal; a small fraction remain tied
+- overtime labels on your result and other league results
 - season record that updates after every completed game
 - a separate compact League Results section with the other 14 weekly scores
 - one coherent league schedule: 15 games per week and no duplicate team appearances
@@ -26,6 +28,8 @@ Python owns the league rules and schedule generation. The browser layer only ren
 - tiebreakers in order: head-to-head, common-opponent record, point differential, points scored, deterministic random draw
 
 Player scouting ratings are deterministic estimates out of 99. The current simulation uses team offense and defense ratings; individual scouting ratings do not yet affect results.
+
+Overtime is a lightweight game mechanic rather than a play-by-play NFL rules implementation. In 5% of regulation ties, overtime also ends tied; otherwise a weighted draw using team ratings and a small home advantage chooses the winning field goal. The field goal is included in the score and kicking statistics. Yardage and possession describe regulation play.
 
 ## Run locally
 
