@@ -171,3 +171,5 @@ tr.selected-team td { color: var(--cyan); background: rgba(72,230,210,0.07); }
   .team-ratings, .team-actions { width: 100%; }
   .team-ratings > div, .team-actions button { flex: 1; }
 }
+
+.overtime-label { display: block; margin-bottom: 4px; color: var(--cyan); font-size: 0.72rem; font-weight: 800; text-transform: uppercase; }
