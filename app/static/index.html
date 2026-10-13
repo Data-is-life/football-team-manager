@@ -143,6 +143,24 @@
             </div>
             <p id="tiebreaker-note" class="tiebreaker-note"></p>
           </section>
+          <button id="playoffs-start" type="button" hidden>View playoffs</button>
+          <section id="postseason-section" class="postseason-section" hidden aria-labelledby="postseason-title">
+            <p class="eyebrow">The road to the title</p>
+            <h2 id="postseason-title" tabindex="-1">Playoffs</h2>
+            <p id="postseason-status" role="status"></p>
+            <div id="champion-banner" class="champion-banner" hidden></div>
+            <button id="playoff-simulate" type="button"></button>
+            <section id="your-playoff-game" class="your-playoff-game" hidden aria-label="Your playoff game"></section>
+            <section id="other-playoff-results" hidden>
+              <h3>League playoff results</h3>
+              <div id="playoff-league-games" class="league-results-grid"></div>
+            </section>
+            <div id="postseason-upcoming"></div>
+            <details class="bracket-history">
+              <summary>Completed rounds</summary>
+              <div id="postseason-history"></div>
+            </details>
+          </section>
           <div id="schedule" class="schedule-grid"></div>
         </section>
       </section>
