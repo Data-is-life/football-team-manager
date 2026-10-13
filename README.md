@@ -5,7 +5,9 @@ Python owns the league rules and schedule generation. The browser layer only ren
 ## Included
 
 - 30 city-only teams in six groups
-- player team selection
+- player team selection that gives way to a team home screen
+- team offense/defense ratings and a six-player roster with positions and scouting ratings
+- roster show/hide controls and a team-change flow with a keep-current-team option
 - 17-game Python schedule generator
 - 8 home/away group games
 - 5 same-place games based on the prior season
@@ -22,6 +24,8 @@ Python owns the league rules and schedule generation. The browser layer only ren
 - a provisional 14-team playoff field: six group winners plus eight wildcards
 - first-round byes for seeds 1 and 2
 - tiebreakers in order: head-to-head, common-opponent record, point differential, points scored, deterministic random draw
+
+Player scouting ratings are deterministic estimates out of 99. The current simulation uses team offense and defense ratings; individual scouting ratings do not yet affect results.
 
 ## Run locally
 

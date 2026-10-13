@@ -18,6 +18,7 @@
       </header>
 
       <section class="game-panel" aria-labelledby="page-title">
+        <div id="franchise-setup">
         <div class="intro">
           <p class="eyebrow">Franchise setup</p>
           <h1 id="page-title">Choose your city.</h1>
@@ -32,7 +33,10 @@
             </select>
             <button type="submit">Start season</button>
           </div>
+          <p id="new-season-note" class="rotation-note" hidden>Starting another team resets your current season.</p>
+          <button id="cancel-team-change" class="secondary-button" type="button" hidden>Keep current team</button>
         </form>
+        </div>
 
         <div id="error" class="error" role="alert" hidden></div>
 
@@ -40,7 +44,7 @@
           <div class="schedule-heading">
             <div>
               <p id="team-group" class="eyebrow"></p>
-              <h2 id="team-name"></h2>
+              <h1 id="team-name" tabindex="-1"></h1>
             </div>
             <div class="formula" aria-label="Schedule formula">
               <span><strong>8</strong> group</span>
@@ -48,6 +52,27 @@
               <span><strong>4</strong> rotating</span>
             </div>
           </div>
+          <section class="team-home" aria-label="Your team">
+            <div class="team-ratings" aria-label="Team ratings">
+              <div><span class="control-label">Offense</span><strong id="offense-rating"></strong><span class="rating-scale">/ 99</span></div>
+              <div><span class="control-label">Defense</span><strong id="defense-rating"></strong><span class="rating-scale">/ 99</span></div>
+            </div>
+            <div class="team-actions">
+              <button id="roster-button" class="secondary-button" type="button" aria-expanded="true" aria-controls="roster-section">Hide roster</button>
+              <button id="change-team-button" class="secondary-button" type="button">Choose another team</button>
+            </div>
+          </section>
+          <section id="roster-section" class="roster-section" aria-labelledby="roster-title">
+            <p class="eyebrow">Your players</p>
+            <h2 id="roster-title">Roster</h2>
+            <p class="roster-note">Six-player starter roster. Scouting ratings are out of 99; game results currently use team offense and defense ratings.</p>
+            <div class="table-wrap">
+              <table class="roster-table">
+                <thead><tr><th scope="col">Position</th><th scope="col">Player</th><th scope="col">Scouting rating</th></tr></thead>
+                <tbody id="roster-players"></tbody>
+              </table>
+            </div>
+          </section>
           <p id="rotation-note" class="rotation-note"></p>
           <div class="week-control">
             <div>

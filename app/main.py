@@ -1,3 +1,4 @@
+from dataclasses import asdict
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Query
@@ -5,7 +6,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from .league import GROUPS, TEAM_BY_ID, generate_schedule, rotating_group, schedule_payload, teams_payload
-from .simulation import simulate_through_week
+from .simulation import roster_for, simulate_through_week, team_ratings
 
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -23,6 +24,17 @@ def index() -> FileResponse:
 @app.get("/api/teams")
 def list_teams() -> dict[str, object]:
     return {"groups": list(GROUPS), "teams": teams_payload()}
+
+
+@app.get("/api/team/{team_id}")
+def team_profile(team_id: str) -> dict[str, object]:
+    if team_id not in TEAM_BY_ID:
+        raise HTTPException(status_code=404, detail="Team not found")
+    return {
+        "team": asdict(TEAM_BY_ID[team_id]),
+        "ratings": asdict(team_ratings(team_id)),
+        "roster": [asdict(player) for player in roster_for(team_id).values()],
+    }
 
 
 @app.get("/api/schedule/{team_id}")

@@ -23,6 +23,7 @@ class Player:
     id: str
     name: str
     position: str
+    rating: int
 
 
 @dataclass(frozen=True)
@@ -60,7 +61,13 @@ def roster_for(team_id: str) -> dict[str, Player]:
                 break
             offset += 1
         used_names.add(name)
-        roster[position] = Player(id=f"{team_id}-{position.lower()}", name=name, position=position)
+        roster[position] = Player(
+            id=f"{team_id}-{position.lower()}",
+            name=name,
+            position=position,
+            rating=max(50, min(99, team_ratings(team_id).offense - 8
+                               + _stable_number(f"{team_id}:{position}:scouting") % 17)),
+        )
     return roster
 
 
