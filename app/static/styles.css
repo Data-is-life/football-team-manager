@@ -173,3 +173,14 @@ tr.selected-team td { color: var(--cyan); background: rgba(72,230,210,0.07); }
 }
 
 .overtime-label { display: block; margin-bottom: 4px; color: var(--cyan); font-size: 0.72rem; font-weight: 800; text-transform: uppercase; }
+
+#playoffs-start { margin-bottom: 28px; width: 100%; }
+.postseason-section { scroll-margin-top: 24px; margin-bottom: 28px; padding: clamp(20px, 3vw, 30px); background: var(--panel); border: 1px solid var(--cyan); border-radius: 18px; }
+#postseason-title { font-size: clamp(2rem, 5vw, 3rem); margin-bottom: 16px; }
+#postseason-status { color: var(--muted); line-height: 1.6; }
+#playoff-simulate { margin-bottom: 24px; }
+.champion-banner { padding: 22px; margin-bottom: 24px; color: #0a0c12; background: var(--lime); border-radius: 12px; font-size: 1.4rem; font-weight: 900; }
+.your-playoff-game { padding: 18px; margin-bottom: 24px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px; }
+.postseason-section h3 { margin-top: 24px; }
+.postseason-section details { margin-top: 20px; }
+.postseason-section summary { cursor: pointer; color: var(--cyan); font-weight: 700; padding-block: 10px; }

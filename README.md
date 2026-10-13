@@ -24,6 +24,10 @@ Python owns the league rules and schedule generation. The browser layer only ren
 - one coherent league schedule: 15 games per week and no duplicate team appearances
 - all six group standings recalculated after every simulated week
 - a provisional 14-team playoff field: six group winners plus eight wildcards
+- a finalized playoff field after Week 17, with one-round-at-a-time postseason simulation
+- original-seed reseeding each round, higher seeds hosting, and a neutral-site championship
+- your playoff game and player box score separate from other playoff results
+- no playoff ties, elimination/bye status, completed-round history, and a champion
 - first-round byes for seeds 1 and 2
 - tiebreakers in order: head-to-head, common-opponent record, point differential, points scored, deterministic random draw
 
@@ -66,7 +70,7 @@ Opening a PR alone does not update the main game URL. This setup does not create
 - The free service sleeps after 15 minutes without traffic; the next visit can take about a minute to wake it.
 - No database or account is required. The current team and week live in browser memory, so refreshing the page resets your progress.
 - Weekly scores are deterministic for the team and season. Replaying the same season produces the same results.
-- This starter includes the regular season and playoff race; postseason games are the next build slice.
+- After Week 17, choose **View playoffs**, then simulate one round at a time.
 
 See Render's [FastAPI guide](https://render.com/docs/deploy-fastapi), [free-tier limits](https://render.com/docs/free), and [automatic deploy settings](https://render.com/docs/deploys).
 
@@ -76,6 +80,20 @@ See Render's [FastAPI guide](https://render.com/docs/deploy-fastapi), [free-tier
 python -m unittest discover -s tests -v
 ```
 
+## Playoff format
+
+After Week 17, the final standings determine the six group winners and eight wildcards. Original seeds remain fixed through the postseason.
+
+- Seeds 1 and 2 receive Wild Card byes.
+- The Wild Card round pairs 3–14, 4–13, 5–12, 6–11, 7–10, and 8–9.
+- The eight survivors are reseeded for four quarterfinals, then four survivors for two semifinals.
+- In each round, the highest remaining seed plays the lowest, and the higher seed hosts.
+- The two finalists play at a neutral site without the home advantage.
+- Playoff overtime always selects a winner. Scoring uses the same simplified overtime mechanic as the regular season.
+- Eliminated teams and teams that miss qualification can still follow every round to the champion.
+
+Regular-season records stay separate from playoff results. Like the regular season, the postseason is deterministic and refreshing resets browser progress.
+
 ## Next build slice
 
-Add the 14-team playoff bracket and postseason simulation. The leaderboard service for the wider arcade can remain separate and be shared by every future game.
+Add meaningful pregame management decisions and saved progress. The leaderboard service for the wider arcade can remain separate and be shared by every future game.

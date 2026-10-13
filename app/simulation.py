@@ -91,13 +91,13 @@ def _allocate_touchdowns(total: int, rng: random.Random) -> tuple[int, int]:
 def _team_box(
     team: Team,
     opponent: Team,
-    is_home: bool,
+    is_home: bool | None,
     rng: random.Random,
 ) -> dict[str, object]:
     ratings = team_ratings(team.id)
     opponent_ratings = team_ratings(opponent.id)
     expected_points = 22.0 + (ratings.offense - opponent_ratings.defense) * 0.36
-    expected_points += 1.6 if is_home else -0.4
+    expected_points += 0.0 if is_home is None else (1.6 if is_home else -0.4)
 
     touchdowns = max(0, min(6, round(rng.gauss(expected_points / 8.2, 1.15))))
     field_goals = max(0, min(4, round(rng.gauss(1.65, 0.85))))
@@ -174,7 +174,10 @@ def _team_box(
     }
 
 
-def resolve_overtime(home_box: dict, away_box: dict, rng: random.Random) -> bool:
+def resolve_overtime(
+    home_box: dict, away_box: dict, rng: random.Random,
+    *, allow_ties: bool = True, neutral_site: bool = False,
+) -> bool:
     """Resolve a regulation tie with a simplified overtime field goal.
 
     Most overtime games have a winner; a small fraction remain tied.
@@ -182,13 +185,13 @@ def resolve_overtime(home_box: dict, away_box: dict, rng: random.Random) -> bool
     """
     if home_box["score"] != away_box["score"]:
         return False
-    if rng.random() < 0.05:
+    if allow_ties and rng.random() < 0.05:
         return True
 
     home = team_ratings(home_box["team"]["id"])
     away = team_ratings(away_box["team"]["id"])
     advantage = home.offense + home.defense - away.offense - away.defense
-    home_win_probability = max(0.25, min(0.75, 0.52 + advantage / 100))
+    home_win_probability = max(0.25, min(0.75, (0.5 if neutral_site else 0.52) + advantage / 100))
     winner = home_box if rng.random() < home_win_probability else away_box
     winner["score"] += 3
     winner["scoring"]["field_goals"] += 1
@@ -201,6 +204,7 @@ def simulate_game(
     selected_team_id: str,
     game: ScheduledGame,
     season: int,
+    *, allow_ties: bool = True, neutral_site: bool = False,
 ) -> dict[str, object]:
     selected_team = TEAM_BY_ID[selected_team_id]
     opponent = TEAM_BY_ID[game.opponent_id]
@@ -211,9 +215,9 @@ def simulate_game(
     selected_is_home = game.venue == "Home"
     home_team = selected_team if selected_is_home else opponent
     away_team = opponent if selected_is_home else selected_team
-    home_box = _team_box(home_team, away_team, True, rng)
-    away_box = _team_box(away_team, home_team, False, rng)
-    overtime = resolve_overtime(home_box, away_box, rng)
+    home_box = _team_box(home_team, away_team, None if neutral_site else True, rng)
+    away_box = _team_box(away_team, home_team, None if neutral_site else False, rng)
+    overtime = resolve_overtime(home_box, away_box, rng, allow_ties=allow_ties, neutral_site=neutral_site)
     selected_box = home_box if selected_is_home else away_box
     opponent_box = away_box if selected_is_home else home_box
     selected_possession_seconds = rng.randint(27 * 60, 33 * 60)

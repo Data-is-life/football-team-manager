@@ -15,6 +15,11 @@ const cancelTeamChange = document.querySelector("#cancel-team-change");
 let activeTeamId = null;
 let currentWeek = 0;
 let latestResult = null;
+let completedPlayoffRound = 0;
+let playoffState = null;
+const playoffsStart = document.querySelector('#playoffs-start');
+const playoffSimulate = document.querySelector('#playoff-simulate');
+const postseasonSection = document.querySelector('#postseason-section');
 
 function showError(message) {
   errorBox.textContent = message;
@@ -61,6 +66,10 @@ function renderSchedule(data) {
   activeTeamId = data.team.id;
   currentWeek = 0;
   latestResult = null;
+  completedPlayoffRound = 0;
+  playoffState = null;
+  playoffsStart.hidden = true;
+  postseasonSection.hidden = true;
   document.querySelector("#team-group").textContent = data.team.group;
   document.querySelector("#team-name").textContent = data.team.city;
   document.querySelector("#rotation-note").textContent =
@@ -104,14 +113,18 @@ function statTable(title, rows, columns) {
   `;
 }
 
-function renderPlayerStats(box) {
+function playerStatsMarkup(box) {
   const playerColumn = { key: "player", label: "Player" };
-  document.querySelector("#player-stats").innerHTML = [
+  return [
     statTable("Passing", box.passing, [playerColumn, { key: "completions", label: "Cmp" }, { key: "attempts", label: "Att" }, { key: "yards", label: "Yds" }, { key: "touchdowns", label: "TD" }, { key: "interceptions", label: "INT" }]),
     statTable("Rushing", box.rushing, [playerColumn, { key: "attempts", label: "Att" }, { key: "yards", label: "Yds" }, { key: "touchdowns", label: "TD" }]),
     statTable("Receiving", box.receiving, [playerColumn, { key: "receptions", label: "Rec" }, { key: "yards", label: "Yds" }, { key: "touchdowns", label: "TD" }]),
     statTable("Kicking", box.kicking, [playerColumn, { key: "field_goals_made", label: "FGM" }, { key: "field_goals_attempted", label: "FGA" }, { key: "extra_points_made", label: "XP" }]),
   ].join("");
+}
+
+function renderPlayerStats(box) {
+  document.querySelector("#player-stats").innerHTML = playerStatsMarkup(box);
 }
 
 function selectBoxScore(side) {
@@ -216,6 +229,8 @@ function renderResult(data) {
     completedCard.dataset.outcome = latestResult.outcome;
   }
 
+  document.querySelector("#playoff-title").textContent = data.season_complete ? "Final playoff seeds" : `Playoff Race — Week ${data.week}`;
+  playoffsStart.hidden = !data.season_complete || playoffState !== null;
   currentWeek = data.week;
   simulateButton.disabled = data.season_complete;
   simulateButton.textContent = data.season_complete ? "Regular season complete" : `Simulate Week ${data.next_week}`;
@@ -310,5 +325,93 @@ simulateButton.addEventListener("click", async () => {
 
 document.querySelector("#away-tab").addEventListener("click", () => selectBoxScore("away"));
 document.querySelector("#home-tab").addEventListener("click", () => selectBoxScore("home"));
+
+
+function playoffGameCard(game) {
+  const result = game.result;
+  const venue = game.neutral_site ? "Neutral-site championship" : "Higher seed hosts";
+  const label = result ? `Final${result.overtime ? " · OT" : ""}` : venue;
+  const row = (side) => {
+    const entry = game[side];
+    const won = result && game.winner.team.id === entry.team.id;
+    return `<div class="league-team ${won ? "winner" : ""}"><span>#${entry.seed} ${entry.team.city}</span><strong>${result ? result[side].score : ""}</strong></div>`;
+  };
+  return `<article class="league-result-card"><span class="control-label">${label}</span>${row("away")}${row("home")}</article>`;
+}
+
+function renderPostseason(data) {
+  playoffState = data;
+  completedPlayoffRound = data.completed_round;
+  playoffsStart.hidden = true;
+  postseasonSection.hidden = false;
+  const champion = data.champion;
+  const selectedChampion = champion && champion.team.id === activeTeamId;
+  const status = !data.qualified ? "Your team missed the playoffs. Follow the league through the championship."
+    : selectedChampion ? "Your team are champions!"
+    : data.eliminated ? "Your team has been eliminated. You can still follow the remaining rounds."
+    : data.completed_round === 0 && data.field.some(team => team.team.id === activeTeamId && team.bye)
+      ? "Your team earned a Wild Card bye. Advance the round to see your quarterfinal opponent."
+    : "Your team is still in the title race.";
+  document.querySelector("#postseason-status").textContent = status;
+  const banner = document.querySelector("#champion-banner");
+  banner.hidden = !champion;
+  banner.textContent = champion ? `Season ${data.season} champions: ${champion.team.city} · Seed #${champion.seed}` : "";
+  playoffSimulate.disabled = data.postseason_complete;
+  playoffSimulate.textContent = data.upcoming ? `Simulate ${data.upcoming.name}` : "Postseason complete";
+
+  const latestRound = data.rounds.at(-1);
+  const selectedGame = latestRound?.games.find(game =>
+    game.home.team.id === activeTeamId || game.away.team.id === activeTeamId);
+  const ownGame = document.querySelector("#your-playoff-game");
+  ownGame.hidden = !selectedGame;
+  if (selectedGame) {
+    const side = selectedGame.home.team.id === activeTeamId ? "home" : "away";
+    const won = selectedGame.winner.team.id === activeTeamId;
+    ownGame.innerHTML = `<h3>Your ${latestRound.name} game · ${won ? "Win" : "Loss"}</h3>
+      ${playoffGameCard(selectedGame)}
+      <details><summary>Your player box score</summary><div class="player-stats">${playerStatsMarkup(selectedGame.result[side])}</div></details>`;
+  }
+  const otherGames = latestRound ? latestRound.games.filter(game => game !== selectedGame) : [];
+  document.querySelector("#other-playoff-results").hidden = otherGames.length === 0;
+  document.querySelector("#playoff-league-games").innerHTML = otherGames.map(playoffGameCard).join("");
+  const upcoming = data.upcoming;
+  document.querySelector("#postseason-upcoming").innerHTML = upcoming
+    ? `<h3>Next: ${upcoming.name}</h3>
+       ${upcoming.byes.length ? `<p class="roster-note">Byes: ${upcoming.byes.map(team => `#${team.seed} ${team.team.city}`).join(", ")}</p>` : ""}
+       <p class="roster-note">${upcoming.number === 4 ? "Neutral site. No home advantage." : "Reseeded by original seed: highest remaining seed plays lowest. Higher seeds host."}</p>
+       <div class="league-results-grid">${upcoming.games.map(playoffGameCard).join("")}</div>`
+    : "";
+  document.querySelector("#postseason-history").innerHTML = data.rounds.length
+    ? data.rounds.map(round => `<h3>${round.name}</h3><div class="league-results-grid">${round.games.map(playoffGameCard).join("")}</div>`).join("")
+    : '<p class="roster-note">No playoff rounds completed yet.</p>';
+}
+
+async function loadPlayoffRound(number) {
+  errorBox.hidden = true;
+  playoffsStart.disabled = true;
+  playoffSimulate.disabled = true;
+  document.querySelector("#change-team-button").disabled = true;
+  try {
+    const response = await fetch(`/api/playoffs/${activeTeamId}/round/${number}?season=1`);
+    if (!response.ok) throw new Error("The playoff round could not be loaded. Please try again.");
+    renderPostseason(await response.json());
+    document.querySelector("#postseason-title").focus({ preventScroll: true });
+    postseasonSection.scrollIntoView({ behavior: "smooth", block: "start" });
+  } catch (error) {
+    showError(error.message);
+    errorBox.scrollIntoView({ behavior: "smooth", block: "center" });
+  } finally {
+    playoffsStart.disabled = false;
+    document.querySelector("#change-team-button").disabled = false;
+    playoffSimulate.disabled = playoffState?.postseason_complete ?? false;
+  }
+}
+
+playoffsStart.addEventListener("click", () => {
+  if (currentWeek === 17 && !playoffsStart.disabled) loadPlayoffRound(0);
+});
+playoffSimulate.addEventListener("click", () => {
+  if (playoffState?.next_round && !playoffSimulate.disabled) loadPlayoffRound(completedPlayoffRound + 1);
+});
 
 loadTeams();

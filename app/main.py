@@ -6,6 +6,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from .league import GROUPS, TEAM_BY_ID, generate_schedule, rotating_group, schedule_payload, teams_payload
+from .playoffs import playoffs_through_round
 from .simulation import roster_for, simulate_through_week, team_ratings
 
 
@@ -65,3 +66,16 @@ def simulate_week(
     if week < 1 or week > 17:
         raise HTTPException(status_code=400, detail="Week must be between 1 and 17")
     return simulate_through_week(team_id=team_id, season=season, week=week)
+
+
+@app.get("/api/playoffs/{team_id}/round/{round_number}")
+def playoff_round(
+    team_id: str,
+    round_number: int,
+    season: int = Query(default=1, ge=1, le=999),
+) -> dict[str, object]:
+    if team_id not in TEAM_BY_ID:
+        raise HTTPException(status_code=404, detail="Team not found")
+    if round_number < 0 or round_number > 4:
+        raise HTTPException(status_code=400, detail="Playoff round must be between 0 and 4")
+    return playoffs_through_round(team_id, season, round_number)
