@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+from collections import Counter
 from dataclasses import asdict, dataclass
+from functools import lru_cache
 import hashlib
 import random
 
@@ -15,7 +17,17 @@ LAST_NAMES = (
     "Bennett", "Brooks", "Carter", "Coleman", "Davis", "Foster", "Grant", "Hayes",
     "Jackson", "Lewis", "Mitchell", "Reed", "Robinson", "Turner", "Walker", "Young",
 )
-POSITIONS = ("QB", "RB", "WR1", "WR2", "TE", "K")
+# Position: (initial players, minimum required).
+ROSTER_RULES = {
+    "QB": (2, 1), "WR": (4, 2), "TE": (2, 1), "RB": (2, 1),
+    "OL": (8, 5), "K": (2, 1), "DL": (6, 4), "LB": (5, 3), "CB": (4, 2),
+}
+POSITIONS = tuple(ROSTER_RULES)
+ROSTER_SLOTS = tuple(
+    (position, depth)
+    for position, (initial, _) in ROSTER_RULES.items()
+    for depth in range(1, initial + 1)
+)
 
 
 @dataclass(frozen=True)
@@ -24,6 +36,7 @@ class Player:
     name: str
     position: str
     rating: int
+    depth: int
 
 
 @dataclass(frozen=True)
@@ -45,15 +58,31 @@ def team_ratings(team_id: str) -> TeamRatings:
     )
 
 
-def roster_for(team_id: str) -> dict[str, Player]:
+def validate_roster(players: list[Player]) -> None:
+    """Enforce position minimums for roster management."""
+    if len({player.id for player in players}) != len(players):
+        raise ValueError("The roster contains duplicate player IDs")
+    counts = Counter(player.position for player in players)
+    unknown = set(counts) - set(ROSTER_RULES)
+    if unknown:
+        raise ValueError(f"Unknown roster position: {', '.join(sorted(unknown))}")
+    for position, (_, minimum) in ROSTER_RULES.items():
+        if counts[position] < minimum:
+            raise ValueError(f"{position} needs at least {minimum} players")
+
+
+@lru_cache(maxsize=30)
+def _roster_players(team_id: str) -> tuple[Player, ...]:
     if team_id not in TEAM_BY_ID:
         raise KeyError(f"Unknown team: {team_id}")
-    roster: dict[str, Player] = {}
     used_names: set[str] = set()
-    for index, position in enumerate(POSITIONS):
+    players = []
+    ratings = team_ratings(team_id)
+    for index, (position, depth) in enumerate(ROSTER_SLOTS):
+        slot = f"{position}{depth}"
         offset = 0
         while True:
-            number = _stable_number(f"{team_id}:{position}:{offset}")
+            number = _stable_number(f"{team_id}:{slot}:{offset}")
             first = FIRST_NAMES[(number + index) % len(FIRST_NAMES)]
             last = LAST_NAMES[(number // len(FIRST_NAMES) + index * 3) % len(LAST_NAMES)]
             name = f"{first} {last}"
@@ -61,14 +90,19 @@ def roster_for(team_id: str) -> dict[str, Player]:
                 break
             offset += 1
         used_names.add(name)
-        roster[position] = Player(
-            id=f"{team_id}-{position.lower()}",
-            name=name,
-            position=position,
-            rating=max(50, min(99, team_ratings(team_id).offense - 8
-                               + _stable_number(f"{team_id}:{position}:scouting") % 17)),
-        )
-    return roster
+        base_rating = ratings.defense if position in ("DL", "LB", "CB") else ratings.offense
+        players.append(Player(
+            id=f"{team_id}-{slot.lower()}", name=name, position=position, depth=depth,
+            rating=max(50, min(99, base_rating - 8
+                               + _stable_number(f"{team_id}:{slot}:scouting") % 17)),
+        ))
+    validate_roster(players)
+    return tuple(players)
+
+
+def roster_for(team_id: str) -> dict[str, Player]:
+    # Return a fresh mapping so callers cannot mutate the cached roster.
+    return {f"{player.position}{player.depth}": player for player in _roster_players(team_id)}
 
 
 def _split_total(total: int, weights: list[float]) -> list[int]:
@@ -122,9 +156,9 @@ def _team_box(
     receptions = _split_total(completions, [weight ** 0.82 for weight in reception_weights])
     receiving_tds = _split_total(passing_tds, reception_weights)
 
-    qb = roster["QB"]
-    rb = roster["RB"]
-    receivers = [roster["WR1"], roster["WR2"], roster["TE"], rb]
+    qb = roster["QB1"]
+    rb = roster["RB1"]
+    receivers = [roster["WR1"], roster["WR2"], roster["TE1"], rb]
 
     return {
         "team": {"id": team.id, "city": team.city},
@@ -156,7 +190,7 @@ def _team_box(
         "receiving": [
             {
                 "player": player.name,
-                "position": player.position.replace("1", "").replace("2", ""),
+                "position": player.position,
                 "receptions": receptions[index],
                 "yards": receiving_yards[index],
                 "touchdowns": receiving_tds[index],
@@ -164,7 +198,7 @@ def _team_box(
             for index, player in enumerate(receivers)
         ],
         "kicking": [{
-            "player": roster["K"].name,
+            "player": roster["K1"].name,
             "position": "K",
             "field_goals_made": field_goals,
             "field_goals_attempted": field_goals + (1 if rng.random() < 0.24 else 0),

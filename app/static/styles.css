@@ -184,3 +184,13 @@ tr.selected-team td { color: var(--cyan); background: rgba(72,230,210,0.07); }
 .postseason-section h3 { margin-top: 24px; }
 .postseason-section details { margin-top: 20px; }
 .postseason-section summary { cursor: pointer; color: var(--cyan); font-weight: 700; padding-block: 10px; }
+
+.roster-groups { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; align-items: start; }
+.roster-group { min-width: 0; border: 1px solid var(--line); border-radius: 10px; background: var(--panel-2); overflow: hidden; }
+.roster-group summary { padding: 14px; cursor: pointer; color: var(--cyan); font-weight: 800; font-size: 0.85rem; }
+.roster-group summary:focus-visible { outline: 3px solid var(--cyan); outline-offset: -3px; }
+.roster-group .table-wrap { padding: 0 10px 10px; }
+.roster-group .roster-table { font-size: 0.8rem; }
+@media (max-width: 680px) {
+  .roster-groups { grid-template-columns: 1fr; }
+}
