@@ -7,8 +7,8 @@ from app.main import team_profile
 from app.simulation import roster_for, simulate_game, validate_roster
 
 
-COUNTS = {"QB": 2, "WR": 4, "TE": 2, "RB": 2, "OL": 8, "K": 2, "DL": 6, "LB": 5, "CB": 4}
-MINIMUMS = {"QB": 1, "WR": 2, "TE": 1, "RB": 1, "OL": 5, "K": 1, "DL": 4, "LB": 3, "CB": 2}
+COUNTS = {"QB": 2, "WR": 4, "TE": 2, "RB": 2, "OL": 8, "K": 2, "DL": 6, "LB": 5, "CB": 4, "S": 3}
+MINIMUMS = {"QB": 1, "WR": 2, "TE": 1, "RB": 1, "OL": 5, "K": 1, "DL": 4, "LB": 3, "CB": 2, "S": 2}
 
 
 class ExpandedRosterTests(unittest.TestCase):
@@ -17,10 +17,10 @@ class ExpandedRosterTests(unittest.TestCase):
             with self.subTest(team=team.id):
                 profile = team_profile(team.id)
                 players = profile["roster"]
-                self.assertEqual(len(players), 35)
+                self.assertEqual(len(players), 38)
                 self.assertEqual(Counter(player["position"] for player in players), COUNTS)
-                self.assertEqual(len({player["name"] for player in players}), 35)
-                self.assertEqual(len({player["id"] for player in players}), 35)
+                self.assertEqual(len({player["name"] for player in players}), 38)
+                self.assertEqual(len({player["id"] for player in players}), 38)
                 for position, count in COUNTS.items():
                     group = [player for player in players if player["position"] == position]
                     self.assertEqual([player["depth"] for player in group], list(range(1, count + 1)))
@@ -28,11 +28,18 @@ class ExpandedRosterTests(unittest.TestCase):
                 self.assertEqual({row["position"]: row["count"] for row in profile["roster_rules"]}, COUNTS)
                 self.assertEqual(profile, team_profile(team.id))
 
+    def test_offense_and_defense_have_equal_depth(self):
+        for team in TEAMS:
+            counts = Counter(player.position for player in roster_for(team.id).values())
+            self.assertEqual(sum(counts[position] for position in ("QB", "WR", "TE", "RB", "OL")), 18)
+            self.assertEqual(sum(counts[position] for position in ("DL", "LB", "CB", "S")), 18)
+            self.assertEqual(counts["K"], 2)
+
     def test_full_roster_and_minimum_roster_are_valid(self):
         full = list(roster_for("seattle").values())
         validate_roster(full)
         minimum = [player for player in full if player.depth <= MINIMUMS[player.position]]
-        self.assertEqual(len(minimum), 20)
+        self.assertEqual(len(minimum), 22)
         validate_roster(minimum)
 
     def test_falling_below_any_position_minimum_is_rejected(self):

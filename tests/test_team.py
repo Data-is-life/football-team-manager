@@ -22,7 +22,7 @@ class TeamProfileTests(unittest.TestCase):
                     [player["name"] for player in profile["roster"]],
                     [player.name for player in roster_for(team.id).values()],
                 )
-                self.assertEqual(len({player["id"] for player in profile["roster"]}), 35)
+                self.assertEqual(len({player["id"] for player in profile["roster"]}), 38)
                 for player in profile["roster"]:
                     self.assertIsInstance(player["rating"], int)
                     self.assertGreaterEqual(player["rating"], 50)

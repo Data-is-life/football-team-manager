@@ -20,7 +20,7 @@ LAST_NAMES = (
 # Position: (initial players, minimum required).
 ROSTER_RULES = {
     "QB": (2, 1), "WR": (4, 2), "TE": (2, 1), "RB": (2, 1),
-    "OL": (8, 5), "K": (2, 1), "DL": (6, 4), "LB": (5, 3), "CB": (4, 2),
+    "OL": (8, 5), "K": (2, 1), "DL": (6, 4), "LB": (5, 3), "CB": (4, 2), "S": (3, 2),
 }
 POSITIONS = tuple(ROSTER_RULES)
 ROSTER_SLOTS = tuple(
@@ -90,7 +90,7 @@ def _roster_players(team_id: str) -> tuple[Player, ...]:
                 break
             offset += 1
         used_names.add(name)
-        base_rating = ratings.defense if position in ("DL", "LB", "CB") else ratings.offense
+        base_rating = ratings.defense if position in ("DL", "LB", "CB", "S") else ratings.offense
         players.append(Player(
             id=f"{team_id}-{slot.lower()}", name=name, position=position, depth=depth,
             rating=max(50, min(99, base_rating - 8

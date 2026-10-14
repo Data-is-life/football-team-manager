@@ -6,7 +6,7 @@ Python owns the league rules and schedule generation. The browser layer only ren
 
 - 30 city-only teams in six groups
 - player team selection that gives way to a team home screen
-- team offense/defense ratings and a 35-player roster grouped by position, with depth order, minimum counts, and scouting ratings
+- team offense/defense ratings and a 38-player roster grouped by position, with depth order, minimum counts, and scouting ratings
 - roster show/hide controls and a team-change flow with a keep-current-team option
 - 17-game Python schedule generator
 - 8 home/away group games
@@ -37,7 +37,7 @@ Overtime is a lightweight game mechanic rather than a play-by-play NFL rules imp
 
 ## Roster
 
-Each team starts with 35 fictional players. Expand or collapse each position group to inspect its players, depth order, and scouting ratings.
+Each team starts with 38 fictional players. Expand or collapse each position group to inspect its players, depth order, and scouting ratings.
 
 | Position | Initial count | Minimum required |
 | --- | ---: | ---: |
@@ -50,7 +50,10 @@ Each team starts with 35 fictional players. Expand or collapse each position gro
 | DL | 6 | 4 |
 | LB | 5 | 3 |
 | CB | 4 | 2 |
-| **Total** | **35** | **20** |
+| S | 3 | 2 |
+| **Total** | **38** | **22** |
+
+Offense has 18 players (QB, WR, TE, RB, OL), defense has 18 (DL, LB, CB, S), and two kickers complete the roster.
 
 The roster validator enforces these per-position minimums. The team profile API returns the rules and current counts alongside all players. Rosters have stable player IDs and names, and ratings are deterministic; defensive player scouting ratings use the team defense rating as their baseline.
 
