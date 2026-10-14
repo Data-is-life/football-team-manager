@@ -31,7 +31,7 @@ Python owns the league rules and schedule generation. The browser layer only ren
 - first-round byes for seeds 1 and 2
 - tiebreakers in order: head-to-head, common-opponent record, point differential, points scored, deterministic random draw
 
-Player scouting ratings are deterministic estimates out of 99. The current simulation uses team offense and defense ratings; individual scouting ratings do not yet affect results.
+Player scouting ratings are deterministic estimates out of 99. Team offense and defense determine scoring; QB/RB scouting ratings and QB experience shape passing volume.
 
 Overtime is a lightweight game mechanic rather than a play-by-play NFL rules implementation. In 5% of regulation ties, overtime also ends tied; otherwise a weighted draw using team ratings and a small home advantage chooses the winning field goal. The field goal is included in the score and kicking statistics. Yardage and possession describe regulation play.
 
@@ -57,7 +57,7 @@ Offense has 18 players (QB, WR, TE, RB, OL), defense has 18 (DL, LB, CB, S), and
 
 The roster validator enforces these per-position minimums. The team profile API returns the rules and current counts alongside all players. Rosters have stable player IDs and names, and ratings are deterministic; defensive player scouting ratings use the team defense rating as their baseline.
 
-This PR provides roster depth and inspection. Releases, signings, and lineup selection are not yet available. Box scores currently use QB1, RB1, WR1, WR2, TE1, and K1. Team offense and defense ratings still determine game results; individual scouting ratings and backups do not yet change outcomes.
+This PR provides roster depth and inspection. Releases, signings, and lineup selection are not yet available. QB1 receives all passing stats and K1 receives kicking stats. RB1/RB2 split rushing production, and receiving production is shared across every WR, both TEs, and both RBs. Team offense and defense still determine scoring; QB/RB skill and QB experience now affect pass volume.
 
 ## Run locally
 
@@ -103,6 +103,21 @@ See Render's [FastAPI guide](https://render.com/docs/deploy-fastapi), [free-tier
 ```bash
 python -m unittest discover -s tests -v
 ```
+
+## Aggregate game usage
+
+Scores and team yardage are generated first using the existing model. These final scores then shape the box score; this is not a live drive-by-drive simulation.
+
+- Total offensive plays are bounded to 50–85. The central estimate is `65 + 0.15 × (combined score − 44) + 0.20 × (own offense − opposing defense)`, with random variation.
+- Pass share starts at 55%. It changes by 0.5 percentage points per QB-minus-weighted-RB skill point, up to 15 percentage points for score margin, and 0.4 percentage points per QB experience year relative to six years. It is bounded to 30–75%.
+- More experienced QBs get a modest trust-based increase in passing volume. Experience is deterministic, from 0–12 years, and appears in the roster. It does not change completion efficiency or turnover probability yet.
+- Rush attempts equal total plays minus pass attempts. The existing completion-rate and yardage models remain.
+- RB1 receives a random 50–90% share; RB2 receives the rest. Attempts, rushing yards, and rushing TDs use the same underlying share, rounded to whole counts while preserving team totals.
+- WRs share 60% of receiving opportunities, TEs 22%, and RBs 18%. Random weights divide each WR/TE group's share across all its players. Both RBs use their rushing share within the RB receiving group.
+- Possession uses relative clock weights of 35 per rush, 28 per completion, and 8 per incompletion, then normalizes both sides to 60 minutes. This remains regulation-equivalent possession even in overtime games.
+- Total plays here means pass attempts plus rush attempts; sacks are displayed separately rather than added as another play category.
+
+The separate usage random stream preserves existing scores and playoff outcomes for the same season while changing usage statistics.
 
 ## Playoff format
 
