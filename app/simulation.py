@@ -37,6 +37,7 @@ class Player:
     position: str
     rating: int
     depth: int
+    experience: int
 
 
 @dataclass(frozen=True)
@@ -93,6 +94,7 @@ def _roster_players(team_id: str) -> tuple[Player, ...]:
         base_rating = ratings.defense if position in ("DL", "LB", "CB", "S") else ratings.offense
         players.append(Player(
             id=f"{team_id}-{slot.lower()}", name=name, position=position, depth=depth,
+            experience=_stable_number(f"{team_id}:{slot}:experience") % 13,
             rating=max(50, min(99, base_rating - 8
                                + _stable_number(f"{team_id}:{slot}:scouting") % 17)),
         ))
@@ -175,6 +177,7 @@ def _team_box(
             "player": qb.name,
             "position": "QB",
             "completions": completions,
+            "completion_rate": completion_rate,
             "attempts": attempts,
             "yards": passing_yards,
             "touchdowns": passing_tds,
@@ -234,6 +237,91 @@ def resolve_overtime(
     return True
 
 
+def pass_share(qb_skill: float, rb_skill: float, deficit: int, experience: int) -> float:
+    """Score and relative skill outweigh the modest experience/trust effect."""
+    score_effect = max(-0.15, min(0.15, deficit * 0.0075))
+    share = 0.55 + (qb_skill - rb_skill) * 0.005 + score_effect + (experience - 6) * 0.004
+    return max(0.30, min(0.75, share))
+
+
+def total_plays(combined_score: int, skill_gap: int, rng: random.Random) -> int:
+    center = 65 + (combined_score - 44) * 0.15 + skill_gap * 0.20
+    return max(50, min(85, round(rng.gauss(center, 4))))
+
+
+def possession_weights(carries: int, completions: int, incompletions: int) -> int:
+    # Relative clock consumption, normalized to a 60-minute game below.
+    return carries * 35 + completions * 28 + incompletions * 8
+
+
+def apply_usage(box: dict, opponent_box: dict, rng: random.Random) -> None:
+    """Shape aggregate box scores after scoring; this is not a drive engine."""
+    roster = roster_for(box["team"]["id"])
+    qb = roster["QB1"]
+    backs = [roster["RB1"], roster["RB2"]]
+    rb1_share = rng.uniform(0.50, 0.90)
+    back_weights = [rb1_share, 1 - rb1_share]
+    rb_skill = sum(player.rating * weight for player, weight in zip(backs, back_weights))
+    ratings = team_ratings(box["team"]["id"])
+    opponent_ratings = team_ratings(opponent_box["team"]["id"])
+    plays = total_plays(box["score"] + opponent_box["score"],
+                        ratings.offense - opponent_ratings.defense, rng)
+    attempts = round(plays * pass_share(qb.rating, rb_skill,
+                                       opponent_box["score"] - box["score"], qb.experience))
+    carries = plays - attempts
+    passing = box["passing"][0]
+    completions = min(attempts, round(attempts * passing["completion_rate"]))
+    passing.update({"attempts": attempts, "completions": completions})
+    stats = box["team_stats"]
+    stats.update({"total_plays": plays, "pass_attempts": attempts, "rush_attempts": carries})
+    rush_attempts = _split_total(carries, back_weights)
+    rush_yards = _split_total(stats["rushing_yards"], back_weights)
+    rush_tds = _split_total(sum(row["touchdowns"] for row in box["rushing"]), back_weights)
+    box["rushing"] = [
+        {"player": player.name, "position": "RB", "attempts": rush_attempts[index],
+         "yards": rush_yards[index], "touchdowns": rush_tds[index]}
+        for index, player in enumerate(backs)
+    ]
+
+    receivers = []
+    weights = []
+    # Share the team's receiving opportunities across every WR, both TEs and RBs.
+    for position, group_share in (("WR", 0.60), ("TE", 0.22)):
+        group = [player for player in roster.values() if player.position == position]
+        raw = [rng.uniform(0.5, 1.5) for _ in group]
+        receivers.extend(group)
+        weights.extend(group_share * weight / sum(raw) for weight in raw)
+    receivers.extend(backs)
+    weights.extend(0.18 * weight for weight in back_weights)
+    receptions = _split_total(completions, weights)
+    eligible = [weight if catches else 0 for weight, catches in zip(weights, receptions)]
+    yards = _split_total(stats["passing_yards"], eligible)
+    # Allocate each receiving TD only to a player with an unused reception.
+    touchdowns = [0] * len(receivers)
+    for _ in range(passing["touchdowns"]):
+        available = [weight if touchdowns[index] < receptions[index] else 0
+                     for index, weight in enumerate(weights)]
+        recipient = rng.choices(range(len(receivers)), weights=available)[0]
+        touchdowns[recipient] += 1
+    box["receiving"] = [
+        {"player": player.name, "position": player.position, "yards": yards[index],
+         "receptions": receptions[index], "touchdowns": touchdowns[index]}
+        for index, player in enumerate(receivers)
+    ]
+
+
+def assign_possession(home_box: dict, away_box: dict) -> None:
+    weights = []
+    for box in (home_box, away_box):
+        stats = box["team_stats"]
+        qb = box["passing"][0]
+        weights.append(possession_weights(stats["rush_attempts"], qb["completions"],
+                                           qb["attempts"] - qb["completions"]))
+    seconds = _split_total(3600, weights)
+    for box, duration in zip((home_box, away_box), seconds):
+        box["team_stats"]["time_of_possession"] = f"{duration // 60}:{duration % 60:02d}"
+
+
 def simulate_game(
     selected_team_id: str,
     game: ScheduledGame,
@@ -254,14 +342,11 @@ def simulate_game(
     overtime = resolve_overtime(home_box, away_box, rng, allow_ties=allow_ties, neutral_site=neutral_site)
     selected_box = home_box if selected_is_home else away_box
     opponent_box = away_box if selected_is_home else home_box
-    selected_possession_seconds = rng.randint(27 * 60, 33 * 60)
-    opponent_possession_seconds = 60 * 60 - selected_possession_seconds
-    selected_box["team_stats"]["time_of_possession"] = (
-        f"{selected_possession_seconds // 60}:{selected_possession_seconds % 60:02d}"
-    )
-    opponent_box["team_stats"]["time_of_possession"] = (
-        f"{opponent_possession_seconds // 60}:{opponent_possession_seconds % 60:02d}"
-    )
+    # Independent usage stream keeps the existing scoring/overtime draws stable.
+    usage_rng = random.Random(_stable_number(f"usage:{seed}"))
+    apply_usage(home_box, away_box, usage_rng)
+    apply_usage(away_box, home_box, usage_rng)
+    assign_possession(home_box, away_box)
     selected_score = int(selected_box["score"])
     opponent_score = int(opponent_box["score"])
     outcome = "T" if selected_score == opponent_score else ("W" if selected_score > opponent_score else "L")

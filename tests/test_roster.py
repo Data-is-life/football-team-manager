@@ -71,10 +71,11 @@ class ExpandedRosterTests(unittest.TestCase):
                 result = simulate_game(team.id, game, season=1)
                 box = result["home"] if game.venue == "Home" else result["away"]
                 self.assertEqual(box["passing"][0]["player"], roster["QB1"].name)
-                self.assertEqual(box["rushing"][0]["player"], roster["RB1"].name)
+                self.assertEqual([row["player"] for row in box["rushing"]], [roster["RB1"].name, roster["RB2"].name])
                 self.assertEqual(box["kicking"][0]["player"], roster["K1"].name)
                 self.assertEqual([row["player"] for row in box["receiving"]],
-                                 [roster[slot].name for slot in ("WR1", "WR2", "TE1", "RB1")])
+                                 [player.name for player in roster.values() if player.position in ("WR", "TE")]
+                                 + [roster["RB1"].name, roster["RB2"].name])
 
 
 if __name__ == "__main__":

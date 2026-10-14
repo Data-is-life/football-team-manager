@@ -59,13 +59,13 @@ function renderTeamProfile(profile) {
     wrap.className = "table-wrap";
     const table = document.createElement("table");
     table.className = "roster-table";
-    table.innerHTML = '<thead><tr><th scope="col">Depth</th><th scope="col">Player</th><th scope="col">Scouting rating</th></tr></thead>';
+    table.innerHTML = '<thead><tr><th scope="col">Depth</th><th scope="col">Player</th><th scope="col">Experience</th><th scope="col">Scouting rating</th></tr></thead>';
     const body = document.createElement("tbody");
     for (const player of players) {
       const row = document.createElement("tr");
       row.className = "roster-player";
       row.dataset.playerId = player.id;
-      for (const value of [player.depth, player.name, player.rating]) {
+      for (const value of [player.depth, player.name, `${player.experience} yr`, player.rating]) {
         const cell = document.createElement("td");
         cell.textContent = value;
         row.append(cell);
@@ -172,6 +172,7 @@ function renderResult(data) {
   const record = `${data.record.wins}–${data.record.losses}${data.record.ties ? `–${data.record.ties}` : ""}`;
   document.querySelector("#season-record").textContent = record;
   document.querySelector("#team-comparison").innerHTML = [
+    ["Total plays", away.team_stats.total_plays, home.team_stats.total_plays],
     ["Total yards", away.team_stats.total_yards, home.team_stats.total_yards],
     ["Passing", away.team_stats.passing_yards, home.team_stats.passing_yards],
     ["Rushing", away.team_stats.rushing_yards, home.team_stats.rushing_yards],
