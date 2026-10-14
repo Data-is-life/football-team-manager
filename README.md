@@ -6,7 +6,7 @@ Python owns the league rules and schedule generation. The browser layer only ren
 
 - 30 city-only teams in six groups
 - player team selection that gives way to a team home screen
-- team offense/defense ratings and a six-player roster with positions and scouting ratings
+- team offense/defense ratings and a 35-player roster grouped by position, with depth order, minimum counts, and scouting ratings
 - roster show/hide controls and a team-change flow with a keep-current-team option
 - 17-game Python schedule generator
 - 8 home/away group games
@@ -34,6 +34,27 @@ Python owns the league rules and schedule generation. The browser layer only ren
 Player scouting ratings are deterministic estimates out of 99. The current simulation uses team offense and defense ratings; individual scouting ratings do not yet affect results.
 
 Overtime is a lightweight game mechanic rather than a play-by-play NFL rules implementation. In 5% of regulation ties, overtime also ends tied; otherwise a weighted draw using team ratings and a small home advantage chooses the winning field goal. The field goal is included in the score and kicking statistics. Yardage and possession describe regulation play.
+
+## Roster
+
+Each team starts with 35 fictional players. Expand or collapse each position group to inspect its players, depth order, and scouting ratings.
+
+| Position | Initial count | Minimum required |
+| --- | ---: | ---: |
+| QB | 2 | 1 |
+| WR | 4 | 2 |
+| TE | 2 | 1 |
+| RB | 2 | 1 |
+| OL | 8 | 5 |
+| K | 2 | 1 |
+| DL | 6 | 4 |
+| LB | 5 | 3 |
+| CB | 4 | 2 |
+| **Total** | **35** | **20** |
+
+The roster validator enforces these per-position minimums. The team profile API returns the rules and current counts alongside all players. Rosters have stable player IDs and names, and ratings are deterministic; defensive player scouting ratings use the team defense rating as their baseline.
+
+This PR provides roster depth and inspection. Releases, signings, and lineup selection are not yet available. Box scores currently use QB1, RB1, WR1, WR2, TE1, and K1. Team offense and defense ratings still determine game results; individual scouting ratings and backups do not yet change outcomes.
 
 ## Run locally
 

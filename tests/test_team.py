@@ -4,7 +4,7 @@ from fastapi import HTTPException
 
 from app.league import TEAMS, generate_schedule
 from app.main import team_profile
-from app.simulation import POSITIONS, roster_for, simulate_game, team_ratings
+from app.simulation import ROSTER_RULES, roster_for, simulate_game, team_ratings
 
 
 class TeamProfileTests(unittest.TestCase):
@@ -17,12 +17,12 @@ class TeamProfileTests(unittest.TestCase):
                 self.assertEqual(profile["team"]["group"], team.group)
                 self.assertEqual(profile["ratings"]["offense"], team_ratings(team.id).offense)
                 self.assertEqual(profile["ratings"]["defense"], team_ratings(team.id).defense)
-                self.assertEqual([player["position"] for player in profile["roster"]], list(POSITIONS))
+                self.assertEqual([rule["position"] for rule in profile["roster_rules"]], list(ROSTER_RULES))
                 self.assertEqual(
                     [player["name"] for player in profile["roster"]],
                     [player.name for player in roster_for(team.id).values()],
                 )
-                self.assertEqual(len({player["id"] for player in profile["roster"]}), 6)
+                self.assertEqual(len({player["id"] for player in profile["roster"]}), 35)
                 for player in profile["roster"]:
                     self.assertIsInstance(player["rating"], int)
                     self.assertGreaterEqual(player["rating"], 50)

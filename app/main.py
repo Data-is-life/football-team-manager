@@ -7,7 +7,7 @@ from fastapi.staticfiles import StaticFiles
 
 from .league import GROUPS, TEAM_BY_ID, generate_schedule, rotating_group, schedule_payload, teams_payload
 from .playoffs import playoffs_through_round
-from .simulation import roster_for, simulate_through_week, team_ratings
+from .simulation import ROSTER_RULES, roster_for, simulate_through_week, team_ratings
 
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -31,10 +31,16 @@ def list_teams() -> dict[str, object]:
 def team_profile(team_id: str) -> dict[str, object]:
     if team_id not in TEAM_BY_ID:
         raise HTTPException(status_code=404, detail="Team not found")
+    players = list(roster_for(team_id).values())
     return {
         "team": asdict(TEAM_BY_ID[team_id]),
         "ratings": asdict(team_ratings(team_id)),
-        "roster": [asdict(player) for player in roster_for(team_id).values()],
+        "roster": [asdict(player) for player in players],
+        "roster_rules": [
+            {"position": position, "initial": initial, "minimum": minimum,
+             "count": sum(player.position == position for player in players)}
+            for position, (initial, minimum) in ROSTER_RULES.items()
+        ],
     }
 
 

@@ -47,16 +47,38 @@ function renderTeamOptions(teams) {
 function renderTeamProfile(profile) {
   document.querySelector("#offense-rating").textContent = profile.ratings.offense;
   document.querySelector("#defense-rating").textContent = profile.ratings.defense;
-  const rows = profile.roster.map((player) => {
-    const row = document.createElement("tr");
-    for (const value of [player.position, player.name, player.rating]) {
-      const cell = document.createElement("td");
-      cell.textContent = value;
-      row.append(cell);
+  const groups = profile.roster_rules.map((rule) => {
+    const players = profile.roster.filter(player => player.position === rule.position);
+    const group = document.createElement("details");
+    group.className = "roster-group";
+    group.dataset.position = rule.position;
+    group.open = true;
+    const summary = document.createElement("summary");
+    summary.textContent = `${rule.position} · ${rule.count} players · minimum ${rule.minimum}`;
+    const wrap = document.createElement("div");
+    wrap.className = "table-wrap";
+    const table = document.createElement("table");
+    table.className = "roster-table";
+    table.innerHTML = '<thead><tr><th scope="col">Depth</th><th scope="col">Player</th><th scope="col">Scouting rating</th></tr></thead>';
+    const body = document.createElement("tbody");
+    for (const player of players) {
+      const row = document.createElement("tr");
+      row.className = "roster-player";
+      row.dataset.playerId = player.id;
+      for (const value of [player.depth, player.name, player.rating]) {
+        const cell = document.createElement("td");
+        cell.textContent = value;
+        row.append(cell);
+      }
+      body.append(row);
     }
-    return row;
+    table.append(body);
+    wrap.append(table);
+    group.append(summary, wrap);
+    return group;
   });
-  document.querySelector("#roster-players").replaceChildren(...rows);
+  document.querySelector("#roster-groups").replaceChildren(...groups);
+  document.querySelector("#roster-title").textContent = `Roster · ${profile.roster.length} players`;
   rosterSection.hidden = false;
   rosterButton.setAttribute("aria-expanded", "true");
   rosterButton.textContent = "Hide roster";
