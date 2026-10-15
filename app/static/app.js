@@ -95,7 +95,7 @@ function renderSchedule(data) {
   document.querySelector("#team-group").textContent = data.team.group;
   document.querySelector("#team-name").textContent = data.team.city;
   document.querySelector("#rotation-note").textContent =
-    `Season ${data.season} rotation: ${data.rotating_group}`;
+    `Season ${data.season} rotation: ${data.rotating_group} · Scores show your team first.`;
 
   scheduleGrid.replaceChildren();
   for (const game of data.games) {
@@ -105,6 +105,7 @@ function renderSchedule(data) {
       <span class="week">Week ${game.week}</span>
       <span class="venue ${game.venue.toLowerCase()}">${game.venue === "Home" ? "vs" : "at"}</span>
       <strong>${game.opponent}</strong>
+      <span class="game-final">Not played</span>
       <span class="reason">${game.reason}</span>
     `;
     scheduleGrid.append(article);
@@ -246,10 +247,16 @@ function renderResult(data) {
     `Tiebreakers: ${data.standings.tiebreakers.join(" → ")}`;
   playoffSection.hidden = false;
 
-  const completedCard = scheduleGrid.children[data.week - 1];
-  if (completedCard) {
-    completedCard.classList.add("completed");
-    completedCard.dataset.outcome = latestResult.outcome;
+  for (const game of data.game_results) {
+    const card = scheduleGrid.children[game.week - 1];
+    if (!card) continue;
+    card.classList.add("completed");
+    card.dataset.outcome = game.outcome;
+    const final = card.querySelector(".game-final");
+    final.textContent = `${game.outcome} · ${game.team_score}–${game.opponent_score}${game.overtime ? " · OT" : ""}`;
+    const outcome = game.outcome === "W" ? "Win" : game.outcome === "L" ? "Loss" : "Tie";
+    final.setAttribute("aria-label",
+      `${outcome}: ${data.team.city} ${game.team_score}, ${game.opponent} ${game.opponent_score}${game.overtime ? ", overtime" : ""}`);
   }
 
   document.querySelector("#playoff-title").textContent = data.season_complete ? "Final playoff seeds" : `Playoff Race — Week ${data.week}`;

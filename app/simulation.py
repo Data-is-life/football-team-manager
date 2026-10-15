@@ -391,6 +391,16 @@ def simulate_through_week(team_id: str, season: int, week: int) -> dict[str, obj
     losses = sum(result["outcome"] == "L" for result in results)
     ties = sum(result["outcome"] == "T" for result in results)
     current = results[-1]
+    game_results = []
+    for game, result in zip(schedule, results):
+        own_side = "home" if game.venue == "Home" else "away"
+        other_side = "away" if own_side == "home" else "home"
+        game_results.append({
+            "week": game.week, "opponent_id": game.opponent_id,
+            "opponent": game.opponent, "venue": game.venue,
+            "outcome": result["outcome"], "team_score": result[own_side]["score"],
+            "opponent_score": result[other_side]["score"], "overtime": result["overtime"],
+        })
     other_results = []
     for league_result in simulate_league_week(season, week):
         if team_id in (league_result["home"]["team"]["id"], league_result["away"]["team"]["id"]):
@@ -410,6 +420,7 @@ def simulate_through_week(team_id: str, season: int, week: int) -> dict[str, obj
         "week": week,
         "record": {"wins": wins, "losses": losses, "ties": ties},
         "result": current,
+        "game_results": game_results,
         "league_results": other_results,
         "standings": standings_through_week(season, week),
         "season_complete": week == len(schedule),

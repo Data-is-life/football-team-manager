@@ -194,3 +194,9 @@ tr.selected-team td { color: var(--cyan); background: rgba(72,230,210,0.07); }
 @media (max-width: 680px) {
   .roster-groups { grid-template-columns: 1fr; }
 }
+
+.game-final { color: var(--muted); font-size: 0.95rem; font-weight: 800; }
+.game-card.completed .game-final { color: var(--cyan); }
+.game-card.completed[data-outcome="L"] .game-final { color: var(--danger); }
+.game-card.completed[data-outcome="T"] { border-color: var(--muted); }
+.game-card.completed[data-outcome="T"] .game-final { color: var(--ink); }
