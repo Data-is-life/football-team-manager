@@ -17,6 +17,7 @@ Python owns the league rules and schedule generation. The browser layer only ren
 - one-click, week-by-week simulation
 - deterministic fictional rosters and team ratings
 - final score, team comparison, and player box scores
+- player efficiency in regular-season and playoff box scores: NFL passer rating, completion percentage, passing yards/attempt, rushing yards/carry, and receiving yards/reception for all receivers
 - simplified overtime: most regulation ties resolve with a winning field goal; a small fraction remain tied
 - overtime labels on your result and other league results
 - season record that updates after every completed game
@@ -107,6 +108,8 @@ python -m unittest discover -s tests -v
 ```
 
 ## Aggregate game usage
+
+Efficiency statistics are calculated from each player's final box-score totals and displayed to one decimal place. Zero attempts or receptions produce `null` in the API and `—` in the interface. The API retains unrounded values. Passer rating uses the [NFL formula](https://www.profootballhof.com/news/nfl-s-passer-rating), with each of its four components clamped to 0–2.375; its displayed range is 0.0–158.3. These derived statistics do not affect scores or usage.
 
 Scores and team yardage are generated first using the existing model. These final scores then shape the box score; this is not a live drive-by-drive simulation.
 

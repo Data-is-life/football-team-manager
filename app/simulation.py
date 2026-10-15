@@ -7,6 +7,7 @@ import hashlib
 import random
 
 from .league import TEAM_BY_ID, ScheduledGame, Team, generate_league_schedule, generate_schedule
+from .stats import add_efficiency_stats
 
 
 FIRST_NAMES = (
@@ -347,6 +348,8 @@ def simulate_game(
     apply_usage(home_box, away_box, usage_rng)
     apply_usage(away_box, home_box, usage_rng)
     assign_possession(home_box, away_box)
+    add_efficiency_stats(home_box)
+    add_efficiency_stats(away_box)
     selected_score = int(selected_box["score"])
     opponent_score = int(opponent_box["score"])
     outcome = "T" if selected_score == opponent_score else ("W" if selected_score > opponent_score else "L")
