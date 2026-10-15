@@ -177,11 +177,9 @@ tr.selected-team td { color: var(--cyan); background: rgba(72,230,210,0.07); }
 
 .overtime-label { display: block; margin-bottom: 4px; color: var(--cyan); font-size: 0.72rem; font-weight: 800; text-transform: uppercase; }
 
-#playoffs-start { margin-bottom: 28px; width: 100%; }
 .postseason-section { scroll-margin-top: 24px; margin-bottom: 28px; padding: clamp(20px, 3vw, 30px); background: var(--panel); border: 1px solid var(--cyan); border-radius: 18px; }
 #postseason-title { font-size: clamp(2rem, 5vw, 3rem); margin-bottom: 16px; }
 #postseason-status { color: var(--muted); line-height: 1.6; }
-#playoff-simulate { margin-bottom: 24px; }
 .champion-banner { padding: 22px; margin-bottom: 24px; color: #0a0c12; background: var(--lime); border-radius: 12px; font-size: 1.4rem; font-weight: 900; }
 .your-playoff-game { padding: 18px; margin-bottom: 24px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px; }
 .postseason-section h3 { margin-top: 24px; }
@@ -203,3 +201,22 @@ tr.selected-team td { color: var(--cyan); background: rgba(72,230,210,0.07); }
 .game-card.completed[data-outcome="L"] .game-final { color: var(--danger); }
 .game-card.completed[data-outcome="T"] { border-color: var(--muted); }
 .game-card.completed[data-outcome="T"] .game-final { color: var(--ink); }
+
+/* Team identity and season controls stay shared across all seven views. */
+.week-control .season-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.season-status { color: var(--muted); line-height: 1.5; min-height: 1.5em; margin: -12px 0 22px; }
+.view-tabs { display: flex; gap: 6px; overflow-x: auto; padding: 6px 3px 12px; margin-bottom: 24px; border-bottom: 1px solid var(--line); }
+.view-tab { flex: 0 0 auto; padding: 12px 16px; min-height: 46px; color: var(--muted); background: var(--panel); border-color: var(--line); font-size: 0.85rem; }
+.view-tab[aria-selected="true"] { color: #0a0c12; background: var(--lime); border-color: var(--lime); }
+.view-tab:focus-visible, .view-panel:focus-visible { outline: 3px solid var(--cyan); outline-offset: 2px; }
+.view-panel { min-width: 0; scroll-margin-top: 20px; }
+.view-panel .stat-section { min-width: 0; }
+.schedule-formula { margin-bottom: 18px; gap: 16px; flex-wrap: wrap; }
+.schedule-formula h2, .empty-state h2 { font-size: 1.5rem; }
+.empty-state { padding: clamp(22px, 4vw, 38px); border: 1px solid var(--line); background: var(--panel); border-radius: 16px; }
+.empty-state p { margin: 14px 0 0; color: var(--muted); line-height: 1.6; }
+@media (max-width: 560px) {
+  .season-actions { width: 100%; }
+  .season-actions button { flex: 1; }
+  .view-tabs { max-width: 100%; }
+}

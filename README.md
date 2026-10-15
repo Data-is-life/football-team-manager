@@ -7,13 +7,14 @@ Python owns the league rules and schedule generation. The browser layer only ren
 - 30 city-only teams in six groups
 - player team selection that gives way to a team home screen
 - team offense/defense ratings and a 38-player roster grouped by position, with depth order, minimum counts, and scouting ratings
-- roster show/hide controls and a team-change flow with a keep-current-team option
+- a dedicated Roster tab and a team-change flow with a keep-current-team option
 - 17-game Python schedule generator
 - 8 home/away group games
 - 5 same-place games based on the prior season
 - 4 remaining opponents from a rotating group
 - five-season group rotation
 - responsive schedule screen
+- seven top tabs: Schedule, Roster, Game Stats, League Results, Standings, Playoff Race, and Playoffs
 - one-click, week-by-week simulation
 - deterministic fictional rosters and team ratings
 - final score, team comparison, and player box scores
@@ -37,6 +38,12 @@ Python owns the league rules and schedule generation. The browser layer only ren
 Player scouting ratings are deterministic estimates out of 99. Team offense and defense determine scoring; QB/RB scouting ratings and QB experience shape passing volume.
 
 Overtime is a lightweight game mechanic rather than a play-by-play NFL rules implementation. In 5% of regulation ties, overtime also ends tied; otherwise a weighted draw using team ratings and a small home advantage chooses the winning field goal. The field goal is included in the score and kicking statistics. Yardage and possession describe regulation play.
+
+## Navigation
+
+After choosing a team, use the tabs above the content to view one screen at a time. Team identity, ratings, regular-season record, and simulation controls remain above every view. Simulating a week updates all screens while keeping the selected tab, with the latest final score in the shared status line. Game Stats shows the most recent regular-season game; playoff games and box scores appear under Playoffs.
+
+Tabs support Left/Right arrows (including wraparound), Home, and End. The tab bar scrolls horizontally on smaller screens. Views with no results explain when their data becomes available. After Week 17, choose **View playoffs** to load the field; advancing a playoff round opens the Playoffs tab. Switching tabs or canceling a team change preserves progress and collapsed groups. Starting another team resets the screens and returns to Schedule. Refreshing still resets the game.
 
 ## Roster
 
@@ -106,6 +113,15 @@ See Render's [FastAPI guide](https://render.com/docs/deploy-fastapi), [free-tier
 ```bash
 python -m unittest discover -s tests -v
 ```
+
+For UI interaction checks, install Node.js 24+ and the Python requirements above, then run:
+
+```bash
+npm ci
+npm run test:ui
+```
+
+The UI suite starts a local FastAPI server on port 8767 and checks tab/keyboard navigation, empty states, full seasons and playoffs, box-score values, collapse state, failed-request retry, and team reset/cancel using jsdom. Node dependencies are only for development checks; Render still runs the Python app directly. These DOM checks do not verify visual layout.
 
 ## Aggregate game usage
 

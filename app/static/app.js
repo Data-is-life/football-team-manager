@@ -10,7 +10,6 @@ const standingsSection = document.querySelector("#standings-section");
 const playoffSection = document.querySelector("#playoff-section");
 const franchiseSetup = document.querySelector("#franchise-setup");
 const rosterSection = document.querySelector("#roster-section");
-const rosterButton = document.querySelector("#roster-button");
 const cancelTeamChange = document.querySelector("#cancel-team-change");
 let activeTeamId = null;
 let currentWeek = 0;
@@ -20,6 +19,34 @@ let playoffState = null;
 const playoffsStart = document.querySelector('#playoffs-start');
 const playoffSimulate = document.querySelector('#playoff-simulate');
 const postseasonSection = document.querySelector('#postseason-section');
+const viewTabs = [...document.querySelectorAll(".view-tab")];
+
+function activateView(id, { focus = false } = {}) {
+  for (const tab of viewTabs) {
+    const selected = tab.id === `view-${id}`;
+    tab.setAttribute("aria-selected", String(selected));
+    tab.tabIndex = selected ? 0 : -1;
+    document.getElementById(tab.getAttribute("aria-controls")).hidden = !selected;
+    if (selected && focus) {
+      tab.focus({ preventScroll: true });
+      tab.scrollIntoView({ block: "nearest", inline: "nearest" });
+    }
+  }
+}
+
+viewTabs.forEach((tab, index) => {
+  tab.addEventListener("click", () => activateView(tab.id.slice(5)));
+  tab.addEventListener("keydown", event => {
+    let next;
+    if (event.key === "ArrowRight") next = (index + 1) % viewTabs.length;
+    else if (event.key === "ArrowLeft") next = (index - 1 + viewTabs.length) % viewTabs.length;
+    else if (event.key === "Home") next = 0;
+    else if (event.key === "End") next = viewTabs.length - 1;
+    else return;
+    event.preventDefault();
+    activateView(viewTabs[next].id.slice(5), { focus: true });
+  });
+});
 const leaguePanels = [
   ["#league-results-toggle", "#league-results", "league results"],
   ["#standings-toggle", "#group-standings", "group standings"],
@@ -101,8 +128,6 @@ function renderTeamProfile(profile) {
   document.querySelector("#roster-groups").replaceChildren(...groups);
   document.querySelector("#roster-title").textContent = `Roster · ${profile.roster.length} players`;
   rosterSection.hidden = false;
-  rosterButton.setAttribute("aria-expanded", "true");
-  rosterButton.textContent = "Hide roster";
 }
 
 function renderSchedule(data) {
@@ -112,7 +137,14 @@ function renderSchedule(data) {
   completedPlayoffRound = 0;
   playoffState = null;
   playoffsStart.hidden = true;
+  playoffSimulate.hidden = true;
   postseasonSection.hidden = true;
+  document.querySelector("#season-status").textContent = "Ready for Week 1.";
+  for (const id of ["game", "league", "standings", "race", "playoffs"]) {
+    document.querySelector(`#${id}-empty`).hidden = false;
+  }
+  document.querySelector("#playoffs-empty p").textContent = "Playoffs begin after Week 17.";
+  activateView("schedule");
   document.querySelector("#team-group").textContent = data.team.group;
   document.querySelector("#team-name").textContent = data.team.city;
   document.querySelector("#rotation-note").textContent =
@@ -179,6 +211,8 @@ function selectBoxScore(side) {
   const homeTab = document.querySelector("#home-tab");
   awayTab.classList.toggle("active", side === "away");
   homeTab.classList.toggle("active", side === "home");
+  awayTab.setAttribute("aria-pressed", String(side === "away"));
+  homeTab.setAttribute("aria-pressed", String(side === "home"));
   renderPlayerStats(latestResult[side]);
 }
 
@@ -288,7 +322,17 @@ function renderResult(data) {
   currentWeek = data.week;
   simulateButton.disabled = data.season_complete;
   simulateButton.textContent = data.season_complete ? "Regular season complete" : `Simulate Week ${data.next_week}`;
-  resultPanel.scrollIntoView({ behavior: "smooth", block: "start" });
+  for (const id of ["game", "league", "standings", "race"]) {
+    document.querySelector(`#${id}-empty`).hidden = true;
+  }
+  const own = latestResult.selected_team_id === home.team.id ? home : away;
+  const opponent = own === home ? away : home;
+  document.querySelector("#season-status").textContent =
+    `Week ${data.week} final: ${own.team.city} ${own.score}–${opponent.score} ${opponent.team.city}${latestResult.overtime ? " · OT" : ""}.`;
+  if (data.season_complete) {
+    document.querySelector("#playoffs-empty p").textContent =
+      "The playoff field is set. Choose View playoffs above to reveal the bracket.";
+  }
 }
 
 async function loadTeams() {
@@ -302,12 +346,6 @@ async function loadTeams() {
     showError(error.message);
   }
 }
-
-rosterButton.addEventListener("click", () => {
-  rosterSection.hidden = !rosterSection.hidden;
-  rosterButton.setAttribute("aria-expanded", String(!rosterSection.hidden));
-  rosterButton.textContent = rosterSection.hidden ? "View roster" : "Hide roster";
-});
 
 document.querySelector("#change-team-button").addEventListener("click", () => {
   scheduleSection.hidden = true;
@@ -397,6 +435,8 @@ function renderPostseason(data) {
   playoffState = data;
   completedPlayoffRound = data.completed_round;
   playoffsStart.hidden = true;
+  playoffSimulate.hidden = false;
+  document.querySelector("#playoffs-empty").hidden = true;
   postseasonSection.hidden = false;
   const champion = data.champion;
   const selectedChampion = champion && champion.team.id === activeTeamId;
@@ -407,6 +447,9 @@ function renderPostseason(data) {
       ? "Your team earned a Wild Card bye. Advance the round to see your quarterfinal opponent."
     : "Your team is still in the title race.";
   document.querySelector("#postseason-status").textContent = status;
+  document.querySelector("#season-status").textContent = data.champion
+    ? `Season ${data.season} champions: ${data.champion.team.city}.`
+    : data.completed_round ? `${data.rounds.at(-1).name} complete. ${status}` : status;
   const banner = document.querySelector("#champion-banner");
   banner.hidden = !champion;
   banner.textContent = champion ? `Season ${data.season} champions: ${champion.team.city} · Seed #${champion.seed}` : "";
@@ -449,8 +492,7 @@ async function loadPlayoffRound(number) {
     const response = await fetch(`/api/playoffs/${activeTeamId}/round/${number}?season=1`);
     if (!response.ok) throw new Error("The playoff round could not be loaded. Please try again.");
     renderPostseason(await response.json());
-    document.querySelector("#postseason-title").focus({ preventScroll: true });
-    postseasonSection.scrollIntoView({ behavior: "smooth", block: "start" });
+    activateView("playoffs", { focus: true });
   } catch (error) {
     showError(error.message);
     errorBox.scrollIntoView({ behavior: "smooth", block: "center" });
