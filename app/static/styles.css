@@ -93,9 +93,12 @@ th, td { padding: 9px 8px; border-bottom: 1px solid var(--line); text-align: rig
 th:first-child, td:first-child { text-align: left; }
 th { color: var(--muted); font-weight: 700; }
 .league-results-section { margin-bottom: 28px; padding: clamp(20px, 3vw, 30px); background: rgba(21,24,36,0.78); border: 1px solid var(--line); border-radius: 18px; }
-.section-title-row { display: flex; justify-content: space-between; align-items: end; gap: 20px; margin-bottom: 18px; }
+.section-title-row { display: flex; justify-content: space-between; align-items: end; flex-wrap: wrap; gap: 20px; margin-bottom: 18px; }
 .section-title-row h3 { margin: 0; font-size: 1.35rem; }
 .section-title-row > span { color: var(--muted); font-size: 0.82rem; }
+.section-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
+.section-actions > span { color: var(--muted); font-size: 0.82rem; }
+.section-actions button { padding: 10px 14px; }
 .league-results-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
 .league-result-card { padding: 12px 14px; background: #10131c; border: 1px solid var(--line); border-radius: 10px; }
 .league-team { display: grid; grid-template-columns: 1fr auto; gap: 12px; padding: 4px 0; color: var(--muted); }

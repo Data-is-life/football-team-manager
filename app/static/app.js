@@ -20,6 +20,27 @@ let playoffState = null;
 const playoffsStart = document.querySelector('#playoffs-start');
 const playoffSimulate = document.querySelector('#playoff-simulate');
 const postseasonSection = document.querySelector('#postseason-section');
+const leaguePanels = [
+  ["#league-results-toggle", "#league-results", "league results"],
+  ["#standings-toggle", "#group-standings", "group standings"],
+  ["#playoff-race-toggle", "#playoff-race-content", "playoff race"],
+].map(([buttonSelector, contentSelector, label]) => ({
+  button: document.querySelector(buttonSelector),
+  content: document.querySelector(contentSelector),
+  label,
+}));
+
+function setLeaguePanelExpanded(panel, expanded) {
+  panel.content.hidden = !expanded;
+  panel.button.setAttribute("aria-expanded", String(expanded));
+  panel.button.textContent = `${expanded ? "Hide" : "Show"} ${panel.label}`;
+}
+
+for (const panel of leaguePanels) {
+  panel.button.addEventListener("click", () => {
+    setLeaguePanelExpanded(panel, panel.content.hidden);
+  });
+}
 
 function showError(message) {
   errorBox.textContent = message;
@@ -117,6 +138,7 @@ function renderSchedule(data) {
   leagueResultsSection.hidden = true;
   standingsSection.hidden = true;
   playoffSection.hidden = true;
+  leaguePanels.forEach(panel => setLeaguePanelExpanded(panel, true));
   franchiseSetup.hidden = true;
   scheduleSection.hidden = false;
   document.querySelector("#team-name").focus({ preventScroll: true });
