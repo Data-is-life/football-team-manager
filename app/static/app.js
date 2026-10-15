@@ -148,7 +148,7 @@ function renderSchedule(data) {
 function statTable(title, rows, columns) {
   const headings = columns.map((column) => `<th>${column.label}</th>`).join("");
   const body = rows.map((row) => `
-    <tr>${columns.map((column) => `<td>${row[column.key]}</td>`).join("")}</tr>
+    <tr>${columns.map((column) => `<td>${column.format ? column.format(row[column.key]) : row[column.key]}</td>`).join("")}</tr>
   `).join("");
   return `
     <section class="stat-section">
@@ -160,10 +160,12 @@ function statTable(title, rows, columns) {
 
 function playerStatsMarkup(box) {
   const playerColumn = { key: "player", label: "Player" };
+  const decimal = value => value == null ? "—" : value.toFixed(1);
+  const percentage = value => value == null ? "—" : `${value.toFixed(1)}%`;
   return [
-    statTable("Passing", box.passing, [playerColumn, { key: "completions", label: "Cmp" }, { key: "attempts", label: "Att" }, { key: "yards", label: "Yds" }, { key: "touchdowns", label: "TD" }, { key: "interceptions", label: "INT" }]),
-    statTable("Rushing", box.rushing, [playerColumn, { key: "attempts", label: "Att" }, { key: "yards", label: "Yds" }, { key: "touchdowns", label: "TD" }]),
-    statTable("Receiving", box.receiving, [playerColumn, { key: "receptions", label: "Rec" }, { key: "yards", label: "Yds" }, { key: "touchdowns", label: "TD" }]),
+    statTable("Passing", box.passing, [playerColumn, { key: "completions", label: "Cmp" }, { key: "attempts", label: "Att" }, { key: "completion_percentage", label: "Cmp%", format: percentage }, { key: "yards", label: "Yds" }, { key: "yards_per_attempt", label: "Y/A", format: decimal }, { key: "touchdowns", label: "TD" }, { key: "interceptions", label: "INT" }, { key: "passer_rating", label: "Passer rating", format: decimal }]),
+    statTable("Rushing", box.rushing, [playerColumn, { key: "attempts", label: "Att" }, { key: "yards", label: "Yds" }, { key: "yards_per_carry", label: "Y/Carry", format: decimal }, { key: "touchdowns", label: "TD" }]),
+    statTable("Receiving", box.receiving, [playerColumn, { key: "receptions", label: "Rec" }, { key: "yards", label: "Yds" }, { key: "yards_per_reception", label: "Y/Rec", format: decimal }, { key: "touchdowns", label: "TD" }]),
     statTable("Kicking", box.kicking, [playerColumn, { key: "field_goals_made", label: "FGM" }, { key: "field_goals_attempted", label: "FGA" }, { key: "extra_points_made", label: "XP" }]),
   ].join("");
 }
