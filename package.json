@@ -1,0 +1,13 @@
+{
+  "name": "arcade-league-ui-checks",
+  "private": true,
+  "scripts": {
+    "test:ui": "node tests/ui_tabs.cjs"
+  },
+  "devDependencies": {
+    "jsdom": "30.1.2"
+  },
+  "engines": {
+    "node": ">=24"
+  }
+}

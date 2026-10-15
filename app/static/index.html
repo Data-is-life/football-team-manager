@@ -40,16 +40,11 @@
 
         <div id="error" class="error" role="alert" hidden></div>
 
-        <section id="schedule-section" class="schedule-section" hidden aria-live="polite">
+        <section id="schedule-section" class="schedule-section" hidden>
           <div class="schedule-heading">
             <div>
               <p id="team-group" class="eyebrow"></p>
               <h1 id="team-name" tabindex="-1"></h1>
-            </div>
-            <div class="formula" aria-label="Schedule formula">
-              <span><strong>8</strong> group</span>
-              <span><strong>5</strong> same-place</span>
-              <span><strong>4</strong> rotating</span>
             </div>
           </div>
           <section class="team-home" aria-label="Your team">
@@ -58,116 +53,157 @@
               <div><span class="control-label">Defense</span><strong id="defense-rating"></strong><span class="rating-scale">/ 99</span></div>
             </div>
             <div class="team-actions">
-              <button id="roster-button" class="secondary-button" type="button" aria-expanded="true" aria-controls="roster-section">Hide roster</button>
               <button id="change-team-button" class="secondary-button" type="button">Choose another team</button>
             </div>
           </section>
-          <section id="roster-section" class="roster-section" aria-labelledby="roster-title">
-            <p class="eyebrow">Your players</p>
-            <h2 id="roster-title">Roster</h2>
-            <p class="roster-note">38 players across ten position groups. Each group shows its minimum required count. Scouting ratings are out of 99; team ratings determine scoring, while QB/RB skill and QB experience shape passing volume.</p>
-            <div id="roster-groups" class="roster-groups"></div>
-          </section>
-          <p id="rotation-note" class="rotation-note"></p>
           <div class="week-control">
             <div>
-              <span class="control-label">Current record</span>
+              <span class="control-label">Regular-season record</span>
               <strong id="season-record">0–0</strong>
             </div>
-            <button id="simulate-button" type="button">Simulate Week 1</button>
+            <div class="season-actions">
+              <button id="simulate-button" type="button">Simulate Week 1</button>
+              <button id="playoffs-start" type="button" hidden>View playoffs</button>
+              <button id="playoff-simulate" type="button" hidden></button>
+            </div>
           </div>
-          <section id="result-panel" class="result-panel" hidden>
-            <div class="scoreboard">
-              <div class="score-team">
-                <span id="away-label" class="control-label">Away</span>
-                <strong id="away-name"></strong>
-                <span id="away-score" class="score"></span>
-              </div>
-              <div class="result-center">
-                <span id="result-week">Week 1 final</span>
-                <strong id="result-badge" class="result-badge"></strong>
-              </div>
-              <div class="score-team home-score">
-                <span id="home-label" class="control-label">Home</span>
-                <strong id="home-name"></strong>
-                <span id="home-score" class="score"></span>
-              </div>
-            </div>
-            <div id="team-comparison" class="team-comparison"></div>
-            <div class="box-score-tabs" role="tablist" aria-label="Team box scores">
-              <button id="away-tab" class="stat-tab active" type="button" role="tab"></button>
-              <button id="home-tab" class="stat-tab" type="button" role="tab"></button>
-            </div>
-            <div id="player-stats" class="player-stats"></div>
-          </section>
-          <section id="league-results-section" class="league-results-section" hidden>
-            <div class="section-title-row">
+          <p id="season-status" class="season-status" role="status">Ready for Week 1.</p>
+          <div class="view-tabs" role="tablist" aria-label="Team and league views">
+            <button id="view-schedule" class="view-tab" type="button" role="tab" aria-selected="true" aria-controls="panel-schedule" tabindex="0">Schedule</button>
+            <button id="view-roster" class="view-tab" type="button" role="tab" aria-selected="false" aria-controls="panel-roster" tabindex="-1">Roster</button>
+            <button id="view-game" class="view-tab" type="button" role="tab" aria-selected="false" aria-controls="panel-game" tabindex="-1">Game Stats</button>
+            <button id="view-league" class="view-tab" type="button" role="tab" aria-selected="false" aria-controls="panel-league" tabindex="-1">League Results</button>
+            <button id="view-standings" class="view-tab" type="button" role="tab" aria-selected="false" aria-controls="panel-standings" tabindex="-1">Standings</button>
+            <button id="view-race" class="view-tab" type="button" role="tab" aria-selected="false" aria-controls="panel-race" tabindex="-1">Playoff Race</button>
+            <button id="view-playoffs" class="view-tab" type="button" role="tab" aria-selected="false" aria-controls="panel-playoffs" tabindex="-1">Playoffs</button>
+          </div>
+          <div id="panel-schedule" class="view-panel" role="tabpanel" aria-labelledby="view-schedule" tabindex="0">
+            <div class="schedule-heading schedule-formula">
               <div>
-                <p class="eyebrow">Around the league</p>
-                <h3 id="league-results-title">League Results</h3>
+                <p class="eyebrow">Your season</p>
+                <h2>Schedule</h2>
               </div>
-              <div class="section-actions">
-                <span>14 other games</span>
-                <button id="league-results-toggle" class="secondary-button" type="button" aria-expanded="true" aria-controls="league-results">Hide league results</button>
-              </div>
-            </div>
-            <div id="league-results" class="league-results-grid"></div>
-          </section>
-          <section id="standings-section" class="standings-section" hidden>
-            <div class="section-title-row">
-              <div>
-                <p class="eyebrow">Updated after every final</p>
-                <h3 id="standings-title">Group Standings</h3>
-              </div>
-              <div class="section-actions">
-                <span>Six groups</span>
-                <button id="standings-toggle" class="secondary-button" type="button" aria-expanded="true" aria-controls="group-standings">Hide group standings</button>
+              <div class="formula" aria-label="Schedule formula">
+                <span><strong>8</strong> group</span>
+                <span><strong>5</strong> same-place</span>
+                <span><strong>4</strong> rotating</span>
               </div>
             </div>
-            <div id="group-standings" class="group-standings-grid"></div>
-          </section>
-          <section id="playoff-section" class="playoff-section" hidden>
-            <div class="section-title-row">
-              <div>
-                <p class="eyebrow">If the season ended today</p>
-                <h3 id="playoff-title">Playoff Race</h3>
-              </div>
-              <div class="section-actions">
-                <span>14 teams</span>
-                <button id="playoff-race-toggle" class="secondary-button" type="button" aria-expanded="true" aria-controls="playoff-race-content">Hide playoff race</button>
-              </div>
-            </div>
-            <div id="playoff-race-content">
-              <div class="playoff-table-wrap">
-                <table class="playoff-table">
-                  <thead>
-                    <tr><th>Seed</th><th>Team</th><th>Path</th><th>Record</th><th>Diff</th></tr>
-                  </thead>
-                  <tbody id="playoff-race"></tbody>
-                </table>
-              </div>
-              <p id="tiebreaker-note" class="tiebreaker-note"></p>
-            </div>
-          </section>
-          <button id="playoffs-start" type="button" hidden>View playoffs</button>
-          <section id="postseason-section" class="postseason-section" hidden aria-labelledby="postseason-title">
-            <p class="eyebrow">The road to the title</p>
-            <h2 id="postseason-title" tabindex="-1">Playoffs</h2>
-            <p id="postseason-status" role="status"></p>
-            <div id="champion-banner" class="champion-banner" hidden></div>
-            <button id="playoff-simulate" type="button"></button>
-            <section id="your-playoff-game" class="your-playoff-game" hidden aria-label="Your playoff game"></section>
-            <section id="other-playoff-results" hidden>
-              <h3>League playoff results</h3>
-              <div id="playoff-league-games" class="league-results-grid"></div>
+            <p id="rotation-note" class="rotation-note"></p>
+            <div id="schedule" class="schedule-grid"></div>
+          </div>
+          <div id="panel-roster" class="view-panel" role="tabpanel" aria-labelledby="view-roster" tabindex="0" hidden>
+            <section id="roster-section" class="roster-section" aria-labelledby="roster-title">
+              <p class="eyebrow">Your players</p>
+              <h2 id="roster-title">Roster</h2>
+              <p class="roster-note">38 players across ten position groups. Each group shows its minimum required count. Scouting ratings are out of 99; team ratings determine scoring, while QB/RB skill and QB experience shape passing volume.</p>
+              <div id="roster-groups" class="roster-groups"></div>
             </section>
-            <div id="postseason-upcoming"></div>
-            <details class="bracket-history">
-              <summary>Completed rounds</summary>
-              <div id="postseason-history"></div>
-            </details>
-          </section>
-          <div id="schedule" class="schedule-grid"></div>
+          </div>
+          <div id="panel-game" class="view-panel" role="tabpanel" aria-labelledby="view-game" tabindex="0" hidden>
+            <div id="game-empty" class="empty-state"><h2>Game Stats</h2><p>Simulate Week 1 to see the final score and player box scores.</p></div>
+            <section id="result-panel" class="result-panel" hidden>
+              <div class="scoreboard">
+                <div class="score-team">
+                  <span id="away-label" class="control-label">Away</span>
+                  <strong id="away-name"></strong>
+                  <span id="away-score" class="score"></span>
+                </div>
+                <div class="result-center">
+                  <span id="result-week">Week 1 final</span>
+                  <strong id="result-badge" class="result-badge"></strong>
+                </div>
+                <div class="score-team home-score">
+                  <span id="home-label" class="control-label">Home</span>
+                  <strong id="home-name"></strong>
+                  <span id="home-score" class="score"></span>
+                </div>
+              </div>
+              <div id="team-comparison" class="team-comparison"></div>
+              <div class="box-score-tabs" role="group" aria-label="Team box scores">
+                <button id="away-tab" class="stat-tab active" type="button" aria-pressed="false"></button>
+                <button id="home-tab" class="stat-tab" type="button" aria-pressed="false"></button>
+              </div>
+              <div id="player-stats" class="player-stats"></div>
+            </section>
+          </div>
+          <div id="panel-league" class="view-panel" role="tabpanel" aria-labelledby="view-league" tabindex="0" hidden>
+            <div id="league-empty" class="empty-state"><h2>League Results</h2><p>Simulate Week 1 to see the other 14 games around the league.</p></div>
+            <section id="league-results-section" class="league-results-section" hidden>
+              <div class="section-title-row">
+                <div>
+                  <p class="eyebrow">Around the league</p>
+                  <h3 id="league-results-title">League Results</h3>
+                </div>
+                <div class="section-actions">
+                  <span>14 other games</span>
+                  <button id="league-results-toggle" class="secondary-button" type="button" aria-expanded="true" aria-controls="league-results">Hide league results</button>
+                </div>
+              </div>
+              <div id="league-results" class="league-results-grid"></div>
+            </section>
+          </div>
+          <div id="panel-standings" class="view-panel" role="tabpanel" aria-labelledby="view-standings" tabindex="0" hidden>
+            <div id="standings-empty" class="empty-state"><h2>Group Standings</h2><p>Simulate Week 1 to see updated standings for all six groups.</p></div>
+            <section id="standings-section" class="standings-section" hidden>
+              <div class="section-title-row">
+                <div>
+                  <p class="eyebrow">Updated after every final</p>
+                  <h3 id="standings-title">Group Standings</h3>
+                </div>
+                <div class="section-actions">
+                  <span>Six groups</span>
+                  <button id="standings-toggle" class="secondary-button" type="button" aria-expanded="true" aria-controls="group-standings">Hide group standings</button>
+                </div>
+              </div>
+              <div id="group-standings" class="group-standings-grid"></div>
+            </section>
+          </div>
+          <div id="panel-race" class="view-panel" role="tabpanel" aria-labelledby="view-race" tabindex="0" hidden>
+            <div id="race-empty" class="empty-state"><h2>Playoff Race</h2><p>Simulate Week 1 to see the provisional playoff field and tiebreakers.</p></div>
+            <section id="playoff-section" class="playoff-section" hidden>
+              <div class="section-title-row">
+                <div>
+                  <p class="eyebrow">If the season ended today</p>
+                  <h3 id="playoff-title">Playoff Race</h3>
+                </div>
+                <div class="section-actions">
+                  <span>14 teams</span>
+                  <button id="playoff-race-toggle" class="secondary-button" type="button" aria-expanded="true" aria-controls="playoff-race-content">Hide playoff race</button>
+                </div>
+              </div>
+              <div id="playoff-race-content">
+                <div class="playoff-table-wrap">
+                  <table class="playoff-table">
+                    <thead>
+                      <tr><th>Seed</th><th>Team</th><th>Path</th><th>Record</th><th>Diff</th></tr>
+                    </thead>
+                    <tbody id="playoff-race"></tbody>
+                  </table>
+                </div>
+                <p id="tiebreaker-note" class="tiebreaker-note"></p>
+              </div>
+            </section>
+          </div>
+          <div id="panel-playoffs" class="view-panel" role="tabpanel" aria-labelledby="view-playoffs" tabindex="0" hidden>
+            <div id="playoffs-empty" class="empty-state"><h2>Playoffs</h2><p>Playoffs begin after Week 17.</p></div>
+            <section id="postseason-section" class="postseason-section" hidden aria-labelledby="postseason-title">
+              <p class="eyebrow">The road to the title</p>
+              <h2 id="postseason-title" tabindex="-1">Playoffs</h2>
+              <p id="postseason-status" role="status"></p>
+              <div id="champion-banner" class="champion-banner" hidden></div>
+              <section id="your-playoff-game" class="your-playoff-game" hidden aria-label="Your playoff game"></section>
+              <section id="other-playoff-results" hidden>
+                <h3>League playoff results</h3>
+                <div id="playoff-league-games" class="league-results-grid"></div>
+              </section>
+              <div id="postseason-upcoming"></div>
+              <details class="bracket-history">
+                <summary>Completed rounds</summary>
+                <div id="postseason-history"></div>
+              </details>
+            </section>
+          </div>
         </section>
       </section>
     </main>
