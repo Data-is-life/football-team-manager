@@ -211,6 +211,15 @@ tr.selected-team td { color: var(--cyan); background: rgba(72,230,210,0.07); }
 .view-tab:focus-visible, .view-panel:focus-visible { outline: 3px solid var(--cyan); outline-offset: 2px; }
 .view-panel { min-width: 0; scroll-margin-top: 20px; }
 .view-panel .stat-section { min-width: 0; }
+.roster-controls, .roster-view-buttons { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.roster-controls { margin-block: 18px; justify-content: space-between; }
+.roster-view-buttons button { padding: 10px 16px; }
+.roster-view-buttons button[aria-pressed="true"] { background: var(--lime); color: #0a0c12; border-color: var(--lime); }
+#roster-competition-control label { display: block; color: var(--muted); font-size: 0.8rem; margin-bottom: 6px; }
+#roster-competition { min-height: 44px; }
+.stats-view .roster-groups { grid-template-columns: 1fr; }
+.roster-untracked-note { padding-inline: 14px; }
+.roster-season-table caption { text-align: left; color: var(--muted); padding: 0 0 10px; }
 .schedule-formula { margin-bottom: 18px; gap: 16px; flex-wrap: wrap; }
 .schedule-formula h2, .empty-state h2 { font-size: 1.5rem; }
 .empty-state { padding: clamp(22px, 4vw, 38px); border: 1px solid var(--line); background: var(--panel); border-radius: 16px; }

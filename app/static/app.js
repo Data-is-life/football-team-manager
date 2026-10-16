@@ -20,6 +20,10 @@ const playoffsStart = document.querySelector('#playoffs-start');
 const playoffSimulate = document.querySelector('#playoff-simulate');
 const postseasonSection = document.querySelector('#postseason-section');
 const viewTabs = [...document.querySelectorAll(".view-tab")];
+const rosterCompetition = document.querySelector("#roster-competition");
+let rosterProfile = null;
+let rosterMode = "ratings";
+let rosterTotals = null;
 
 function activateView(id, { focus = false } = {}) {
   for (const tab of viewTabs) {
@@ -93,6 +97,10 @@ function renderTeamOptions(teams) {
 }
 
 function renderTeamProfile(profile) {
+  rosterProfile = profile;
+  rosterMode = "ratings";
+  rosterCompetition.value = "regular";
+  rosterTotals = { regular: profile.roster_stats, playoffs: profile.roster_stats };
   document.querySelector("#offense-rating").textContent = profile.ratings.offense;
   document.querySelector("#defense-rating").textContent = profile.ratings.defense;
   const groups = profile.roster_rules.map((rule) => {
@@ -104,7 +112,7 @@ function renderTeamProfile(profile) {
     const summary = document.createElement("summary");
     summary.textContent = `${rule.position} · ${rule.count} players · minimum ${rule.minimum}`;
     const wrap = document.createElement("div");
-    wrap.className = "table-wrap";
+    wrap.className = "table-wrap roster-rating-wrap";
     const table = document.createElement("table");
     table.className = "roster-table";
     table.innerHTML = '<thead><tr><th scope="col">Depth</th><th scope="col">Player</th><th scope="col">Experience</th><th scope="col">Scouting rating</th></tr></thead>';
@@ -122,13 +130,104 @@ function renderTeamProfile(profile) {
     }
     table.append(body);
     wrap.append(table);
-    group.append(summary, wrap);
+    const statsWrap = document.createElement("div");
+    statsWrap.className = "table-wrap roster-stats-wrap";
+    const untracked = document.createElement("p");
+    untracked.className = "roster-note roster-untracked-note";
+    untracked.textContent = "Season production isn't tracked for this position yet. Ratings are shown below.";
+    group.append(summary, untracked, wrap, statsWrap);
     return group;
   });
   document.querySelector("#roster-groups").replaceChildren(...groups);
   document.querySelector("#roster-title").textContent = `Roster · ${profile.roster.length} players`;
   rosterSection.hidden = false;
+  renderRosterStats();
 }
+
+function renderRosterStats() {
+  if (!rosterProfile) return;
+  const showStats = rosterMode === "stats";
+  rosterSection.classList.toggle("stats-view", showStats);
+  document.querySelector("#roster-ratings-button").setAttribute("aria-pressed", String(!showStats));
+  document.querySelector("#roster-stats-button").setAttribute("aria-pressed", String(showStats));
+  document.querySelector("#roster-competition-control").hidden = !showStats;
+  const status = document.querySelector("#roster-stats-status");
+  status.hidden = !showStats;
+  const snapshot = rosterTotals[rosterCompetition.value];
+  const competition = rosterCompetition.value === "regular" ? "Regular season" : "Playoffs";
+  status.textContent = `${competition} · ${snapshot.games} team game${snapshot.games === 1 ? "" : "s"} recorded.${snapshot.games ? "" : " No completed games in this competition."}`;
+  const totals = new Map(snapshot.players.map(player => [player.player_id, player]));
+  const decimal = value => value == null ? "—" : value.toFixed(1);
+  const percentage = value => value == null ? "—" : `${value.toFixed(1)}%`;
+  const column = (category, key, label, format) => ({ category, key, label, format });
+  const receiving = [column("receiving", "receptions", "Rec"), column("receiving", "yards", "Rec Yds"),
+    column("receiving", "yards_per_reception", "Y/Rec", decimal), column("receiving", "touchdowns", "Rec TD")];
+  const columns = {
+    QB: [column("passing", "completions", "Cmp"), column("passing", "attempts", "Att"),
+      column("passing", "completion_percentage", "Cmp%", percentage), column("passing", "yards", "Pass Yds"),
+      column("passing", "touchdowns", "TD"), column("passing", "interceptions", "INT"),
+      column("passing", "yards_per_attempt", "Y/A", decimal), column("passing", "passer_rating", "Passer rating", decimal)],
+    RB: [column("rushing", "attempts", "Carries"), column("rushing", "yards", "Rush Yds"),
+      column("rushing", "yards_per_carry", "Y/Carry", decimal), column("rushing", "touchdowns", "Rush TD"), ...receiving],
+    WR: receiving, TE: receiving,
+    K: [column("kicking", "field_goals_made", "FGM"), column("kicking", "field_goals_attempted", "FGA"),
+      column("kicking", "field_goal_percentage", "FG%", percentage),
+      column("kicking", "longest_field_goal", "Long FG", value => value == null ? "—" : `${value} yd`),
+      column("kicking", "extra_points_made", "XPM"), column("kicking", "extra_points_attempted", "XPA"),
+      column("kicking", "kicking_points", "Pts")],
+  };
+  for (const group of document.querySelectorAll(".roster-group")) {
+    const position = group.dataset.position;
+    const tracked = Boolean(columns[position]);
+    group.querySelector(".roster-rating-wrap").hidden = showStats && tracked;
+    group.querySelector(".roster-untracked-note").hidden = !showStats || tracked;
+    const wrap = group.querySelector(".roster-stats-wrap");
+    wrap.hidden = !showStats || !tracked;
+    if (!showStats || !tracked) continue;
+    const table = document.createElement("table");
+    table.className = "roster-table roster-season-table";
+    const caption = document.createElement("caption");
+    caption.textContent = `${position} · ${competition}`;
+    const head = document.createElement("thead");
+    const headings = document.createElement("tr");
+    for (const label of ["Depth", "Player", ...columns[position].map(item => item.label)]) {
+      const cell = document.createElement("th");
+      cell.scope = "col";
+      cell.textContent = label;
+      headings.append(cell);
+    }
+    head.append(headings);
+    const body = document.createElement("tbody");
+    for (const player of rosterProfile.roster.filter(player => player.position === position)) {
+      const row = document.createElement("tr");
+      row.className = "roster-season-player";
+      row.dataset.playerId = player.id;
+      const entry = totals.get(player.id);
+      const values = [player.depth, player.name, ...columns[position].map(item => {
+        const value = entry[item.category][item.key];
+        return item.format ? item.format(value) : value;
+      })];
+      for (const value of values) {
+        const cell = document.createElement("td");
+        cell.textContent = value;
+        row.append(cell);
+      }
+      body.append(row);
+    }
+    table.append(caption, head, body);
+    wrap.replaceChildren(table);
+  }
+}
+
+document.querySelector("#roster-ratings-button").addEventListener("click", () => {
+  rosterMode = "ratings";
+  renderRosterStats();
+});
+document.querySelector("#roster-stats-button").addEventListener("click", () => {
+  rosterMode = "stats";
+  renderRosterStats();
+});
+rosterCompetition.addEventListener("change", renderRosterStats);
 
 function renderSchedule(data) {
   activeTeamId = data.team.id;
@@ -217,6 +316,8 @@ function selectBoxScore(side) {
 }
 
 function renderResult(data) {
+  rosterTotals.regular = data.roster_stats;
+  renderRosterStats();
   latestResult = data.result;
   const { away, home } = latestResult;
   document.querySelector("#away-name").textContent = away.team.city;
@@ -432,6 +533,8 @@ function playoffGameCard(game) {
 }
 
 function renderPostseason(data) {
+  rosterTotals.playoffs = data.roster_stats;
+  renderRosterStats();
   playoffState = data;
   completedPlayoffRound = data.completed_round;
   playoffsStart.hidden = true;
