@@ -8,6 +8,7 @@ import random
 
 from .league import TEAM_BY_ID, ScheduledGame, Team, generate_league_schedule, generate_schedule
 from .stats import add_efficiency_stats
+from .kicking import add_kicking_stats
 
 
 FIRST_NAMES = (
@@ -350,6 +351,12 @@ def simulate_game(
     assign_possession(home_box, away_box)
     add_efficiency_stats(home_box)
     add_efficiency_stats(away_box)
+    # Separate stream preserves scores, usage, and playoff outcomes.
+    kicking_rng = random.Random(_stable_number(f"kicking:{seed}"))
+    add_kicking_stats(home_box, kicking_rng,
+                      overtime_winner=overtime and home_box["score"] > away_box["score"])
+    add_kicking_stats(away_box, kicking_rng,
+                      overtime_winner=overtime and away_box["score"] > home_box["score"])
     selected_score = int(selected_box["score"])
     opponent_score = int(opponent_box["score"])
     outcome = "T" if selected_score == opponent_score else ("W" if selected_score > opponent_score else "L")
