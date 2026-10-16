@@ -39,7 +39,8 @@ async function checkUI() {
   const api=await (await fetch(base+`/api/team/${id}`)).json();
   assert.deepEqual([...d.querySelectorAll('.roster-player')].map(row=>row.dataset.playerId),api.roster.map(player=>player.id));
   assert.equal(d.querySelector('.roster-player').children[2].textContent,`${api.roster[0].experience} yr`);
-  const views=['schedule','roster','game','league','standings','race','playoffs'];
+  const views=['roster','game','schedule','standings','league','race','playoffs'];
+  assert.deepEqual([...d.querySelectorAll('.view-tab')].map(tab=>tab.id),views.map(view=>`view-${view}`));
   let requests=0;
   const originalFetch=w.fetch;
   w.fetch=(...args)=>{requests++;return originalFetch(...args)};
@@ -66,11 +67,11 @@ async function checkUI() {
    button.dispatchEvent(new w.KeyboardEvent('keydown',{key,bubbles:true,cancelable:true}));
    checkView(to);assert.equal(d.activeElement.id,`view-${to}`);
   }
-  key('schedule','ArrowLeft','playoffs');
-  key('playoffs','ArrowRight','schedule');
+  key('roster','ArrowLeft','playoffs');
+  key('playoffs','ArrowRight','roster');
   key('schedule','End','playoffs');
-  key('playoffs','Home','schedule');
-  key('schedule','ArrowRight','roster');
+  key('playoffs','Home','roster');
+  key('roster','ArrowRight','game');
   const rosterGroup=d.querySelector('.roster-group');rosterGroup.open=false;
   go('schedule');go('roster');assert.equal(rosterGroup.open,false);
   go('league');

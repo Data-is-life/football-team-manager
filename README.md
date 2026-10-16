@@ -14,7 +14,7 @@ Python owns the league rules and schedule generation. The browser layer only ren
 - 4 remaining opponents from a rotating group
 - five-season group rotation
 - responsive schedule screen
-- seven top tabs: Schedule, Roster, Game Stats, League Results, Standings, Playoff Race, and Playoffs
+- seven top tabs: Roster, Game Stats, Schedule, Standings, League Results, Playoff Race, and Playoffs
 - one-click, week-by-week simulation
 - deterministic fictional rosters and team ratings
 - final score, team comparison, and player box scores
