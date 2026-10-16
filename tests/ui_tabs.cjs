@@ -97,6 +97,15 @@ async function checkUI() {
     }));
    });
   }
+  function checkKicking(root,box) {
+   const table=root.querySelectorAll('.stat-section')[3];
+   assert.deepEqual([...table.querySelectorAll('th')].map(cell=>cell.textContent),['Player','FGM','FGA','FG%','Long FG','XPM','XPA','Pts']);
+   const rows=table.querySelectorAll('tbody tr');
+   box.kicking.forEach((row,index)=>{
+    const values=[row.player,String(row.field_goals_made),String(row.field_goals_attempted),row.field_goal_percentage==null?'—':`${row.field_goal_percentage.toFixed(1)}%`,row.longest_field_goal==null?'—':`${row.longest_field_goal} yd`,String(row.extra_points_made),String(row.extra_points_attempted),String(row.kicking_points)];
+    assert.deepEqual([...rows[index].children].map(cell=>cell.textContent),values);
+   });
+  }
   const start=d.querySelector('#playoffs-start'), advance=d.querySelector('#playoff-simulate');
   assert.equal(start.hidden,true);
   for(let week=1;week<=17;week++) {
@@ -139,6 +148,7 @@ async function checkUI() {
    for (const side of ['away','home']) {
     d.querySelector(`#${side}-tab`).click();
     checkEfficiency(d.querySelector('#player-stats'),result[side]);
+    checkKicking(d.querySelector('#player-stats'),result[side]);
     assert.equal(d.querySelector(`#${side}-tab`).getAttribute('aria-pressed'),'true');
    }
    const tables=d.querySelectorAll('#player-stats tbody');
@@ -184,6 +194,7 @@ async function checkUI() {
     const holder=d.querySelector('#your-playoff-game');
     const stats=holder.querySelectorAll('.player-stats');
     checkEfficiency(stats[0],own.result[own.home.team.id===id?'home':'away']);
+    checkKicking(stats[0],own.result[own.home.team.id===id?'home':'away']);
    }
    if(state.eliminated) assert.match(d.querySelector('#postseason-status').textContent,/eliminated/);
    assert.equal(d.querySelector('#season-record').textContent,record);
@@ -213,13 +224,17 @@ async function checkUI() {
   assert.equal(start.hidden,true);
   assert.equal(d.querySelectorAll('.roster-player').length,38);
   assert.equal(d.querySelectorAll('.roster-group').length,10);
-  const zero={passing:[{player:'QB',completions:0,attempts:0,yards:0,touchdowns:0,interceptions:0,completion_percentage:null,yards_per_attempt:null,passer_rating:null}],rushing:[{player:'RB',attempts:0,yards:0,touchdowns:0,yards_per_carry:null}],receiving:[{player:'WR',receptions:0,yards:0,touchdowns:0,yards_per_reception:null}],kicking:[]};
+  const zero={passing:[{player:'QB',completions:0,attempts:0,yards:0,touchdowns:0,interceptions:0,completion_percentage:null,yards_per_attempt:null,passer_rating:null}],rushing:[{player:'RB',attempts:0,yards:0,touchdowns:0,yards_per_carry:null}],receiving:[{player:'WR',receptions:0,yards:0,touchdowns:0,yards_per_reception:null}],kicking:[{player:'K',field_goals_made:0,field_goals_attempted:0,field_goal_percentage:null,longest_field_goal:null,extra_points_made:3,extra_points_attempted:3,kicking_points:3}]};
   const fixture=d.createElement('div'); fixture.innerHTML=w.playerStatsMarkup(zero);
   checkEfficiency(fixture,zero);
+  checkKicking(fixture,zero);
+  zero.kicking[0].field_goals_attempted=1;zero.kicking[0].field_goal_percentage=0;
+  fixture.innerHTML=w.playerStatsMarkup(zero);checkKicking(fixture,zero);
+  assert.equal(fixture.querySelectorAll('.stat-section')[3].querySelectorAll('td')[3].textContent,'0.0%');
   assert.doesNotMatch(fixture.textContent,/NaN|Infinity|null|undefined/);
   dom.window.close();
  }
- console.log('UI checks passed: seven tabs, keyboard navigation, empty states, unchanged views across weeks, collapse state, efficiency stats, full seasons/playoffs, retry, and team reset/cancel.');
+ console.log('UI checks passed: seven tabs, keyboard navigation, empty states, unchanged views across weeks, collapse state, efficiency/kicking stats, full seasons/playoffs, retry, and team reset/cancel.');
  }
 (async()=>{
  const server=spawn(process.env.PYTHON || 'python',['-m','uvicorn','app.main:app','--host','127.0.0.1','--port','8767'],{cwd:root,stdio:['ignore','pipe','pipe']});

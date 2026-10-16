@@ -19,6 +19,7 @@ Python owns the league rules and schedule generation. The browser layer only ren
 - deterministic fictional rosters and team ratings
 - final score, team comparison, and player box scores
 - player efficiency in regular-season and playoff box scores: NFL passer rating, completion percentage, passing yards/attempt, rushing yards/carry, and receiving yards/reception for all receivers
+- kicking box scores with FG made/attempted, FG percentage, longest made FG in yards, extra points made/attempted, and kicking points, including overtime
 - simplified overtime: most regulation ties resolve with a winning field goal; a small fraction remain tied
 - overtime labels on your result and other league results
 - season record that updates after every completed game
@@ -124,6 +125,14 @@ npm run test:ui
 The UI suite starts a local FastAPI server on port 8767 and checks tab/keyboard navigation, empty states, full seasons and playoffs, box-score values, collapse state, failed-request retry, and team reset/cancel using jsdom. Node dependencies are only for development checks; Render still runs the Python app directly. These DOM checks do not verify visual layout.
 
 ## Aggregate game usage
+
+### Kicking detail
+
+K1 receives the kicking stats. Every field-goal attempt has a deterministic generated distance in yards, a made/missed flag, and an overtime flag in the API's `field_goal_attempts` list. Long FG is the longest **made** attempt, including a winning overtime FG; it is `null` (`—` in the UI) when no FG was made. FG percentage is also `null`/`—` when there were no attempts, and 0.0% when every attempt missed. Kicking points equal `3 × FGM + XPM`.
+
+The aggregate engine assigns kick outcomes before generating distances. Distances are fictional detail rather than field-position-derived attempts: regulation attempts use a triangular 18–62-yard distribution centered on a 38-yard mode; winning overtime kicks use 18–55 yards with a 35-yard mode. A separate random stream preserves existing scores, usage, and postseason outcomes. Each touchdown still produces one made extra point, so XPM equals XPA; missed extra points and two-point attempts remain for a future engine update.
+
+### Offensive usage
 
 Efficiency statistics are calculated from each player's final box-score totals and displayed to one decimal place. Zero attempts or receptions produce `null` in the API and `—` in the interface. The API retains unrounded values. Passer rating uses the [NFL formula](https://www.profootballhof.com/news/nfl-s-passer-rating), with each of its four components clamped to 0–2.375; its displayed range is 0.0–158.3. These derived statistics do not affect scores or usage.
 
