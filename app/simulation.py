@@ -9,6 +9,7 @@ import random
 from .league import TEAM_BY_ID, ScheduledGame, Team, generate_league_schedule, generate_schedule
 from .stats import add_efficiency_stats
 from .kicking import add_kicking_stats
+from .player_stats import aggregate_player_stats
 
 
 FIRST_NAMES = (
@@ -176,6 +177,7 @@ def _team_box(
             "time_of_possession": "00:00",
         },
         "passing": [{
+            "player_id": qb.id,
             "player": qb.name,
             "position": "QB",
             "completions": completions,
@@ -186,6 +188,7 @@ def _team_box(
             "interceptions": interceptions,
         }],
         "rushing": [{
+            "player_id": rb.id,
             "player": rb.name,
             "position": "RB",
             "attempts": carries,
@@ -195,6 +198,7 @@ def _team_box(
         "receiving": [
             {
                 "player": player.name,
+                "player_id": player.id,
                 "position": player.position,
                 "receptions": receptions[index],
                 "yards": receiving_yards[index],
@@ -203,6 +207,7 @@ def _team_box(
             for index, player in enumerate(receivers)
         ],
         "kicking": [{
+            "player_id": roster["K1"].id,
             "player": roster["K1"].name,
             "position": "K",
             "field_goals_made": field_goals,
@@ -280,7 +285,7 @@ def apply_usage(box: dict, opponent_box: dict, rng: random.Random) -> None:
     rush_yards = _split_total(stats["rushing_yards"], back_weights)
     rush_tds = _split_total(sum(row["touchdowns"] for row in box["rushing"]), back_weights)
     box["rushing"] = [
-        {"player": player.name, "position": "RB", "attempts": rush_attempts[index],
+        {"player": player.name, "player_id": player.id, "position": "RB", "attempts": rush_attempts[index],
          "yards": rush_yards[index], "touchdowns": rush_tds[index]}
         for index, player in enumerate(backs)
     ]
@@ -306,7 +311,7 @@ def apply_usage(box: dict, opponent_box: dict, rng: random.Random) -> None:
         recipient = rng.choices(range(len(receivers)), weights=available)[0]
         touchdowns[recipient] += 1
     box["receiving"] = [
-        {"player": player.name, "position": player.position, "yards": yards[index],
+        {"player": player.name, "player_id": player.id, "position": player.position, "yards": yards[index],
          "receptions": receptions[index], "touchdowns": touchdowns[index]}
         for index, player in enumerate(receivers)
     ]
@@ -431,6 +436,9 @@ def simulate_through_week(team_id: str, season: int, week: int) -> dict[str, obj
         "record": {"wins": wins, "losses": losses, "ties": ties},
         "result": current,
         "game_results": game_results,
+        "roster_stats": aggregate_player_stats(roster_for(team_id).values(),
+            (result["home"] if result["home"]["team"]["id"] == team_id else result["away"]
+             for result in results)),
         "league_results": other_results,
         "standings": standings_through_week(season, week),
         "season_complete": week == len(schedule),

@@ -7,6 +7,7 @@ from fastapi.staticfiles import StaticFiles
 
 from .league import GROUPS, TEAM_BY_ID, generate_schedule, rotating_group, schedule_payload, teams_payload
 from .playoffs import playoffs_through_round
+from .player_stats import aggregate_player_stats
 from .simulation import ROSTER_RULES, roster_for, simulate_through_week, team_ratings
 
 
@@ -36,6 +37,7 @@ def team_profile(team_id: str) -> dict[str, object]:
         "team": asdict(TEAM_BY_ID[team_id]),
         "ratings": asdict(team_ratings(team_id)),
         "roster": [asdict(player) for player in players],
+        "roster_stats": aggregate_player_stats(players, []),
         "roster_rules": [
             {"position": position, "initial": initial, "minimum": minimum,
              "count": sum(player.position == position for player in players)}

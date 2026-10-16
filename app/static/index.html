@@ -96,6 +96,20 @@
             <section id="roster-section" class="roster-section" aria-labelledby="roster-title">
               <p class="eyebrow">Your players</p>
               <h2 id="roster-title">Roster</h2>
+              <div class="roster-controls">
+                <div class="roster-view-buttons" role="group" aria-label="Roster view">
+                  <button id="roster-ratings-button" class="secondary-button" type="button" aria-pressed="true" aria-controls="roster-groups">Ratings</button>
+                  <button id="roster-stats-button" class="secondary-button" type="button" aria-pressed="false" aria-controls="roster-groups">Season Stats</button>
+                </div>
+                <div id="roster-competition-control" hidden>
+                  <label for="roster-competition">Competition</label>
+                  <select id="roster-competition">
+                    <option value="regular">Regular season</option>
+                    <option value="playoffs">Playoffs</option>
+                  </select>
+                </div>
+              </div>
+              <p id="roster-stats-status" class="roster-note" role="status" hidden></p>
               <p class="roster-note">38 players across ten position groups. Each group shows its minimum required count. Scouting ratings are out of 99; team ratings determine scoring, while QB/RB skill and QB experience shape passing volume.</p>
               <div id="roster-groups" class="roster-groups"></div>
             </section>

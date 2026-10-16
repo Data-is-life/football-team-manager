@@ -2,7 +2,8 @@ from dataclasses import asdict
 from functools import lru_cache
 
 from .league import TEAM_BY_ID, ScheduledGame
-from .simulation import simulate_game
+from .simulation import roster_for, simulate_game
+from .player_stats import aggregate_player_stats
 from .standings import standings_through_week
 
 
@@ -80,10 +81,17 @@ def playoffs_through_round(team_id: str, season: int, round_number: int) -> dict
     snapshot = postseason_snapshot(season, round_number)
     qualified = any(row["team"]["id"] == team_id for row in snapshot["field"])
     alive = any(row["team"]["id"] == team_id for row in snapshot["survivors"])
+    boxes = []
+    for round_ in snapshot["rounds"]:
+        for game in round_["games"]:
+            for side in ("home", "away"):
+                if game[side]["team"]["id"] == team_id:
+                    boxes.append(game["result"][side])
     return {
         **snapshot, "team": asdict(TEAM_BY_ID[team_id]),
         "season": season, "completed_round": round_number,
         "next_round": round_number + 1 if round_number < 4 else None,
         "postseason_complete": round_number == 4,
         "qualified": qualified, "eliminated": qualified and not alive,
+        "roster_stats": aggregate_player_stats(roster_for(team_id).values(), boxes),
     }

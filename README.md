@@ -7,6 +7,7 @@ Python owns the league rules and schedule generation. The browser layer only ren
 - 30 city-only teams in six groups
 - player team selection that gives way to a team home screen
 - team offense/defense ratings and a 38-player roster grouped by position, with depth order, minimum counts, and scouting ratings
+- Ratings / Season Stats roster views with separate regular-season and playoff totals for every QB, RB, WR, TE, and K
 - a dedicated Roster tab and a team-change flow with a keep-current-team option
 - 17-game Python schedule generator
 - 8 home/away group games
@@ -49,6 +50,12 @@ Tabs support Left/Right arrows (including wraparound), Home, and End. The tab ba
 ## Roster
 
 Each team starts with 38 fictional players. Expand or collapse each position group to inspect its players, depth order, and scouting ratings.
+
+Choose **Season Stats** inside Roster to inspect cumulative production, then select **Regular season** or **Playoffs**. QB rows show passing totals and efficiency; RB rows combine rushing and receiving; WR/TE rows show receiving; K rows show FG, extra-point, longest made FG, and kicking-point totals. Backups with no production show zero counts and unavailable rates (`—`). OL and defensive groups continue to show ratings and experience with a note that their production is not tracked.
+
+Only completed games for the selected team count. Byes add no games; playoff totals stop changing after elimination, and teams that miss qualification keep zero playoff totals. The two competitions stay separate. Rates and passer rating are recalculated from cumulative counts, and longest FG is the maximum made distance. Switching roster views, competitions, or top tabs preserves collapsed position groups. Starting another team resets to Ratings and Regular season.
+
+Team profiles return an empty `roster_stats` snapshot; weekly and playoff responses return the respective completed-game snapshot. Each snapshot has `games` (team games recorded) and `players` keyed by stable `player_id`. Box-score rows also include `player_id`, so identical player names cannot merge production. Aggregation rebuilds each snapshot rather than incrementing browser totals, making retries idempotent. Refreshing still resets progress.
 
 | Position | Initial count | Minimum required |
 | --- | ---: | ---: |
