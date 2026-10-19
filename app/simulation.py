@@ -10,54 +10,9 @@ from .league import TEAM_BY_ID, ScheduledGame, Team, generate_league_schedule, g
 from .stats import add_efficiency_stats
 from .kicking import add_kicking_stats
 from .player_stats import aggregate_player_stats
+from .names import FIRST_NAMES, LAST_NAMES
 
 
-FIRST_NAMES = (
-    "Andre", "Caleb", "Darius", "Eli", "Isaiah", "Jalen", "Jonah", "Kai",
-    "Malik", "Marcus", "Micah", "Miles", "Noah", "Roman", "Theo", "Xavier",
-    "Aaron", "Adam", "Adrian", "Aidan", "Alex", "Alexander", "Amir", "Anthony",
-    "Antonio", "Ashton", "Austin", "Avery", "Blake", "Brandon", "Brayden", "Brendan",
-    "Brian", "Bryce", "Cameron", "Carson", "Carter", "Casey", "Cedric", "Chase",
-    "Christian", "Christopher", "Clayton", "Cole", "Colin", "Connor", "Cooper", "Corey",
-    "Damian", "Damon", "Daniel", "Dante", "David", "D'Andre", "Deacon", "Declan",
-    "Derek", "Desmond", "Devin", "Diego", "Dominic", "Donovan", "Dylan", "Easton",
-    "Elijah", "Emmanuel", "Eric", "Ethan", "Evan", "Ezekiel", "Felix", "Finn",
-    "Gabriel", "Gavin", "Grant", "Grayson", "Harrison", "Hayden", "Henry", "Hunter",
-    "Ian", "Isaac", "Ivan", "Jace", "Jacob", "Jamal", "James", "Jared",
-    "Jason", "Jayden", "Jeremiah", "Jesse", "Joel", "Jordan", "Joseph", "Josiah",
-    "Julian", "Justin", "Kaden", "Kairo", "Keenan", "Kendrick", "Kevin", "Kieran",
-    "Kobe", "Landon", "Leo", "Levi", "Liam", "Logan", "Lorenzo", "Lucas",
-    "Luke", "Mason", "Mateo", "Matthew", "Maxwell", "Nathan", "Nolan", "Oliver",
-    "Omar", "Owen", "Parker", "Preston", "Quentin", "Rafael", "Reece", "Riley",
-    "Robert", "Ryan", "Samuel", "Sebastian", "Sergio", "Shane", "Shawn", "Spencer",
-    "Stefan", "Taj", "Tariq", "Terrance", "Travis", "Trent", "Trevor", "Tristan",
-    "Troy", "Tyler", "Victor", "Vincent", "Wesley", "Wyatt", "Zachary", "Zion",
-    "Abel", "Beckham", "Darren", "Dorian", "Ellis", "Finley", "Hugo", "Zane",
-)
-LAST_NAMES = (
-    "Bennett", "Brooks", "Carter", "Coleman", "Davis", "Foster", "Grant", "Hayes",
-    "Jackson", "Lewis", "Mitchell", "Reed", "Robinson", "Turner", "Walker", "Young",
-    "Adams", "Allen", "Alvarez", "Anderson", "Armstrong", "Bailey", "Baker", "Barnes",
-    "Bell", "Bishop", "Black", "Boyd", "Bradley", "Brown", "Bryant", "Butler",
-    "Campbell", "Castillo", "Chambers", "Chandler", "Chapman", "Clark", "Collins", "Cook",
-    "Cooper", "Cox", "Crawford", "Cruz", "Daniels", "Dawson", "Dixon", "Douglas",
-    "Duncan", "Edwards", "Elliott", "Ellis", "Evans", "Fernandez", "Fisher", "Flores",
-    "Ford", "Franklin", "Freeman", "Fuller", "Garcia", "Gardner", "Gibson", "Gomez",
-    "Gonzalez", "Graham", "Gray", "Green", "Griffin", "Hall", "Hamilton", "Harris",
-    "Harrison", "Harvey", "Henderson", "Hernandez", "Hill", "Howard", "Hughes", "Hunter",
-    "Jacobs", "James", "Jenkins", "Johnson", "Johnston", "Jones", "Kelly", "Kennedy",
-    "Kim", "King", "Knight", "Lane", "Lawrence", "Lawson", "Lee", "Long",
-    "Lopez", "Marshall", "Martin", "Martinez", "Mason", "Matthews", "McCoy", "McDonald",
-    "Miller", "Montgomery", "Moore", "Morgan", "Morris", "Murphy", "Murray", "Nelson",
-    "Nguyen", "Nichols", "O'Neal", "Ortiz", "Owens", "Palmer", "Parker", "Patterson",
-    "Perez", "Perry", "Peterson", "Phillips", "Porter", "Powell", "Price", "Ramirez",
-    "Reynolds", "Richardson", "Rivera", "Roberts", "Rogers", "Ross", "Russell", "Sanchez",
-    "Sanders", "Scott", "Shaw", "Simmons", "Simpson", "Smith", "Spencer", "Stewart",
-    "Stone", "Sullivan", "Taylor", "Thomas", "Thompson", "Torres", "Tucker", "Vasquez",
-    "Wallace", "Ward", "Washington", "Watson", "Weaver", "Webb", "West", "White",
-    "Williams", "Wilson", "Wood", "Wright", "Ahmed", "Ali", "Chen", "Hassan",
-    "Patel", "Singh",
-)
 # Position: (initial players, minimum required).
 ROSTER_RULES = {
     "QB": (2, 1), "WR": (4, 2), "TE": (2, 1), "RB": (2, 1),
@@ -118,6 +73,8 @@ def _roster_players(team_id: str) -> tuple[Player, ...]:
     if team_id not in TEAM_BY_ID:
         raise KeyError(f"Unknown team: {team_id}")
     used_names: set[str] = set()
+    if len(FIRST_NAMES) * len(LAST_NAMES) < len(ROSTER_SLOTS):
+        raise ValueError("Name pools need enough combinations for a full roster")
     players = []
     ratings = team_ratings(team_id)
     for index, (position, depth) in enumerate(ROSTER_SLOTS):

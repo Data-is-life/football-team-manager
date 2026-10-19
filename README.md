@@ -51,7 +51,7 @@ Tabs support Left/Right arrows (including wraparound), Home, and End. The tab ba
 
 Each team starts with 38 fictional players. Expand or collapse each position group to inspect its players, depth order, and scouting ratings.
 
-Player names draw from 160 first names and 170 surnames (27,200 possible combinations). Names are deterministic and unique within each team's roster; different teams may share a name. Expanding these pools regenerates display names, while stable player IDs, ratings, experience, and simulated production remain unchanged.
+Player names are loaded from `app/data/first_names.txt` and `app/data/last_names.txt`, with one name per line. The downloaded Census lists contain 1,219 first names and 5,000 surnames (6,095,000 combinations). See [name data sources and editing instructions](app/data/README.md). The files are bundled locally; no runtime internet access is needed. Names are deterministic and unique within each team's roster; editing the lists can change display names, while stable player IDs, ratings, experience, and production remain unchanged.
 
 Choose **Season Stats** inside Roster to inspect cumulative production, then select **Regular season** or **Playoffs**. QB rows show passing totals and efficiency; RB rows combine rushing and receiving; WR/TE rows show receiving; K rows show FG, extra-point, longest made FG, and kicking-point totals. Backups with no production show zero counts and unavailable rates (`—`). OL and defensive groups continue to show ratings and experience with a note that their production is not tracked.
 
