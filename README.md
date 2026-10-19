@@ -51,6 +51,8 @@ Tabs support Left/Right arrows (including wraparound), Home, and End. The tab ba
 
 Each team starts with 38 fictional players. Expand or collapse each position group to inspect its players, depth order, and scouting ratings.
 
+Player names draw from 160 first names and 170 surnames (27,200 possible combinations). Names are deterministic and unique within each team's roster; different teams may share a name. Expanding these pools regenerates display names, while stable player IDs, ratings, experience, and simulated production remain unchanged.
+
 Choose **Season Stats** inside Roster to inspect cumulative production, then select **Regular season** or **Playoffs**. QB rows show passing totals and efficiency; RB rows combine rushing and receiving; WR/TE rows show receiving; K rows show FG, extra-point, longest made FG, and kicking-point totals. Backups with no production show zero counts and unavailable rates (`—`). OL and defensive groups continue to show ratings and experience with a note that their production is not tracked.
 
 Only completed games for the selected team count. Byes add no games; playoff totals stop changing after elimination, and teams that miss qualification keep zero playoff totals. The two competitions stay separate. Rates and passer rating are recalculated from cumulative counts, and longest FG is the maximum made distance. Switching roster views, competitions, or top tabs preserves collapsed position groups. Starting another team resets to Ratings and Regular season.
