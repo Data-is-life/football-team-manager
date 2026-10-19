@@ -10,16 +10,9 @@ from .league import TEAM_BY_ID, ScheduledGame, Team, generate_league_schedule, g
 from .stats import add_efficiency_stats
 from .kicking import add_kicking_stats
 from .player_stats import aggregate_player_stats
+from .names import FIRST_NAMES, LAST_NAMES
 
 
-FIRST_NAMES = (
-    "Andre", "Caleb", "Darius", "Eli", "Isaiah", "Jalen", "Jonah", "Kai",
-    "Malik", "Marcus", "Micah", "Miles", "Noah", "Roman", "Theo", "Xavier",
-)
-LAST_NAMES = (
-    "Bennett", "Brooks", "Carter", "Coleman", "Davis", "Foster", "Grant", "Hayes",
-    "Jackson", "Lewis", "Mitchell", "Reed", "Robinson", "Turner", "Walker", "Young",
-)
 # Position: (initial players, minimum required).
 ROSTER_RULES = {
     "QB": (2, 1), "WR": (4, 2), "TE": (2, 1), "RB": (2, 1),
@@ -80,6 +73,8 @@ def _roster_players(team_id: str) -> tuple[Player, ...]:
     if team_id not in TEAM_BY_ID:
         raise KeyError(f"Unknown team: {team_id}")
     used_names: set[str] = set()
+    if len(FIRST_NAMES) * len(LAST_NAMES) < len(ROSTER_SLOTS):
+        raise ValueError("Name pools need enough combinations for a full roster")
     players = []
     ratings = team_ratings(team_id)
     for index, (position, depth) in enumerate(ROSTER_SLOTS):
