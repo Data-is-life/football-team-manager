@@ -46,6 +46,10 @@ def _stable_number(value: str) -> int:
     return int.from_bytes(hashlib.sha256(value.encode("utf-8")).digest()[:8], "big")
 
 
+def _run_number(value: str, run_seed: int) -> int:
+    return _stable_number(value if run_seed == 0 else f"run:{run_seed}:{value}")
+
+
 def team_ratings(team_id: str) -> TeamRatings:
     if team_id not in TEAM_BY_ID:
         raise KeyError(f"Unknown team: {team_id}")
@@ -328,12 +332,12 @@ def simulate_game(
     selected_team_id: str,
     game: ScheduledGame,
     season: int,
-    *, allow_ties: bool = True, neutral_site: bool = False,
+    *, allow_ties: bool = True, neutral_site: bool = False, run_seed: int = 0,
 ) -> dict[str, object]:
     selected_team = TEAM_BY_ID[selected_team_id]
     opponent = TEAM_BY_ID[game.opponent_id]
     ordered_ids = sorted((selected_team.id, opponent.id))
-    seed = _stable_number(f"season:{season}:week:{game.week}:{ordered_ids[0]}:{ordered_ids[1]}")
+    seed = _run_number(f"season:{season}:week:{game.week}:{ordered_ids[0]}:{ordered_ids[1]}", run_seed)
     rng = random.Random(seed)
 
     selected_is_home = game.venue == "Home"
@@ -371,7 +375,7 @@ def simulate_game(
     }
 
 
-def simulate_league_week(season: int, week: int) -> list[dict[str, object]]:
+def simulate_league_week(season: int, week: int, run_seed: int = 0) -> list[dict[str, object]]:
     if week < 1 or week > 17:
         raise ValueError("Week must be between 1 and 17")
     results: list[dict[str, object]] = []
@@ -387,16 +391,16 @@ def simulate_league_week(season: int, week: int) -> list[dict[str, object]]:
             venue="Home",
             reason=league_game.reason,
         )
-        result = simulate_game(league_game.home_id, game, season)
+        result = simulate_game(league_game.home_id, game, season, run_seed=run_seed)
         results.append(result)
     return results
 
 
-def simulate_through_week(team_id: str, season: int, week: int) -> dict[str, object]:
+def simulate_through_week(team_id: str, season: int, week: int, run_seed: int = 0) -> dict[str, object]:
     schedule = generate_schedule(team_id=team_id, season=season)
     if week < 1 or week > len(schedule):
         raise ValueError(f"Week must be between 1 and {len(schedule)}")
-    results = [simulate_game(team_id, game, season) for game in schedule[:week]]
+    results = [simulate_game(team_id, game, season, run_seed=run_seed) for game in schedule[:week]]
     wins = sum(result["outcome"] == "W" for result in results)
     losses = sum(result["outcome"] == "L" for result in results)
     ties = sum(result["outcome"] == "T" for result in results)
@@ -412,7 +416,7 @@ def simulate_through_week(team_id: str, season: int, week: int) -> dict[str, obj
             "opponent_score": result[other_side]["score"], "overtime": result["overtime"],
         })
     other_results = []
-    for league_result in simulate_league_week(season, week):
+    for league_result in simulate_league_week(season, week, run_seed):
         if team_id in (league_result["home"]["team"]["id"], league_result["away"]["team"]["id"]):
             continue
         other_results.append({
@@ -427,6 +431,7 @@ def simulate_through_week(team_id: str, season: int, week: int) -> dict[str, obj
     return {
         "team": asdict(TEAM_BY_ID[team_id]),
         "season": season,
+        "run_seed": run_seed,
         "week": week,
         "record": {"wins": wins, "losses": losses, "ties": ties},
         "result": current,
@@ -435,7 +440,7 @@ def simulate_through_week(team_id: str, season: int, week: int) -> dict[str, obj
             (result["home"] if result["home"]["team"]["id"] == team_id else result["away"]
              for result in results)),
         "league_results": other_results,
-        "standings": standings_through_week(season, week),
+        "standings": standings_through_week(season, week, run_seed),
         "season_complete": week == len(schedule),
         "next_week": None if week == len(schedule) else week + 1,
     }

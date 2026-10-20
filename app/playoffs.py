@@ -23,10 +23,10 @@ def matchup_payload(home: dict, away: dict, round_number: int) -> dict:
 
 
 @lru_cache(maxsize=128)
-def postseason_snapshot(season: int, round_number: int) -> dict:
+def postseason_snapshot(season: int, round_number: int, run_seed: int = 0) -> dict:
     if round_number < 0 or round_number > 4:
         raise ValueError("Playoff round must be between 0 and 4")
-    field = standings_through_week(season, 17)["playoff_race"]
+    field = standings_through_week(season, 17, run_seed)["playoff_race"]
     survivors = list(field)
     rounds = []
     for number in range(1, round_number + 1):
@@ -43,7 +43,7 @@ def postseason_snapshot(season: int, round_number: int) -> dict:
             )
             result = simulate_game(
                 home["team"]["id"], game, season,
-                allow_ties=False, neutral_site=number == 4,
+                allow_ties=False, neutral_site=number == 4, run_seed=run_seed,
             )
             winner = home if result["home"]["score"] > result["away"]["score"] else away
             winners.append(winner)
@@ -70,15 +70,16 @@ def postseason_snapshot(season: int, round_number: int) -> dict:
         }
     return {
         "field": field, "rounds": rounds, "upcoming": upcoming,
+        "run_seed": run_seed,
         "survivors": survivors,
         "champion": survivors[0] if round_number == 4 else None,
     }
 
 
-def playoffs_through_round(team_id: str, season: int, round_number: int) -> dict:
+def playoffs_through_round(team_id: str, season: int, round_number: int, run_seed: int = 0) -> dict:
     if team_id not in TEAM_BY_ID:
         raise KeyError(f"Unknown team: {team_id}")
-    snapshot = postseason_snapshot(season, round_number)
+    snapshot = postseason_snapshot(season, round_number, run_seed)
     qualified = any(row["team"]["id"] == team_id for row in snapshot["field"])
     alive = any(row["team"]["id"] == team_id for row in snapshot["survivors"])
     boxes = []

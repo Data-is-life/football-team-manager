@@ -1,5 +1,6 @@
 from dataclasses import asdict
 from pathlib import Path
+from typing import Annotated
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import FileResponse
@@ -68,12 +69,13 @@ def simulate_week(
     team_id: str,
     week: int,
     season: int = Query(default=1, ge=1, le=999),
+    run_seed: Annotated[int, Query(ge=0, le=4294967295)] = 0,
 ) -> dict[str, object]:
     if team_id not in TEAM_BY_ID:
         raise HTTPException(status_code=404, detail="Team not found")
     if week < 1 or week > 17:
         raise HTTPException(status_code=400, detail="Week must be between 1 and 17")
-    return simulate_through_week(team_id=team_id, season=season, week=week)
+    return simulate_through_week(team_id=team_id, season=season, week=week, run_seed=run_seed)
 
 
 @app.get("/api/playoffs/{team_id}/round/{round_number}")
@@ -81,9 +83,10 @@ def playoff_round(
     team_id: str,
     round_number: int,
     season: int = Query(default=1, ge=1, le=999),
+    run_seed: Annotated[int, Query(ge=0, le=4294967295)] = 0,
 ) -> dict[str, object]:
     if team_id not in TEAM_BY_ID:
         raise HTTPException(status_code=404, detail="Team not found")
     if round_number < 0 or round_number > 4:
         raise HTTPException(status_code=400, detail="Playoff round must be between 0 and 4")
-    return playoffs_through_round(team_id, season, round_number)
+    return playoffs_through_round(team_id, season, round_number, run_seed)

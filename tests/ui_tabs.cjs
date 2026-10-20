@@ -9,8 +9,12 @@ async function until(check) {
   for (let i=0;i<300;i++) { if(check()) return; await new Promise(r=>setTimeout(r,10)); }
   throw new Error('Expected UI state did not arrive');
 }
+const fixtureSeed=1234;
 async function checkUI() {
- const finished=await (await fetch(base+'/api/playoffs/seattle/round/4')).json();
+ for(const endpoint of ['/api/season/seattle/week/1','/api/playoffs/seattle/round/0']) {
+  for(const bad of ['-1','4294967296','abc']) assert.equal((await fetch(base+endpoint+'?run_seed='+bad)).status,422);
+ }
+ const finished=await (await fetch(base+'/api/playoffs/seattle/round/4?run_seed='+fixtureSeed)).json();
  const teams=(await (await fetch(base+'/api/teams')).json()).teams;
  const field=finished.field;
  const firstLoser=finished.rounds[0].games[0];
@@ -19,8 +23,14 @@ async function checkUI() {
  for(const [index,id] of cases.entries()) {
   const dom=new JSDOM(await (await fetch(base)).text(),{url:base,runScripts:'outside-only'});
   const w=dom.window, d=w.document;
-  let fail=false;
-  w.fetch=path=> fail && path.startsWith('/api/playoffs/') ? Promise.resolve({ok:false}) : fetch(new URL(path,base));
+  let fail=false,randomCalls=0;
+  const usedSeeds=[];
+  Object.defineProperty(w.crypto,'getRandomValues',{value:array=>{array[0]=fixtureSeed+randomCalls++;return array}});
+  w.fetch=path=>{
+   const url=new URL(path,base);
+   if(/^\/api\/(season|playoffs)\//.test(url.pathname)) usedSeeds.push(Number(url.searchParams.get('run_seed')));
+   return fail && path.startsWith('/api/playoffs/') ? Promise.resolve({ok:false}) : fetch(url);
+  };
   w.HTMLElement.prototype.scrollIntoView=()=>{};
   w.eval(fs.readFileSync(path.join(root,'app/static/app.js'),'utf8'));
   await until(()=>d.querySelector('#team-select').options.length===31);
@@ -180,7 +190,7 @@ async function checkUI() {
    assert.equal(d.querySelectorAll('#playoff-race tr').length,14);
    assert.match(d.querySelector('#league-results-title').textContent,new RegExp(`Week ${week}$`));
    if (week===17) panels.forEach(p=>{ d.getElementById(p[0]).click(); checkPanel(p,true); d.getElementById(p[0]).click(); checkPanel(p,false); });
-   const weekData=await (await fetch(base+`/api/season/${id}/week/${week}?season=1`)).json();
+   const weekData=await (await fetch(base+`/api/season/${id}/week/${week}?season=1&run_seed=${fixtureSeed}`)).json();
    const history=weekData.game_results;
    go('roster');checkRoster(weekData.roster_stats,'regular');checkRoster(api.roster_stats,'playoffs');go(selected);
    const cards=d.querySelectorAll('#schedule .game-card');
@@ -202,7 +212,7 @@ async function checkUI() {
    assert.equal(tables[1].children.length,2);
    assert.equal(tables[2].children.length,8);
   }
-  const regularFinal=(await (await fetch(base+`/api/season/${id}/week/17?season=1`)).json()).roster_stats;
+  const regularFinal=(await (await fetch(base+`/api/season/${id}/week/17?season=1&run_seed=${fixtureSeed}`)).json()).roster_stats;
   const record=d.querySelector('#season-record').textContent;
   assert.match(d.querySelector('#playoffs-empty p').textContent,/field is set/);
   go('roster');
@@ -232,7 +242,7 @@ async function checkUI() {
    const labels=['','Simulate Quarterfinals','Simulate Semifinals','Simulate Championship','Postseason complete'];
    await until(()=>advance.textContent===labels[round]);
    checkView('playoffs');
-   const state=await (await fetch(base+`/api/playoffs/${id}/round/${round}`)).json();
+   const state=await (await fetch(base+`/api/playoffs/${id}/round/${round}?run_seed=${fixtureSeed}`)).json();
    go('roster');checkRoster(state.roster_stats,'playoffs');checkRoster(regularFinal,'regular');checkRoster(state.roster_stats,'playoffs');go('playoffs');
    const latest=state.rounds.at(-1);
    const own=latest.games.find(g=>g.home.team.id===id||g.away.team.id===id);
@@ -261,7 +271,15 @@ async function checkUI() {
   assert.equal(advance.textContent,'Postseason complete');
   panels.forEach(p=>checkPanel(p,false));
   d.querySelector('#change-team-button').click();
+  assert.equal(randomCalls,1,'Tab changes, weeks, rounds, retries and cancel must retain the run seed');
+  assert.ok(usedSeeds.length>0 && usedSeeds.every(seed=>seed===fixtureSeed));
   d.querySelector('#team-select').value='seattle';
+  const realFetch=w.fetch;
+  w.fetch=()=>Promise.resolve({ok:false});
+  d.querySelector('#team-form').dispatchEvent(new w.Event('submit',{cancelable:true}));
+  await until(()=>!d.querySelector('#error').hidden && !d.querySelector('#team-form button[type=submit]').disabled);
+  assert.equal(randomCalls,1,'A failed team load must preserve the existing seed');
+  w.fetch=realFetch;
   d.querySelector('#team-form').dispatchEvent(new w.Event('submit',{cancelable:true}));
   await until(()=>!d.querySelector('#schedule-section').hidden);
   assert.equal(d.querySelector('#postseason-section').hidden,true);
@@ -283,6 +301,28 @@ async function checkUI() {
   assert.equal(start.hidden,true);
   assert.equal(d.querySelectorAll('.roster-player').length,38);
   assert.equal(d.querySelectorAll('.roster-group').length,10);
+  assert.equal(randomCalls,2,'Starting another season gets a fresh seed');
+  d.querySelector('#simulate-button').click();
+  await until(()=>d.querySelector('#simulate-button').textContent==='Simulate Week 2');
+  assert.equal(usedSeeds.at(-1),fixtureSeed+1);
+  const freshGame=await (await fetch(base+`/api/season/seattle/week/1?run_seed=${fixtureSeed+1}`)).json();
+  assert.equal(d.querySelector('#season-record').textContent,`${freshGame.record.wins}–${freshGame.record.losses}${freshGame.record.ties?`–${freshGame.record.ties}`:''}`);
+  assert.equal(d.querySelector('#schedule .game-final').textContent,`${freshGame.game_results[0].outcome} · ${freshGame.game_results[0].team_score}–${freshGame.game_results[0].opponent_score}${freshGame.game_results[0].overtime?' · OT':''}`);
+  if(index===0) {
+   const oldData=await (await fetch(base+`/api/season/seattle/week/2?run_seed=${fixtureSeed+1}`)).json();
+   const live=w.fetch;let release;
+   w.fetch=path=>path.startsWith('/api/season/') ? Promise.resolve({ok:true,json:()=>new Promise(resolve=>{release=()=>resolve(oldData)})}) : live(path);
+   d.querySelector('#simulate-button').click();await until(()=>Boolean(release));
+   d.querySelector('#change-team-button').click();
+   d.querySelector('#team-select').value='seattle';
+   d.querySelector('#team-form').dispatchEvent(new w.Event('submit',{cancelable:true}));
+   await until(()=>!d.querySelector('#schedule-section').hidden && d.querySelector('#simulate-button').textContent==='Simulate Week 1');
+   release();await new Promise(resolve=>setImmediate(resolve));
+   assert.equal(d.querySelector('#simulate-button').textContent,'Simulate Week 1','A late response from the old run must not overwrite the new run');
+   assert.equal(d.querySelector('#season-record').textContent,'0–0');
+   assert.equal(d.querySelectorAll('#schedule .completed').length,0);
+   w.fetch=live;
+  }
   const zero={passing:[{player:'QB',completions:0,attempts:0,yards:0,touchdowns:0,interceptions:0,completion_percentage:null,yards_per_attempt:null,passer_rating:null}],rushing:[{player:'RB',attempts:0,yards:0,touchdowns:0,yards_per_carry:null}],receiving:[{player:'WR',receptions:0,yards:0,touchdowns:0,yards_per_reception:null}],kicking:[{player:'K',field_goals_made:0,field_goals_attempted:0,field_goal_percentage:null,longest_field_goal:null,extra_points_made:3,extra_points_attempted:3,kicking_points:3}]};
   const fixture=d.createElement('div'); fixture.innerHTML=w.playerStatsMarkup(zero);
   checkEfficiency(fixture,zero);
