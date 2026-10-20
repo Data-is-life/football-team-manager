@@ -558,6 +558,11 @@ document.querySelector("#away-tab").addEventListener("click", () => selectBoxSco
 document.querySelector("#home-tab").addEventListener("click", () => selectBoxScore("home"));
 
 
+function playoffTeamName(entry) {
+  const selected = entry.team.id === activeTeamId;
+  return `<span class="playoff-team-name ${selected ? "playoff-team-selected" : ""}" data-team-id="${entry.team.id}">#${entry.seed} ${entry.team.city}${selected ? ' <span class="your-team-badge">Your team</span>' : ""}</span>`;
+}
+
 function playoffGameCard(game) {
   const result = game.result;
   const venue = game.neutral_site ? "Neutral-site championship" : "Higher seed hosts";
@@ -565,7 +570,7 @@ function playoffGameCard(game) {
   const row = (side) => {
     const entry = game[side];
     const won = result && game.winner.team.id === entry.team.id;
-    return `<div class="league-team ${won ? "winner" : ""}"><span>#${entry.seed} ${entry.team.city}</span><strong>${result ? result[side].score : ""}</strong></div>`;
+    return `<div class="league-team ${won ? "winner" : ""} ${entry.team.id === activeTeamId ? "playoff-team-selected" : ""}">${playoffTeamName(entry)}<strong>${result ? result[side].score : ""}</strong></div>`;
   };
   return `<article class="league-result-card"><span class="control-label">${label}</span>${row("away")}${row("home")}</article>`;
 }
@@ -615,7 +620,7 @@ function renderPostseason(data) {
   const upcoming = data.upcoming;
   document.querySelector("#postseason-upcoming").innerHTML = upcoming
     ? `<h3>Next: ${upcoming.name}</h3>
-       ${upcoming.byes.length ? `<p class="roster-note">Byes: ${upcoming.byes.map(team => `#${team.seed} ${team.team.city}`).join(", ")}</p>` : ""}
+       ${upcoming.byes.length ? `<p class="roster-note">Byes: ${upcoming.byes.map(playoffTeamName).join(", ")}</p>` : ""}
        <p class="roster-note">${upcoming.number === 4 ? "Neutral site. No home advantage." : "Reseeded by original seed: highest remaining seed plays lowest. Higher seeds host."}</p>
        <div class="league-results-grid">${upcoming.games.map(playoffGameCard).join("")}</div>`
     : "";

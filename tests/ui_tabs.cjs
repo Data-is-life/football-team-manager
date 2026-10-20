@@ -249,6 +249,33 @@ async function checkUI() {
   assert.equal(d.querySelector('#playoffs-empty').hidden,true);
   if(index===0) assert.match(d.querySelector('#postseason-status').textContent,/bye/);
   if(index===3) assert.match(d.querySelector('#postseason-status').textContent,/missed/);
+  function checkPlayoffHighlight(state) {
+   function checkGames(selector,games) {
+    const cards=d.querySelectorAll(`${selector} article`);
+    assert.equal(cards.length,games.length);
+    games.forEach((game,i)=>{
+     const rows=cards[i].querySelectorAll('.league-team');
+     ['away','home'].forEach((side,j)=>{
+      const selected=game[side].team.id===id;
+      assert.equal(rows[j].classList.contains('playoff-team-selected'),selected);
+      assert.equal(rows[j].querySelector('.playoff-team-name').dataset.teamId,game[side].team.id);
+      assert.equal(rows[j].querySelectorAll('.your-team-badge').length,selected?1:0);
+      assert.equal(rows[j].classList.contains('winner'),Boolean(game.result && game.winner.team.id===game[side].team.id));
+     });
+    });
+   }
+   checkGames('#postseason-upcoming',state.upcoming?.games??[]);
+   checkGames('#postseason-history',state.rounds.flatMap(round=>round.games));
+   const latest=state.rounds.at(-1)?.games??[];
+   const own=latest.filter(game=>game.home.team.id===id||game.away.team.id===id);
+   // The last own game remains in the hidden holder after elimination.
+   if(own.length) checkGames('#your-playoff-game',own);
+   checkGames('#playoff-league-games',latest.filter(game=>!own.includes(game)));
+   const byes=d.querySelectorAll('#postseason-upcoming p .playoff-team-name');
+   assert.equal(byes.length,state.upcoming?.byes.length??0);
+   byes.forEach(row=>assert.equal(row.querySelectorAll('.your-team-badge').length,row.dataset.teamId===id?1:0));
+  }
+  checkPlayoffHighlight(await (await fetch(base+`/api/playoffs/${id}/round/0?run_seed=${fixtureSeed}`)).json());
   for(let round=1;round<=4;round++) {
    if(index===0 && round===2) {
     fail=true;advance.click();
@@ -261,6 +288,7 @@ async function checkUI() {
    await until(()=>advance.textContent===labels[round]);
    checkView('playoffs');
    const state=await (await fetch(base+`/api/playoffs/${id}/round/${round}?run_seed=${fixtureSeed}`)).json();
+   checkPlayoffHighlight(state);
    go('roster');checkRoster(state.roster_stats,'playoffs');checkRoster(regularFinal,'regular');checkRoster(state.roster_stats,'playoffs');go('playoffs');
    const latest=state.rounds.at(-1);
    const own=latest.games.find(g=>g.home.team.id===id||g.away.team.id===id);
