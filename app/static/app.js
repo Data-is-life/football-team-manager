@@ -115,20 +115,36 @@ function renderTeamProfile(profile) {
     wrap.className = "table-wrap roster-rating-wrap";
     const table = document.createElement("table");
     table.className = "roster-table";
-    table.innerHTML = '<thead><tr><th scope="col">Depth</th><th scope="col">Player</th><th scope="col">Experience</th><th scope="col">Scouting rating</th></tr></thead>';
+    const head = document.createElement("thead");
+    const headings = document.createElement("tr");
+    for (const label of ["Depth", "Player", "Experience", "Scouting rating"]) {
+      const cell = document.createElement("th");
+      cell.scope = "col";
+      cell.textContent = label;
+      headings.append(cell);
+    }
+    for (const attribute of rule.attributes) {
+      const cell = document.createElement("th");
+      cell.scope = "col";
+      cell.textContent = attribute.label;
+      cell.title = attribute.description;
+      headings.append(cell);
+    }
+    head.append(headings);
     const body = document.createElement("tbody");
     for (const player of players) {
       const row = document.createElement("tr");
       row.className = "roster-player";
       row.dataset.playerId = player.id;
-      for (const value of [player.depth, player.name, `${player.experience} yr`, player.rating]) {
+      for (const value of [player.depth, player.name, `${player.experience} yr`, player.rating,
+        ...rule.attributes.map(attribute => player.attributes[attribute.key])]) {
         const cell = document.createElement("td");
         cell.textContent = value;
         row.append(cell);
       }
       body.append(row);
     }
-    table.append(body);
+    table.append(head, body);
     wrap.append(table);
     const statsWrap = document.createElement("div");
     statsWrap.className = "table-wrap roster-stats-wrap";
@@ -139,6 +155,17 @@ function renderTeamProfile(profile) {
     return group;
   });
   document.querySelector("#roster-groups").replaceChildren(...groups);
+  const guide = document.querySelector("#attribute-guide-list");
+  const definitions = new Map(profile.roster_rules.flatMap(rule => rule.attributes).map(attribute => [attribute.key, attribute]));
+  const entries = [];
+  for (const attribute of definitions.values()) {
+    const term = document.createElement("dt");
+    term.textContent = attribute.label;
+    const definition = document.createElement("dd");
+    definition.textContent = attribute.description;
+    entries.push(term, definition);
+  }
+  guide.replaceChildren(...entries);
   document.querySelector("#roster-title").textContent = `Roster · ${profile.roster.length} players`;
   rosterSection.hidden = false;
   renderRosterStats();

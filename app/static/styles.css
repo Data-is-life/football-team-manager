@@ -186,7 +186,7 @@ tr.selected-team td { color: var(--cyan); background: rgba(72,230,210,0.07); }
 .postseason-section details { margin-top: 20px; }
 .postseason-section summary { cursor: pointer; color: var(--cyan); font-weight: 700; padding-block: 10px; }
 
-.roster-groups { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; align-items: start; }
+.roster-groups { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; align-items: start; }
 .roster-group { min-width: 0; border: 1px solid var(--line); border-radius: 10px; background: var(--panel-2); overflow: hidden; }
 .roster-group summary { padding: 14px; cursor: pointer; color: var(--cyan); font-weight: 800; font-size: 0.85rem; }
 .roster-group summary:focus-visible { outline: 3px solid var(--cyan); outline-offset: -3px; }
@@ -220,6 +220,11 @@ tr.selected-team td { color: var(--cyan); background: rgba(72,230,210,0.07); }
 .stats-view .roster-groups { grid-template-columns: 1fr; }
 .roster-untracked-note { padding-inline: 14px; }
 .roster-season-table caption { text-align: left; color: var(--muted); padding: 0 0 10px; }
+.attribute-guide { margin-bottom: 18px; color: var(--muted); font-size: 0.85rem; }
+.attribute-guide summary { cursor: pointer; color: var(--cyan); font-weight: 700; padding-block: 10px; }
+.attribute-guide dt { color: var(--ink); font-weight: 700; margin-top: 12px; }
+.attribute-guide dd { margin: 4px 0 0; line-height: 1.5; }
+.roster-player td:nth-child(n+4) { color: var(--cyan); font-weight: 700; }
 .schedule-formula { margin-bottom: 18px; gap: 16px; flex-wrap: wrap; }
 .schedule-formula h2, .empty-state h2 { font-size: 1.5rem; }
 .empty-state { padding: clamp(22px, 4vw, 38px); border: 1px solid var(--line); background: var(--panel); border-radius: 16px; }
