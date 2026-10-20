@@ -7,6 +7,7 @@ Python owns the league rules and schedule generation. The browser layer only ren
 - 30 city-only teams in six groups
 - player team selection that gives way to a team home screen
 - team offense/defense ratings and a 38-player roster grouped by position, with depth order, minimum counts, and scouting ratings
+- common and position-specific player attributes, including QB Clutch Factor, displayed in the roster Ratings view
 - Ratings / Season Stats roster views with separate regular-season and playoff totals for every QB, RB, WR, TE, and K
 - a dedicated Roster tab and a team-change flow with a keep-current-team option
 - 17-game Python schedule generator
@@ -78,6 +79,26 @@ Offense has 18 players (QB, WR, TE, RB, OL), defense has 18 (DL, LB, CB, S), and
 The roster validator enforces these per-position minimums. The team profile API returns the rules and current counts alongside all players. Rosters have stable player IDs and names, and ratings are deterministic; defensive player scouting ratings use the team defense rating as their baseline.
 
 This PR provides roster depth and inspection. Releases, signings, and lineup selection are not yet available. QB1 receives all passing stats and K1 receives kicking stats. RB1/RB2 split rushing production, and receiving production is shared across every WR, both TEs, and both RBs. Team offense and defense still determine scoring; QB/RB skill and QB experience now affect pass volume.
+
+### Player attributes
+
+Every player has **Football IQ, Speed, and Durability**, plus the specialties below. All attributes are integer scouting values from **1 to 99**, with higher values representing stronger ability. The Ratings view shows the applicable columns for each position and an attribute guide. Position groups use the full roster width; wide tables scroll horizontally on small screens.
+
+| Position | Additional attributes |
+| --- | --- |
+| QB | Accuracy, Arm Strength, Clutch Factor |
+| WR / TE | Catching, Strength |
+| RB | Strength, Agility |
+| OL | Strength, Blocking |
+| DL / LB | Strength, Tackling |
+| CB / S | Strength, Agility |
+| K | Kick Accuracy, Kick Power |
+
+Football IQ describes reads, positioning, and decision-making. Durability describes resistance to injury. Clutch Factor describes composure in high-pressure situations. These are currently scouting information for the future engine: they do not affect scoring, passing volume, injuries, or kicking outcomes in this PR. Existing scouting ratings and QB experience retain their current roles.
+
+Attributes are generated independently per stable player ID and attribute key, with a deterministic offset of −18 to +18 around the existing scouting rating, clamped to 1–99. Players with the same overall rating can have different attribute profiles. These are initial fictional scouting values; the existing overall rating is not recalculated from them. Names, IDs, experience, current ratings, and gameplay results are preserved.
+
+The team API includes an `attributes` object on each roster player, containing only applicable integer values. Each `roster_rules` entry includes the ordered attribute keys, labels, and descriptions for its position. Cached player attributes are immutable; API responses expose independent dictionaries.
 
 ## Run locally
 

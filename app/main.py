@@ -9,6 +9,7 @@ from .league import GROUPS, TEAM_BY_ID, generate_schedule, rotating_group, sched
 from .playoffs import playoffs_through_round
 from .player_stats import aggregate_player_stats
 from .simulation import ROSTER_RULES, roster_for, simulate_through_week, team_ratings
+from .attributes import ATTRIBUTE_INFO, attribute_keys
 
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -36,11 +37,17 @@ def team_profile(team_id: str) -> dict[str, object]:
     return {
         "team": asdict(TEAM_BY_ID[team_id]),
         "ratings": asdict(team_ratings(team_id)),
-        "roster": [asdict(player) for player in players],
+        "roster": [{**asdict(player), "attributes": {
+            key: getattr(player.attributes, key) for key in attribute_keys(player.position)
+        }} for player in players],
         "roster_stats": aggregate_player_stats(players, []),
         "roster_rules": [
             {"position": position, "initial": initial, "minimum": minimum,
-             "count": sum(player.position == position for player in players)}
+             "count": sum(player.position == position for player in players),
+             "attributes": [
+                 {"key": key, "label": ATTRIBUTE_INFO[key][0], "description": ATTRIBUTE_INFO[key][1]}
+                 for key in attribute_keys(position)
+             ]}
             for position, (initial, minimum) in ROSTER_RULES.items()
         ],
     }

@@ -39,6 +39,23 @@ async function checkUI() {
   const api=await (await fetch(base+`/api/team/${id}`)).json();
   assert.deepEqual([...d.querySelectorAll('.roster-player')].map(row=>row.dataset.playerId),api.roster.map(player=>player.id));
   assert.equal(d.querySelector('.roster-player').children[2].textContent,`${api.roster[0].experience} yr`);
+  const specialties={QB:['Accuracy','Arm Strength','Clutch Factor'],WR:['Catching','Strength'],TE:['Catching','Strength'],RB:['Strength','Agility'],OL:['Strength','Blocking'],DL:['Strength','Tackling'],LB:['Strength','Tackling'],CB:['Strength','Agility'],S:['Strength','Agility'],K:['Kick Accuracy','Kick Power']};
+  function checkAttributes(profile) {
+   for (const rule of profile.roster_rules) {
+    const group=d.querySelector(`.roster-group[data-position="${rule.position}"]`);
+    const headings=[...group.querySelectorAll('.roster-rating-wrap th')].map(cell=>cell.textContent);
+    assert.deepEqual(headings,['Depth','Player','Experience','Scouting rating','Football IQ','Speed','Durability',...specialties[rule.position]]);
+    for(const player of profile.roster.filter(player=>player.position===rule.position)) {
+     const cells=group.querySelector(`.roster-player[data-player-id="${player.id}"]`).children;
+     assert.equal(cells.length,4+rule.attributes.length);
+     rule.attributes.forEach((attribute,i)=>assert.equal(cells[i+4].textContent,String(player.attributes[attribute.key])));
+    }
+   }
+   const guide=d.querySelector('#attribute-guide-list');
+   assert.equal(guide.querySelectorAll('dt').length,13);
+   assert.match(guide.textContent,/Clutch Factor/);
+  }
+  checkAttributes(api);
   const views=['roster','game','schedule','standings','league','race','playoffs'];
   assert.deepEqual([...d.querySelectorAll('.view-tab')].map(tab=>tab.id),views.map(view=>`view-${view}`));
   let requests=0;
@@ -198,6 +215,7 @@ async function checkUI() {
     checkKicking(d.querySelector('#player-stats'),result[side]);
     assert.equal(d.querySelector(`#${side}-tab`).getAttribute('aria-pressed'),'true');
    }
+   checkAttributes(api);
    const tables=d.querySelectorAll('#player-stats tbody');
    assert.equal(tables[1].children.length,2);
    assert.equal(tables[2].children.length,8);
@@ -268,6 +286,7 @@ async function checkUI() {
   assert.equal(d.querySelectorAll('#schedule .completed').length,0);
   assert.equal(d.querySelector('#roster-ratings-button').getAttribute('aria-pressed'),'true');
   assert.equal(d.querySelector('#roster-competition').value,'regular');
+  checkAttributes(await (await fetch(base+'/api/team/seattle')).json());
   go('roster');
   // The new roster has Seattle IDs, so inspect zero totals directly after switching teams.
   d.querySelector('#roster-stats-button').click();

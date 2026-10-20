@@ -11,6 +11,7 @@ from .stats import add_efficiency_stats
 from .kicking import add_kicking_stats
 from .player_stats import aggregate_player_stats
 from .names import FIRST_NAMES, LAST_NAMES
+from .attributes import PlayerAttributes, generate_attributes
 
 
 # Position: (initial players, minimum required).
@@ -34,6 +35,7 @@ class Player:
     rating: int
     depth: int
     experience: int
+    attributes: PlayerAttributes
 
 
 @dataclass(frozen=True)
@@ -90,11 +92,14 @@ def _roster_players(team_id: str) -> tuple[Player, ...]:
             offset += 1
         used_names.add(name)
         base_rating = ratings.defense if position in ("DL", "LB", "CB", "S") else ratings.offense
+        player_id = f"{team_id}-{slot.lower()}"
+        rating = max(50, min(99, base_rating - 8
+                            + _stable_number(f"{team_id}:{slot}:scouting") % 17))
         players.append(Player(
-            id=f"{team_id}-{slot.lower()}", name=name, position=position, depth=depth,
+            id=player_id, name=name, position=position, depth=depth,
             experience=_stable_number(f"{team_id}:{slot}:experience") % 13,
-            rating=max(50, min(99, base_rating - 8
-                               + _stable_number(f"{team_id}:{slot}:scouting") % 17)),
+            rating=rating,
+            attributes=generate_attributes(player_id, position, rating),
         ))
     validate_roster(players)
     return tuple(players)
