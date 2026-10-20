@@ -39,7 +39,7 @@ async function checkUI() {
   const api=await (await fetch(base+`/api/team/${id}`)).json();
   assert.deepEqual([...d.querySelectorAll('.roster-player')].map(row=>row.dataset.playerId),api.roster.map(player=>player.id));
   assert.equal(d.querySelector('.roster-player').children[2].textContent,`${api.roster[0].experience} yr`);
-  const specialties={QB:['Accuracy','Arm Strength','Clutch Factor'],WR:['Catching','Strength'],TE:['Catching','Strength'],RB:['Strength','Agility'],OL:['Strength','Blocking'],DL:['Strength','Tackling'],LB:['Strength','Tackling'],CB:['Strength','Agility'],S:['Strength','Agility'],K:['Kick Accuracy','Kick Power']};
+  const specialties={QB:['Accuracy','Arm Strength','Clutch Factor'],WR:['Catching','Route Running','Strength'],TE:['Catching','Route Running','Strength'],RB:['Strength','Agility','Ball Security'],OL:['Strength','Pass Blocking','Run Blocking'],DL:['Strength','Pass Rush','Tackling'],LB:['Strength','Tackling','Coverage'],CB:['Agility','Coverage','Tackling'],S:['Agility','Coverage','Tackling'],K:['Kick Accuracy','Kick Power']};
   function checkAttributes(profile) {
    for (const rule of profile.roster_rules) {
     const group=d.querySelector(`.roster-group[data-position="${rule.position}"]`);
@@ -52,7 +52,7 @@ async function checkUI() {
     }
    }
    const guide=d.querySelector('#attribute-guide-list');
-   assert.equal(guide.querySelectorAll('dt').length,13);
+   assert.equal(guide.querySelectorAll('dt').length,18);
    assert.match(guide.textContent,/Clutch Factor/);
   }
   checkAttributes(api);

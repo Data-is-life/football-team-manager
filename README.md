@@ -87,11 +87,12 @@ Every player has **Football IQ, Speed, and Durability**, plus the specialties be
 | Position | Additional attributes |
 | --- | --- |
 | QB | Accuracy, Arm Strength, Clutch Factor |
-| WR / TE | Catching, Strength |
-| RB | Strength, Agility |
-| OL | Strength, Blocking |
-| DL / LB | Strength, Tackling |
-| CB / S | Strength, Agility |
+| WR / TE | Catching, Route Running, Strength |
+| RB | Strength, Agility, Ball Security |
+| OL | Strength, Pass Blocking, Run Blocking |
+| DL | Strength, Pass Rush, Tackling |
+| LB | Strength, Tackling, Coverage |
+| CB / S | Agility, Coverage, Tackling |
 | K | Kick Accuracy, Kick Power |
 
 Football IQ describes reads, positioning, and decision-making. Durability describes resistance to injury. Clutch Factor describes composure in high-pressure situations. These are currently scouting information for the future engine: they do not affect scoring, passing volume, injuries, or kicking outcomes in this PR. Existing scouting ratings and QB experience retain their current roles.
