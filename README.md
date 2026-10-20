@@ -134,7 +134,7 @@ Opening a PR alone does not update the main game URL. This setup does not create
 
 - The free service sleeps after 15 minutes without traffic; the next visit can take about a minute to wake it.
 - No database or account is required. The current team and week live in browser memory, so refreshing the page resets your progress.
-- Weekly scores are deterministic for the team and season. Replaying the same season produces the same results.
+- Each successful season start gets a fresh random run seed, so weekly results and playoff outcomes can vary between runs. Within one run, every screen and retry uses the same results.
 - After Week 17, choose **View playoffs**, then simulate one round at a time.
 
 See Render's [FastAPI guide](https://render.com/docs/deploy-fastapi), [free-tier limits](https://render.com/docs/free), and [automatic deploy settings](https://render.com/docs/deploys).
@@ -153,6 +153,14 @@ npm run test:ui
 ```
 
 The UI suite starts a local FastAPI server on port 8767 and checks tab/keyboard navigation, empty states, full seasons and playoffs, box-score values, collapse state, failed-request retry, and team reset/cancel using jsdom. Node dependencies are only for development checks; Render still runs the Python app directly. These DOM checks do not verify visual layout.
+
+## Randomized runs
+
+Starting a season generates a random 32-bit run seed in the browser using `crypto.getRandomValues`. A new start gets a seed different from the current run, including when selecting the same team again. Failed team loads and canceled changes preserve the current seed. Tabs, weeks, request retries, standings, final tiebreak draws, and playoff rounds share one seed; results agree from either team's perspective. Late weekly responses from a previous run are ignored.
+
+The weekly and playoff APIs accept `run_seed` from 0 through 4294967295 and echo it in the response. Standings/postseason caches include this value. Omitting it uses seed 0, preserving the previous deterministic API results for scripts and tests. Different seeds allow different champions but do not guarantee a different winner on every run.
+
+Team ratings, rosters, player identities, and the schedule formula remain fixed. This change randomizes game outcomes and production, not team strengths. A future save system can retain the seed to reproduce a run; browser refresh still discards progress.
 
 ## Aggregate game usage
 
@@ -191,7 +199,7 @@ After Week 17, the final standings determine the six group winners and eight wil
 - Playoff overtime always selects a winner. Scoring uses the same simplified overtime mechanic as the regular season.
 - Eliminated teams and teams that miss qualification can still follow every round to the champion.
 
-Regular-season records stay separate from playoff results. Like the regular season, the postseason is deterministic and refreshing resets browser progress.
+Regular-season records stay separate from playoff results. Like the regular season, postseason results are reproducible within the same run seed, and refreshing resets browser progress.
 
 ## Next build slice
 

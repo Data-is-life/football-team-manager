@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from functools import lru_cache
 
 from .league import GROUPS, TEAM_BY_ID, TEAMS
-from .simulation import _stable_number, simulate_league_week
+from .simulation import _run_number, simulate_league_week
 
 
 @dataclass
@@ -72,6 +72,7 @@ def _rank_teams(
     team_ids: list[str],
     standings: dict[str, TeamStanding],
     season: int,
+    run_seed: int = 0,
 ) -> list[str]:
     by_record: dict[int, list[str]] = {}
     for team_id in team_ids:
@@ -94,7 +95,7 @@ def _rank_teams(
                 _record_score(standings[team_id], common_opponents),
                 standings[team_id].point_differential,
                 standings[team_id].points_for,
-                _stable_number(f"tiebreak:{season}:{random_context}:{team_id}"),
+                _run_number(f"tiebreak:{season}:{random_context}:{team_id}", run_seed),
             ),
             reverse=True,
         )
@@ -120,13 +121,13 @@ def _standing_payload(standing: TeamStanding, rank: int) -> dict[str, object]:
 
 
 @lru_cache(maxsize=128)
-def standings_through_week(season: int, week: int) -> dict[str, object]:
+def standings_through_week(season: int, week: int, run_seed: int = 0) -> dict[str, object]:
     if week < 1 or week > 17:
         raise ValueError("Week must be between 1 and 17")
     standings = {team.id: TeamStanding(team_id=team.id) for team in TEAMS}
 
     for completed_week in range(1, week + 1):
-        for result in simulate_league_week(season, completed_week):
+        for result in simulate_league_week(season, completed_week, run_seed):
             home = result["home"]
             away = result["away"]
             _apply_result(
@@ -146,16 +147,16 @@ def standings_through_week(season: int, week: int) -> dict[str, object]:
     group_winners: list[str] = []
     for group, cities in GROUPS.items():
         team_ids = [team.id for team in TEAMS if team.group == group]
-        ranked = _rank_teams(team_ids, standings, season)
+        ranked = _rank_teams(team_ids, standings, season, run_seed)
         group_winners.append(ranked[0])
         group_tables.append({
             "group": group,
             "teams": [_standing_payload(standings[team_id], rank) for rank, team_id in enumerate(ranked, 1)],
         })
 
-    seeded_group_winners = _rank_teams(group_winners, standings, season)
+    seeded_group_winners = _rank_teams(group_winners, standings, season, run_seed)
     wildcard_pool = [team.id for team in TEAMS if team.id not in set(group_winners)]
-    wildcards = _rank_teams(wildcard_pool, standings, season)[:8]
+    wildcards = _rank_teams(wildcard_pool, standings, season, run_seed)[:8]
     playoff_ids = [*seeded_group_winners, *wildcards]
     playoff_race = []
     for seed, team_id in enumerate(playoff_ids, start=1):
@@ -179,4 +180,3 @@ def standings_through_week(season: int, week: int) -> dict[str, object]:
             "Deterministic random draw",
         ],
     }
-

@@ -12,6 +12,7 @@ const franchiseSetup = document.querySelector("#franchise-setup");
 const rosterSection = document.querySelector("#roster-section");
 const cancelTeamChange = document.querySelector("#cancel-team-change");
 let activeTeamId = null;
+let activeRunSeed = 0;
 let currentWeek = 0;
 let latestResult = null;
 let completedPlayoffRound = 0;
@@ -256,8 +257,14 @@ document.querySelector("#roster-stats-button").addEventListener("click", () => {
 });
 rosterCompetition.addEventListener("change", renderRosterStats);
 
-function renderSchedule(data) {
+function createRunSeed() {
+  const candidate = crypto.getRandomValues(new Uint32Array(1))[0] || 1;
+  return candidate === activeRunSeed ? (candidate % 4294967295) + 1 : candidate;
+}
+
+function renderSchedule(data, runSeed) {
   activeTeamId = data.team.id;
+  activeRunSeed = runSeed;
   currentWeek = 0;
   latestResult = null;
   completedPlayoffRound = 0;
@@ -515,7 +522,7 @@ form.addEventListener("submit", async (event) => {
       scheduleResponse.json(), profileResponse.json(),
     ]);
     renderTeamProfile(profile);
-    renderSchedule(schedule);
+    renderSchedule(schedule, createRunSeed());
   } catch (error) {
     showError(error.message);
   } finally {
@@ -531,12 +538,16 @@ simulateButton.addEventListener("click", async () => {
   simulateButton.disabled = true;
   simulateButton.textContent = "Simulating…";
   errorBox.hidden = true;
+  const teamId = activeTeamId;
+  const runSeed = activeRunSeed;
   try {
     const nextWeek = currentWeek + 1;
-    const response = await fetch(`/api/season/${activeTeamId}/week/${nextWeek}?season=1`);
+    const response = await fetch(`/api/season/${teamId}/week/${nextWeek}?season=1&run_seed=${runSeed}`);
     if (!response.ok) throw new Error("The week could not be simulated.");
-    renderResult(await response.json());
+    const data = await response.json();
+    if (teamId === activeTeamId && runSeed === activeRunSeed) renderResult(data);
   } catch (error) {
+    if (teamId !== activeTeamId || runSeed !== activeRunSeed) return;
     simulateButton.disabled = false;
     simulateButton.textContent = `Simulate Week ${currentWeek + 1}`;
     showError(error.message);
@@ -619,7 +630,7 @@ async function loadPlayoffRound(number) {
   playoffSimulate.disabled = true;
   document.querySelector("#change-team-button").disabled = true;
   try {
-    const response = await fetch(`/api/playoffs/${activeTeamId}/round/${number}?season=1`);
+    const response = await fetch(`/api/playoffs/${activeTeamId}/round/${number}?season=1&run_seed=${activeRunSeed}`);
     if (!response.ok) throw new Error("The playoff round could not be loaded. Please try again.");
     renderPostseason(await response.json());
     activateView("playoffs", { focus: true });
