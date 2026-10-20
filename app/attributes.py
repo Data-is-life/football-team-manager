@@ -7,10 +7,11 @@ import hashlib
 COMMON_ATTRIBUTES = ("iq", "speed", "durability")
 POSITION_ATTRIBUTES = {
     "QB": ("accuracy", "arm_strength", "clutch"),
-    "WR": ("catching", "strength"), "TE": ("catching", "strength"),
-    "RB": ("strength", "agility"), "OL": ("strength", "blocking"),
-    "DL": ("strength", "tackling"), "LB": ("strength", "tackling"),
-    "CB": ("strength", "agility"), "S": ("strength", "agility"),
+    "WR": ("catching", "route_running", "strength"), "TE": ("catching", "route_running", "strength"),
+    "RB": ("strength", "agility", "ball_security"),
+    "OL": ("strength", "pass_blocking", "run_blocking"),
+    "DL": ("strength", "pass_rush", "tackling"), "LB": ("strength", "tackling", "coverage"),
+    "CB": ("agility", "coverage", "tackling"), "S": ("agility", "coverage", "tackling"),
     "K": ("kick_accuracy", "kick_power"),
 }
 ATTRIBUTE_INFO = {
@@ -21,10 +22,15 @@ ATTRIBUTE_INFO = {
     "arm_strength": ("Arm Strength", "Throwing power and range."),
     "clutch": ("Clutch Factor", "Composure in high-pressure situations."),
     "catching": ("Catching", "Securing the ball on a reception."),
+    "route_running": ("Route Running", "Running precise routes and creating separation."),
     "strength": ("Strength", "Physical power in contact."),
     "agility": ("Agility", "Changing direction and making cuts."),
-    "blocking": ("Blocking", "Protecting the passer and opening running lanes."),
+    "ball_security": ("Ball Security", "Protecting the ball through contact and avoiding fumbles."),
+    "pass_blocking": ("Pass Blocking", "Protecting the passer from pressure."),
+    "run_blocking": ("Run Blocking", "Opening running lanes for the ball carrier."),
+    "pass_rush": ("Pass Rush", "Beating pass protection to pressure the quarterback."),
     "tackling": ("Tackling", "Bringing the ball carrier down."),
+    "coverage": ("Coverage", "Staying with receivers and defending passes."),
     "kick_accuracy": ("Kick Accuracy", "Placing kicks on target."),
     "kick_power": ("Kick Power", "Kicking range and distance."),
 }
@@ -39,10 +45,15 @@ class PlayerAttributes:
     arm_strength: int | None = None
     clutch: int | None = None
     catching: int | None = None
+    route_running: int | None = None
     strength: int | None = None
     agility: int | None = None
-    blocking: int | None = None
+    ball_security: int | None = None
+    pass_blocking: int | None = None
+    run_blocking: int | None = None
+    pass_rush: int | None = None
     tackling: int | None = None
+    coverage: int | None = None
     kick_accuracy: int | None = None
     kick_power: int | None = None
 

@@ -10,10 +10,11 @@ from app.simulation import _roster_players, roster_for, simulate_game
 
 SPECIALTIES = {
     "QB": {"accuracy", "arm_strength", "clutch"},
-    "WR": {"catching", "strength"}, "TE": {"catching", "strength"},
-    "RB": {"strength", "agility"}, "OL": {"strength", "blocking"},
-    "DL": {"strength", "tackling"}, "LB": {"strength", "tackling"},
-    "CB": {"strength", "agility"}, "S": {"strength", "agility"},
+    "WR": {"catching", "route_running", "strength"}, "TE": {"catching", "route_running", "strength"},
+    "RB": {"strength", "agility", "ball_security"},
+    "OL": {"strength", "pass_blocking", "run_blocking"},
+    "DL": {"strength", "pass_rush", "tackling"}, "LB": {"strength", "tackling", "coverage"},
+    "CB": {"agility", "coverage", "tackling"}, "S": {"agility", "coverage", "tackling"},
     "K": {"kick_accuracy", "kick_power"},
 }
 
