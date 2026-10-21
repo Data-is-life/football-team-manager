@@ -108,6 +108,7 @@ th { color: var(--muted); font-weight: 700; }
 .mini-table-wrap, .playoff-table-wrap { overflow-x: auto; }
 .mini-table, .playoff-table { min-width: 100%; }
 .mini-table th, .mini-table td { padding: 8px 10px; }
+.mini-table th:nth-child(2), .mini-table td:nth-child(2) { text-align: left; }
 .mini-table th:first-child, .mini-table td:first-child { width: 34px; }
 .team-cell { display: flex; align-items: center; gap: 7px; }
 .leader-mark { display: inline-grid; place-items: center; width: 19px; height: 19px; color: #0b0d14; background: var(--lime); border-radius: 5px; font-size: 0.66rem; }
