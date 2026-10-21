@@ -35,6 +35,7 @@ class Player:
     rating: int
     depth: int
     experience: int
+    age: int
     attributes: PlayerAttributes
 
 
@@ -99,9 +100,11 @@ def _roster_players(team_id: str) -> tuple[Player, ...]:
         player_id = f"{team_id}-{slot.lower()}"
         rating = max(50, min(99, base_rating - 8
                             + _stable_number(f"{team_id}:{slot}:scouting") % 17))
+        experience = _stable_number(f"{team_id}:{slot}:experience") % 13
         players.append(Player(
             id=player_id, name=name, position=position, depth=depth,
-            experience=_stable_number(f"{team_id}:{slot}:experience") % 13,
+            experience=experience,
+            age=21 + _stable_number(f"{player_id}:entry-age") % 4 + experience,
             rating=rating,
             attributes=generate_attributes(player_id, position, rating),
         ))
