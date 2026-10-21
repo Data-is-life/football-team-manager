@@ -103,16 +103,13 @@ async function checkUI() {
   go('schedule');go('roster');assert.equal(rosterGroup.open,false);
   go('league');
   d.querySelector('#change-team-button').click();d.querySelector('#cancel-team-change').click();checkView('league');
-  const panels=[['league-results-toggle','league-results','league results'],['standings-toggle','group-standings','group standings'],['playoff-race-toggle','playoff-race-content','playoff race']];
-  function checkPanel(panel,expanded) {
-   const [bid,cid,label]=panel, button=d.getElementById(bid), content=d.getElementById(cid);
-   assert.equal(button.getAttribute('aria-controls'),cid);
-   assert.equal(button.getAttribute('aria-expanded'),String(expanded));
-   assert.equal(button.textContent,`${expanded?'Hide':'Show'} ${label}`);
-   assert.equal(content.hidden,!expanded);
-   assert.equal(button.hidden,false);
+  function checkLeagueContent() {
+   for(const [buttonId,contentId] of [['league-results-toggle','league-results'],['standings-toggle','group-standings'],['playoff-race-toggle','playoff-race-content']]) {
+    assert.equal(d.getElementById(buttonId),null);
+    assert.equal(d.getElementById(contentId).hidden,false);
+   }
   }
-  panels.forEach(p=>checkPanel(p,true));
+  checkLeagueContent();
   function checkEfficiency(root,box) {
    const sections=root.querySelectorAll('.stat-section');
    const fields=[['completion_percentage','yards_per_attempt','passer_rating'],['yards_per_carry'],['yards_per_reception']];
@@ -195,18 +192,11 @@ async function checkUI() {
    checkView(selected);
    assert.match(d.querySelector('#season-status').textContent,new RegExp(`Week ${week} final:`));
    for(const name of ['game','league','standings','race']) assert.equal(d.querySelector(`#${name}-empty`).hidden,true);
-   for (const [i,p] of panels.entries()) {
-    checkPanel(p,week===1);
-    if (week===1) {
-     d.getElementById(p[0]).click(); checkPanel(p,false);
-     panels.forEach((other,j)=>checkPanel(other,j>i));
-    }
-   }
+   checkLeagueContent();
    assert.equal(d.querySelectorAll('#league-results article').length,14);
    assert.equal(d.querySelectorAll('#group-standings article').length,6);
    assert.equal(d.querySelectorAll('#playoff-race tr').length,14);
    assert.match(d.querySelector('#league-results-title').textContent,new RegExp(`Week ${week}$`));
-   if (week===17) panels.forEach(p=>{ d.getElementById(p[0]).click(); checkPanel(p,true); d.getElementById(p[0]).click(); checkPanel(p,false); });
    const weekData=await (await fetch(base+`/api/season/${id}/week/${week}?season=1&run_seed=${fixtureSeed}`)).json();
    const history=weekData.game_results;
    go('roster');checkRoster(weekData.roster_stats,'regular');checkRoster(api.roster_stats,'playoffs');go(selected);
@@ -333,7 +323,7 @@ async function checkUI() {
   assert.equal(d.querySelector('#roster-stats-button').getAttribute('aria-pressed'),'true');
   assert.equal(d.querySelector('#roster-competition').value,'playoffs');
   assert.equal(advance.textContent,'Postseason complete');
-  panels.forEach(p=>checkPanel(p,false));
+  checkLeagueContent();
   d.querySelector('#change-team-button').click();
   assert.equal(randomCalls,1,'Tab changes, weeks, rounds, retries and cancel must retain the run seed');
   assert.ok(usedSeeds.length>0 && usedSeeds.every(seed=>seed===fixtureSeed));
@@ -361,7 +351,7 @@ async function checkUI() {
   assert.equal(advance.hidden,true);
   for(const view of ['game','league','standings','race','playoffs']) assert.equal(d.querySelector(`#${view}-empty`).hidden,false);
   assert.equal(d.querySelector('#season-status').textContent,'Ready for Week 1.');
-  panels.forEach(p=>checkPanel(p,true));
+  checkLeagueContent();
   assert.equal(d.querySelectorAll('#schedule .game-final').length,17);
   assert.equal(start.hidden,true);
   assert.equal(d.querySelectorAll('.roster-player').length,38);
@@ -398,7 +388,7 @@ async function checkUI() {
   assert.doesNotMatch(fixture.textContent,/NaN|Infinity|null|undefined/);
   dom.window.close();
  }
- console.log('UI checks passed: seven tabs, keyboard navigation, empty states, unchanged views across weeks, collapse state, efficiency/kicking/roster season stats, full seasons/playoffs, retry, and team reset/cancel.');
+ console.log('UI checks passed: seven tabs, keyboard navigation, empty states, unchanged views across weeks, roster collapse state, always-expanded league content, efficiency/kicking/roster season stats, full seasons/playoffs, retry, and team reset/cancel.');
  }
 (async()=>{
  const server=spawn(process.env.PYTHON || 'python',['-m','uvicorn','app.main:app','--host','127.0.0.1','--port','8767'],{cwd:root,stdio:['ignore','pipe','pipe']});
