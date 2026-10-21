@@ -53,6 +53,8 @@ Tabs support Left/Right arrows (including wraparound), Home, and End. The tab ba
 
 Each team starts with 38 fictional players. Expand or collapse each position group to inspect its players, depth order, and scouting ratings.
 
+Both Ratings and Season Stats show each player's age in years. Initial ages are 21–36: a deterministic entry age of 21–24 plus the player's existing 0–12 years of experience. Ages stay fixed during the season and across fresh simulation runs. They are informational for now; aging, retirement, and age-based ability changes will come with future multiple-season work. Adding ages does not change existing players' names, ratings, attributes, experience, or game production.
+
 Player names are loaded from `app/data/first_names.txt` and `app/data/last_names.txt`, with one name per line. The downloaded Census lists contain 1,219 first names and 5,000 surnames (6,095,000 combinations). See [name data sources and editing instructions](app/data/README.md). The files are bundled locally; no runtime internet access is needed. Names are deterministic and unique within each team's roster; editing the lists can change display names, while stable player IDs, ratings, experience, and production remain unchanged.
 
 Choose **Season Stats** inside Roster to inspect cumulative production, then select **Regular season** or **Playoffs**. QB rows show passing totals and efficiency; RB rows combine rushing and receiving; WR/TE rows show receiving; K rows show FG, extra-point, longest made FG, and kicking-point totals. Backups with no production show zero counts and unavailable rates (`—`). OL and defensive groups continue to show ratings and experience with a note that their production is not tracked.

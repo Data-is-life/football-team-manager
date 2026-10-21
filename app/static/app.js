@@ -96,7 +96,7 @@ function renderTeamProfile(profile) {
     table.className = "roster-table";
     const head = document.createElement("thead");
     const headings = document.createElement("tr");
-    for (const label of ["Depth", "Player", "Experience", "Scouting rating"]) {
+    for (const label of ["Depth", "Player", "Age", "Experience", "Scouting rating"]) {
       const cell = document.createElement("th");
       cell.scope = "col";
       cell.textContent = label;
@@ -115,7 +115,7 @@ function renderTeamProfile(profile) {
       const row = document.createElement("tr");
       row.className = "roster-player";
       row.dataset.playerId = player.id;
-      for (const value of [player.depth, player.name, `${player.experience} yr`, player.rating,
+      for (const value of [player.depth, player.name, player.age, `${player.experience} yr`, player.rating,
         ...rule.attributes.map(attribute => player.attributes[attribute.key])]) {
         const cell = document.createElement("td");
         cell.textContent = value;
@@ -196,7 +196,7 @@ function renderRosterStats() {
     caption.textContent = `${position} · ${competition}`;
     const head = document.createElement("thead");
     const headings = document.createElement("tr");
-    for (const label of ["Depth", "Player", ...columns[position].map(item => item.label)]) {
+    for (const label of ["Depth", "Player", "Age", ...columns[position].map(item => item.label)]) {
       const cell = document.createElement("th");
       cell.scope = "col";
       cell.textContent = label;
@@ -209,7 +209,7 @@ function renderRosterStats() {
       row.className = "roster-season-player";
       row.dataset.playerId = player.id;
       const entry = totals.get(player.id);
-      const values = [player.depth, player.name, ...columns[position].map(item => {
+      const values = [player.depth, player.name, player.age, ...columns[position].map(item => {
         const value = entry[item.category][item.key];
         return item.format ? item.format(value) : value;
       })];

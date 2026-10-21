@@ -29,6 +29,22 @@ class TeamProfileTests(unittest.TestCase):
                     self.assertLessEqual(player["rating"], 99)
                 self.assertEqual(profile, team_profile(team.id))
 
+    def test_player_ages_are_stable_and_consistent_with_experience(self):
+        ages = set()
+        for team in TEAMS:
+            profile = team_profile(team.id)
+            repeated = team_profile(team.id)
+            for player, again in zip(profile["roster"], repeated["roster"]):
+                with self.subTest(player=player["id"]):
+                    self.assertIsInstance(player["age"], int)
+                    self.assertGreaterEqual(player["age"], 21)
+                    self.assertLessEqual(player["age"], 36)
+                    self.assertIn(player["age"] - player["experience"], range(21, 25))
+                    self.assertEqual(player["age"], again["age"])
+                    self.assertEqual(player["age"], roster_for(team.id)[f'{player["position"]}{player["depth"]}'].age)
+                    ages.add(player["age"])
+        self.assertGreater(len(ages), 1)
+
     def test_profile_players_match_simulated_box_scores(self):
         team_id = "san-francisco"
         players = {player["name"] for player in team_profile(team_id)["roster"]}
