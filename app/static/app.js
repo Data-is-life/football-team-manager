@@ -386,12 +386,14 @@ function renderResult(data) {
       <h4>${group.group}</h4>
       <div class="mini-table-wrap">
         <table class="mini-table">
-          <thead><tr><th>#</th><th>Team</th><th>Record</th><th>Diff</th></tr></thead>
+          <thead><tr><th>#</th><th>Team</th><th>Offense</th><th>Defense</th><th>Record</th><th>Diff</th></tr></thead>
           <tbody>
             ${group.teams.map((row) => `
               <tr class="${row.team.id === activeTeamId ? "selected-team" : ""}">
                 <td>${row.rank}</td>
                 <td><span class="team-cell">${row.team.city}${row.rank === 1 ? '<b class="leader-mark">L</b>' : ""}</span></td>
+                <td>${row.ratings.offense}</td>
+                <td>${row.ratings.defense}</td>
                 <td>${row.record}</td>
                 <td>${row.point_differential > 0 ? "+" : ""}${row.point_differential}</td>
               </tr>

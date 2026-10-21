@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from functools import lru_cache
 
 from .league import GROUPS, TEAM_BY_ID, TEAMS
-from .simulation import _run_number, simulate_league_week
+from .simulation import _run_number, simulate_league_week, team_ratings
 
 
 @dataclass
@@ -108,6 +108,7 @@ def _standing_payload(standing: TeamStanding, rank: int) -> dict[str, object]:
     return {
         "rank": rank,
         "team": {"id": team.id, "city": team.city, "group": team.group},
+        "ratings": asdict(team_ratings(team.id)),
         "record": standing.record,
         "wins": standing.wins,
         "losses": standing.losses,

@@ -16,6 +16,7 @@ async function checkUI() {
  }
  const finished=await (await fetch(base+'/api/playoffs/seattle/round/4?run_seed='+fixtureSeed)).json();
  const teams=(await (await fetch(base+'/api/teams')).json()).teams;
+ const ratingsByTeam=new Map(await Promise.all(teams.map(async team=>[team.id,(await (await fetch(base+`/api/team/${team.id}`)).json()).ratings])));
  const field=finished.field;
  const firstLoser=finished.rounds[0].games[0];
  const loserId=firstLoser.winner.team.id===firstLoser.home.team.id ? firstLoser.away.team.id : firstLoser.home.team.id;
@@ -198,6 +199,21 @@ async function checkUI() {
    assert.equal(d.querySelectorAll('#playoff-race tr').length,14);
    assert.match(d.querySelector('#league-results-title').textContent,new RegExp(`Week ${week}$`));
    const weekData=await (await fetch(base+`/api/season/${id}/week/${week}?season=1&run_seed=${fixtureSeed}`)).json();
+   const groupCards=d.querySelectorAll('#group-standings .standings-card');
+   weekData.standings.groups.forEach((group,i)=>{
+    assert.deepEqual([...groupCards[i].querySelectorAll('th')].map(cell=>cell.textContent),['#','Team','Offense','Defense','Record','Diff']);
+    const rows=groupCards[i].querySelectorAll('tbody tr');
+    assert.equal(rows.length,5);
+    group.teams.forEach((team,j)=>{
+     const ratings=ratingsByTeam.get(team.team.id),cells=rows[j].children;
+     assert.ok(cells[1].textContent.startsWith(team.team.city));
+     assert.equal(cells[2].textContent,String(ratings.offense));
+     assert.equal(cells[3].textContent,String(ratings.defense));
+     assert.equal(cells[4].textContent,team.record);
+     assert.equal(cells[5].textContent,`${team.point_differential>0?'+':''}${team.point_differential}`);
+     assert.equal(rows[j].classList.contains('selected-team'),team.team.id===id);
+    });
+   });
    const history=weekData.game_results;
    go('roster');checkRoster(weekData.roster_stats,'regular');checkRoster(api.roster_stats,'playoffs');go(selected);
    const cards=d.querySelectorAll('#schedule .game-card');
