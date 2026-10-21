@@ -34,6 +34,7 @@ Python owns the league rules and schedule generation. The browser layer only ren
 - a finalized playoff field after Week 17, with one-round-at-a-time postseason simulation
 - original-seed reseeding each round, higher seeds hosting, and a neutral-site championship
 - your playoff game and player box score separate from other playoff results
+- a horizontally scrolling playoff bracket with all four rounds, first-round byes, scores, and selected-team highlights
 - no playoff ties, elimination/bye status, completed-round history, and a champion
 - first-round byes for seeds 1 and 2
 - tiebreakers in order: head-to-head, common-opponent record, point differential, points scored, deterministic random draw
@@ -191,6 +192,10 @@ The separate usage random stream preserves existing scores and playoff outcomes 
 ## Playoff format
 
 After Week 17, the final standings determine the six group winners and eight wildcards. Original seeds remain fixed through the postseason.
+
+The Playoffs tab shows Wild Card, Quarterfinals, Semifinals, and Championship side by side. Scroll the bracket horizontally on smaller screens, or focus it to scroll with the keyboard. Completed rounds keep their scores and winner markers; the next round shows its actual matchups, while later rounds show placeholders until reseeding. The two Wild Card byes remain visible throughout the postseason. Your team retains its highlight and badge, including after elimination. Your latest-round game and player box score appear below the bracket.
+
+Round arrows show tournament progression, rather than fixed game-to-game paths: opponents are reassigned by original seed after each round. The bracket does not reveal future results or change simulation rules.
 
 - Seeds 1 and 2 receive Wild Card byes.
 - The Wild Card round pairs 3–14, 4–13, 5–12, 6–11, 7–10, and 8–9.
