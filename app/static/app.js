@@ -572,7 +572,32 @@ function playoffGameCard(game) {
     const won = result && game.winner.team.id === entry.team.id;
     return `<div class="league-team ${won ? "winner" : ""} ${entry.team.id === activeTeamId ? "playoff-team-selected" : ""}">${playoffTeamName(entry)}<strong>${result ? result[side].score : ""}</strong></div>`;
   };
-  return `<article class="league-result-card"><span class="control-label">${label}</span>${row("away")}${row("home")}</article>`;
+  return `<article class="league-result-card playoff-game-card"><span class="control-label">${label}</span>${row("away")}${row("home")}</article>`;
+}
+
+function renderPlayoffBracket(data) {
+  const rounds = [
+    { name: "Wild Card", games: 6 },
+    { name: "Quarterfinals", games: 4 },
+    { name: "Semifinals", games: 2 },
+    { name: "Championship", games: 1 },
+  ];
+  document.querySelector("#playoff-bracket").innerHTML = rounds.map((round, index) => {
+    const number = index + 1;
+    const completed = data.rounds.find(item => item.number === number);
+    const upcoming = data.upcoming?.number === number ? data.upcoming : null;
+    const known = completed || upcoming;
+    const status = completed ? "Complete" : upcoming ? "Up next" : "Awaiting reseeding";
+    const byes = number === 1 ? data.field.filter(entry => entry.bye).map(entry =>
+      `<article class="league-result-card bracket-bye"><span class="control-label">First-round bye</span>${playoffTeamName(entry)}<p>Advances to Quarterfinals</p></article>`).join("") : "";
+    const games = known ? known.games.map(playoffGameCard).join("")
+      : Array.from({ length: round.games }, () =>
+        '<article class="league-result-card bracket-placeholder"><span class="control-label">Matchup to be determined</span><p>Awaiting previous round</p></article>').join("");
+    return `<section class="bracket-round ${completed ? "round-complete" : upcoming ? "round-upcoming" : "round-pending"}" data-round="${number}" aria-labelledby="bracket-round-${number}">
+      <header><h3 id="bracket-round-${number}">${round.name}</h3><p class="bracket-round-status">${status}</p></header>
+      <div class="bracket-games">${byes}${games}</div>
+    </section>`;
+  }).join("");
 }
 
 function renderPostseason(data) {
@@ -614,19 +639,7 @@ function renderPostseason(data) {
       ${playoffGameCard(selectedGame)}
       <details><summary>Your player box score</summary><div class="player-stats">${playerStatsMarkup(selectedGame.result[side])}</div></details>`;
   }
-  const otherGames = latestRound ? latestRound.games.filter(game => game !== selectedGame) : [];
-  document.querySelector("#other-playoff-results").hidden = otherGames.length === 0;
-  document.querySelector("#playoff-league-games").innerHTML = otherGames.map(playoffGameCard).join("");
-  const upcoming = data.upcoming;
-  document.querySelector("#postseason-upcoming").innerHTML = upcoming
-    ? `<h3>Next: ${upcoming.name}</h3>
-       ${upcoming.byes.length ? `<p class="roster-note">Byes: ${upcoming.byes.map(playoffTeamName).join(", ")}</p>` : ""}
-       <p class="roster-note">${upcoming.number === 4 ? "Neutral site. No home advantage." : "Reseeded by original seed: highest remaining seed plays lowest. Higher seeds host."}</p>
-       <div class="league-results-grid">${upcoming.games.map(playoffGameCard).join("")}</div>`
-    : "";
-  document.querySelector("#postseason-history").innerHTML = data.rounds.length
-    ? data.rounds.map(round => `<h3>${round.name}</h3><div class="league-results-grid">${round.games.map(playoffGameCard).join("")}</div>`).join("")
-    : '<p class="roster-note">No playoff rounds completed yet.</p>';
+  renderPlayoffBracket(data);
 }
 
 async function loadPlayoffRound(number) {

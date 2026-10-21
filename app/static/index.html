@@ -210,16 +210,12 @@
               <h2 id="postseason-title" tabindex="-1">Playoffs</h2>
               <p id="postseason-status" role="status"></p>
               <div id="champion-banner" class="champion-banner" hidden></div>
+              <p id="bracket-format" class="roster-note">Reseeded after every round: highest remaining seed plays lowest. Higher seeds host; the championship is at a neutral site.</p>
+              <p id="bracket-scroll-hint" class="roster-note">Scroll sideways to follow all four rounds. Future matchups appear after reseeding.</p>
+              <div class="bracket-scroll" role="region" aria-label="Playoff bracket" aria-describedby="bracket-format bracket-scroll-hint" tabindex="0">
+                <div id="playoff-bracket" class="playoff-bracket"></div>
+              </div>
               <section id="your-playoff-game" class="your-playoff-game" hidden aria-label="Your playoff game"></section>
-              <section id="other-playoff-results" hidden>
-                <h3>League playoff results</h3>
-                <div id="playoff-league-games" class="league-results-grid"></div>
-              </section>
-              <div id="postseason-upcoming"></div>
-              <details class="bracket-history">
-                <summary>Completed rounds</summary>
-                <div id="postseason-history"></div>
-              </details>
             </section>
           </div>
         </section>

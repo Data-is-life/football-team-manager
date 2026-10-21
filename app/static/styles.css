@@ -188,6 +188,25 @@ tr.selected-team td { color: var(--cyan); background: rgba(72,230,210,0.07); }
 .postseason-section h3 { margin-top: 24px; }
 .postseason-section details { margin-top: 20px; }
 .postseason-section summary { cursor: pointer; color: var(--cyan); font-weight: 700; padding-block: 10px; }
+.bracket-scroll { max-width: 100%; overflow-x: auto; padding: 4px 4px 16px; margin-bottom: 24px; }
+.bracket-scroll:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+.playoff-bracket { display: grid; grid-template-columns: repeat(4, minmax(250px, 1fr)); gap: 32px; width: 100%; min-width: 1096px; }
+.bracket-round { position: relative; display: flex; flex-direction: column; min-width: 0; }
+.bracket-round:not(:last-child)::after { content: "→"; position: absolute; top: 12px; right: -27px; color: var(--muted); font-size: 1.3rem; }
+.bracket-round header { min-height: 78px; padding: 10px 12px; margin-bottom: 12px; border-bottom: 2px solid var(--line); }
+.postseason-section .bracket-round h3 { margin: 0 0 7px; font-size: 1.05rem; }
+.bracket-round-status { margin: 0; color: var(--muted); font-size: 0.78rem; }
+.round-upcoming header { border-color: var(--cyan); }
+.round-upcoming .bracket-round-status { color: var(--cyan); }
+.round-complete .bracket-round-status { color: var(--lime); }
+.bracket-games { display: flex; flex: 1; flex-direction: column; justify-content: space-around; gap: 12px; }
+.bracket-games > article { flex: 0 0 auto; min-height: 116px; }
+.bracket-games .league-team { align-items: center; }
+.bracket-games .league-team > span { min-width: 0; overflow-wrap: anywhere; }
+.bracket-bye { border-style: dashed; }
+.bracket-bye > .playoff-team-name { display: block; margin-top: 10px; }
+.bracket-bye p, .bracket-placeholder p { margin: 10px 0 0; color: var(--muted); font-size: 0.8rem; }
+.bracket-placeholder { opacity: 0.65; }
 
 .roster-groups { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; align-items: start; }
 .roster-group { min-width: 0; border: 1px solid var(--line); border-radius: 10px; background: var(--panel-2); overflow: hidden; }

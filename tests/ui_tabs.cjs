@@ -251,7 +251,7 @@ async function checkUI() {
   if(index===3) assert.match(d.querySelector('#postseason-status').textContent,/missed/);
   function checkPlayoffHighlight(state) {
    function checkGames(selector,games) {
-    const cards=d.querySelectorAll(`${selector} article`);
+    const cards=d.querySelectorAll(`${selector} .playoff-game-card`);
     assert.equal(cards.length,games.length);
     games.forEach((game,i)=>{
      const rows=cards[i].querySelectorAll('.league-team');
@@ -261,19 +261,37 @@ async function checkUI() {
       assert.equal(rows[j].querySelector('.playoff-team-name').dataset.teamId,game[side].team.id);
       assert.equal(rows[j].querySelectorAll('.your-team-badge').length,selected?1:0);
       assert.equal(rows[j].classList.contains('winner'),Boolean(game.result && game.winner.team.id===game[side].team.id));
+      assert.equal(rows[j].querySelector('strong').textContent,game.result?String(game.result[side].score):'');
      });
+     assert.match(cards[i].querySelector('.control-label').textContent,game.result?(game.result.overtime?/Final · OT/:/Final/):game.neutral_site?/Neutral-site championship/:/Higher seed hosts/);
     });
    }
-   checkGames('#postseason-upcoming',state.upcoming?.games??[]);
-   checkGames('#postseason-history',state.rounds.flatMap(round=>round.games));
+   const columns=d.querySelectorAll('#playoff-bracket .bracket-round');
+   assert.equal(columns.length,4);
+   assert.deepEqual([...columns].map(column=>column.querySelector('h3').textContent),['Wild Card','Quarterfinals','Semifinals','Championship']);
+   assert.equal(d.querySelector('.bracket-scroll').tabIndex,0);
+   assert.match(d.querySelector('#bracket-format').textContent,/Reseeded after every round/);
+   columns.forEach((column,i)=>{
+    const number=i+1, completed=state.rounds.find(round=>round.number===number);
+    const upcoming=state.upcoming?.number===number?state.upcoming:null;
+    const known=completed||upcoming;
+    checkGames(`#playoff-bracket [data-round="${number}"]`,known?.games??[]);
+    assert.equal(column.querySelector('.bracket-round-status').textContent,completed?'Complete':upcoming?'Up next':'Awaiting reseeding');
+    const placeholders=column.querySelectorAll('.bracket-placeholder');
+    assert.equal(placeholders.length,known?0:[6,4,2,1][i]);
+    placeholders.forEach(card=>assert.equal(card.querySelectorAll('[data-team-id]').length,0,'Future opponents must not be predicted before reseeding'));
+   });
    const latest=state.rounds.at(-1)?.games??[];
    const own=latest.filter(game=>game.home.team.id===id||game.away.team.id===id);
    // The last own game remains in the hidden holder after elimination.
    if(own.length) checkGames('#your-playoff-game',own);
-   checkGames('#playoff-league-games',latest.filter(game=>!own.includes(game)));
-   const byes=d.querySelectorAll('#postseason-upcoming p .playoff-team-name');
-   assert.equal(byes.length,state.upcoming?.byes.length??0);
-   byes.forEach(row=>assert.equal(row.querySelectorAll('.your-team-badge').length,row.dataset.teamId===id?1:0));
+   const byes=d.querySelectorAll('#playoff-bracket .bracket-bye .playoff-team-name');
+   const expectedByes=state.field.filter(entry=>entry.bye);
+   assert.equal(byes.length,2);
+   byes.forEach((row,i)=>{
+    assert.equal(row.dataset.teamId,expectedByes[i].team.id);
+    assert.equal(row.querySelectorAll('.your-team-badge').length,row.dataset.teamId===id?1:0);
+   });
   }
   checkPlayoffHighlight(await (await fetch(base+`/api/playoffs/${id}/round/0?run_seed=${fixtureSeed}`)).json());
   for(let round=1;round<=4;round++) {
@@ -293,7 +311,7 @@ async function checkUI() {
    const latest=state.rounds.at(-1);
    const own=latest.games.find(g=>g.home.team.id===id||g.away.team.id===id);
    assert.equal(d.querySelector('#your-playoff-game').hidden,!own);
-   assert.equal(d.querySelectorAll('#playoff-league-games article').length,latest.games.length-(own?1:0));
+   assert.equal(d.querySelectorAll('#playoff-bracket .playoff-game-card').length,state.rounds.reduce((sum,r)=>sum+r.games.length,0)+(state.upcoming?.games.length??0));
    if(own) {
     assert.match(d.querySelector('#your-playoff-game').textContent,/Your .* game/);
     const holder=d.querySelector('#your-playoff-game');
