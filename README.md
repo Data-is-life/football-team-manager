@@ -29,6 +29,7 @@ Python owns the league rules and schedule generation. The browser layer only ren
 - a separate compact League Results section with the other 14 weekly scores
 - one coherent league schedule: 15 games per week and no duplicate team appearances
 - all six group standings recalculated after every simulated week
+- offense and defense ratings out of 99 for every team in Group Standings, matching team profiles
 - a provisional 14-team playoff field: six group winners plus eight wildcards
 - League Results, Group Standings, and Playoff Race each use their own tab and show available content without hide/show buttons
 - a finalized playoff field after Week 17, with one-round-at-a-time postseason simulation
