@@ -30,7 +30,7 @@ Python owns the league rules and schedule generation. The browser layer only ren
 - one coherent league schedule: 15 games per week and no duplicate team appearances
 - all six group standings recalculated after every simulated week
 - a provisional 14-team playoff field: six group winners plus eight wildcards
-- independent show/hide controls for League Results, Group Standings, and Playoff Race; collapsed panels keep updating between weeks, and choosing another team restores them to expanded
+- League Results, Group Standings, and Playoff Race each use their own tab and show available content without hide/show buttons
 - a finalized playoff field after Week 17, with one-round-at-a-time postseason simulation
 - original-seed reseeding each round, higher seeds hosting, and a neutral-site championship
 - your playoff game and player box score separate from other playoff results
@@ -47,7 +47,7 @@ Overtime is a lightweight game mechanic rather than a play-by-play NFL rules imp
 
 After choosing a team, use the tabs above the content to view one screen at a time. Team identity, ratings, regular-season record, and simulation controls remain above every view. Simulating a week updates all screens while keeping the selected tab, with the latest final score in the shared status line. Game Stats shows the most recent regular-season game; playoff games and box scores appear under Playoffs.
 
-Tabs support Left/Right arrows (including wraparound), Home, and End. The tab bar scrolls horizontally on smaller screens. Views with no results explain when their data becomes available. After Week 17, choose **View playoffs** to load the field; advancing a playoff round opens the Playoffs tab. Switching tabs or canceling a team change preserves progress and collapsed groups. Starting another team resets the screens and returns to Schedule. Refreshing still resets the game.
+Tabs support Left/Right arrows (including wraparound), Home, and End. The tab bar scrolls horizontally on smaller screens. Views with no results explain when their data becomes available. After Week 17, choose **View playoffs** to load the field; advancing a playoff round opens the Playoffs tab. Switching tabs or canceling a team change preserves progress and collapsed roster groups. Starting another team resets the screens and returns to Schedule. Refreshing still resets the game.
 
 ## Roster
 
@@ -154,7 +154,7 @@ npm ci
 npm run test:ui
 ```
 
-The UI suite starts a local FastAPI server on port 8767 and checks tab/keyboard navigation, empty states, full seasons and playoffs, box-score values, collapse state, failed-request retry, and team reset/cancel using jsdom. Node dependencies are only for development checks; Render still runs the Python app directly. These DOM checks do not verify visual layout.
+The UI suite starts a local FastAPI server on port 8767 and checks tab/keyboard navigation, empty states, full seasons and playoffs, box-score values, roster collapse state, always-expanded league content, failed-request retry, and team reset/cancel using jsdom. Node dependencies are only for development checks; Render still runs the Python app directly. These DOM checks do not verify visual layout.
 
 ## Randomized runs
 
