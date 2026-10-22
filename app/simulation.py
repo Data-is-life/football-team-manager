@@ -404,6 +404,14 @@ def simulate_league_week(season: int, week: int, run_seed: int = 0) -> list[dict
     return results
 
 
+@lru_cache(maxsize=128)
+def league_week_scores(season: int, week: int, run_seed: int = 0) -> tuple[tuple[str, str, int, int], ...]:
+    """Cache only immutable standings inputs, keyed by the complete run context."""
+    return tuple((game["home"]["team"]["id"], game["away"]["team"]["id"],
+                  game["home"]["score"], game["away"]["score"])
+                 for game in simulate_league_week(season, week, run_seed))
+
+
 def simulate_through_week(team_id: str, season: int, week: int, run_seed: int = 0) -> dict[str, object]:
     schedule = generate_schedule(team_id=team_id, season=season)
     if week < 1 or week > len(schedule):
