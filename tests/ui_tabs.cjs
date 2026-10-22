@@ -37,6 +37,8 @@ async function checkUI() {
   d.querySelector('#team-select').value=id;
   d.querySelector('#team-form').dispatchEvent(new w.Event('submit',{cancelable:true}));
   await until(()=>!d.querySelector('#schedule-section').hidden);
+  assert.equal(d.querySelectorAll('#schedule .opponent-record').length,17);
+  for(const record of d.querySelectorAll('#schedule .opponent-record')) assert.equal(record.textContent,'Record: 0–0');
   assert.equal(d.querySelectorAll('.roster-player').length,38);
   assert.equal(d.querySelectorAll('.roster-group').length,10);
   const expected={QB:[2,1],WR:[4,2],TE:[2,1],RB:[2,1],OL:[8,5],K:[2,1],DL:[6,4],LB:[5,3],CB:[4,2],S:[3,2]};
@@ -205,6 +207,13 @@ async function checkUI() {
    const history=weekData.game_results;
    go('roster');checkRoster(weekData.roster_stats,'regular');checkRoster(api.roster_stats,'playoffs');go(selected);
    const cards=d.querySelectorAll('#schedule .game-card');
+   const opponentRows=new Map(weekData.standings.groups.flatMap(group=>group.teams).map(row=>[row.team.id,row]));
+   cards.forEach(card=>{
+    const row=opponentRows.get(card.dataset.opponentId);
+    assert.ok(row,'Schedule opponents must match real standings teams');
+    assert.equal(card.querySelector('.opponent-record').textContent,`Record: ${row.wins}–${row.losses}${row.ties?`–${row.ties}`:''}`);
+    assert.equal(row.wins+row.losses+row.ties,week);
+   });
    assert.equal(d.querySelectorAll('#schedule .completed').length,week);
    history.forEach((game,i)=> {
     assert.equal(cards[i].querySelector('.game-final').textContent,`${game.outcome} · ${game.team_score}–${game.opponent_score}${game.overtime ? ' · OT' : ''}`);
@@ -342,6 +351,7 @@ async function checkUI() {
   await until(()=>!d.querySelector('#schedule-section').hidden);
   assert.equal(d.querySelector('#postseason-section').hidden,true);
   assert.equal(d.querySelectorAll('#schedule .completed').length,0);
+  for(const record of d.querySelectorAll('#schedule .opponent-record')) assert.equal(record.textContent,'Record: 0–0');
   assert.equal(d.querySelector('#roster-ratings-button').getAttribute('aria-pressed'),'true');
   assert.equal(d.querySelector('#roster-competition').value,'regular');
   checkAttributes(await (await fetch(base+'/api/team/seattle')).json());

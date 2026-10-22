@@ -259,16 +259,18 @@ function renderSchedule(data, runSeed) {
   document.querySelector("#team-group").textContent = data.team.group;
   document.querySelector("#team-name").textContent = data.team.city;
   document.querySelector("#rotation-note").textContent =
-    `Season ${data.season} rotation: ${data.rotating_group} · Scores show your team first.`;
+    `Season ${data.season} rotation: ${data.rotating_group} · Scores show your team first. Opponent records reflect the latest completed week.`;
 
   scheduleGrid.replaceChildren();
   for (const game of data.games) {
     const article = document.createElement("article");
     article.className = "game-card";
+    article.dataset.opponentId = game.opponent_id;
     article.innerHTML = `
       <span class="week">Week ${game.week}</span>
       <span class="venue ${game.venue.toLowerCase()}">${game.venue === "Home" ? "vs" : "at"}</span>
       <strong>${game.opponent}</strong>
+      <span class="opponent-record">Record: 0–0</span>
       <span class="game-final">Not played</span>
       <span class="reason">${game.reason}</span>
     `;
@@ -417,6 +419,11 @@ function renderResult(data) {
     `Tiebreakers: ${data.standings.tiebreakers.join(" → ")}`;
   playoffSection.hidden = false;
 
+  const opponentRecords = new Map(data.standings.groups.flatMap(group => group.teams)
+    .map(row => [row.team.id, `${row.wins}–${row.losses}${row.ties ? `–${row.ties}` : ""}`]));
+  for (const card of scheduleGrid.children) {
+    card.querySelector(".opponent-record").textContent = `Record: ${opponentRecords.get(card.dataset.opponentId)}`;
+  }
   for (const game of data.game_results) {
     const card = scheduleGrid.children[game.week - 1];
     if (!card) continue;
