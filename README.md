@@ -163,6 +163,8 @@ The UI suite starts a local FastAPI server on port 8767 and checks tab/keyboard 
 
 ## Randomized runs
 
+Standings reuse a bounded cache of immutable weekly scores keyed by season, week, and run seed, avoiding repeated simulation of completed weeks. See [performance measurements and benchmark instructions](docs/performance.md) for API/UI timings, startup limits, and correctness checks.
+
 Starting a season generates a random 32-bit run seed in the browser using `crypto.getRandomValues`. A new start gets a seed different from the current run, including when selecting the same team again. Failed team loads and canceled changes preserve the current seed. Tabs, weeks, request retries, standings, final tiebreak draws, and playoff rounds share one seed; results agree from either team's perspective. Late weekly responses from a previous run are ignored.
 
 The weekly and playoff APIs accept `run_seed` from 0 through 4294967295 and echo it in the response. Standings/postseason caches include this value. Omitting it uses seed 0, preserving the previous deterministic API results for scripts and tests. Different seeds allow different champions but do not guarantee a different winner on every run.

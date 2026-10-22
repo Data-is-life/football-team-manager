@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from functools import lru_cache
 
 from .league import GROUPS, TEAM_BY_ID, TEAMS
-from .simulation import _run_number, simulate_league_week
+from .simulation import _run_number, league_week_scores
 
 
 @dataclass
@@ -127,20 +127,12 @@ def standings_through_week(season: int, week: int, run_seed: int = 0) -> dict[st
     standings = {team.id: TeamStanding(team_id=team.id) for team in TEAMS}
 
     for completed_week in range(1, week + 1):
-        for result in simulate_league_week(season, completed_week, run_seed):
-            home = result["home"]
-            away = result["away"]
+        for home_id, away_id, home_score, away_score in league_week_scores(season, completed_week, run_seed):
             _apply_result(
-                standings[home["team"]["id"]],
-                away["team"]["id"],
-                int(home["score"]),
-                int(away["score"]),
+                standings[home_id], away_id, home_score, away_score,
             )
             _apply_result(
-                standings[away["team"]["id"]],
-                home["team"]["id"],
-                int(away["score"]),
-                int(home["score"]),
+                standings[away_id], home_id, away_score, home_score,
             )
 
     group_tables: list[dict[str, object]] = []
