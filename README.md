@@ -26,6 +26,7 @@ Python owns the league rules and schedule generation. The browser layer only ren
 - overtime labels on your result and other league results
 - season record that updates after every completed game
 - final scores and W/L/T labels on every completed schedule card, with OT markers; your team's score is shown first
+- opponents' current regular-season records on every schedule card, starting at 0–0 and updating after each simulated week (including ties); completed and upcoming cards both reflect the latest week
 - a separate compact League Results section with the other 14 weekly scores
 - one coherent league schedule: 15 games per week and no duplicate team appearances
 - all six group standings recalculated after every simulated week

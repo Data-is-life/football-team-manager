@@ -217,6 +217,7 @@ tr.selected-team td { color: var(--cyan); background: rgba(72,230,210,0.07); }
 }
 
 .game-final { color: var(--muted); font-size: 0.95rem; font-weight: 800; }
+.opponent-record { color: var(--muted); font-size: 0.85rem; }
 .game-card.completed .game-final { color: var(--cyan); }
 .game-card.completed[data-outcome="L"] .game-final { color: var(--danger); }
 .game-card.completed[data-outcome="T"] { border-color: var(--muted); }
