@@ -52,6 +52,8 @@ Tabs support Left/Right arrows (including wraparound), Home, and End. The tab ba
 
 ## Roster
 
+Click any team name in Group Standings to open its scouting roster in a separate dialog. Inspect all 38 players by position, including age, experience, scouting rating, and position attributes, plus the team's offense and defense ratings. Close the dialog or press Escape to return to Standings. Browsing preserves your managed team, season progress, and roster settings. A failed load can be retried inside the dialog; browsing does not simulate games.
+
 Each team starts with 38 fictional players. Expand or collapse each position group to inspect its players, depth order, and scouting ratings.
 
 Both Ratings and Season Stats show each player's age in years. Initial ages are 21–36: a deterministic entry age of 21–24 plus the player's existing 0–12 years of experience. Ages stay fixed during the season and across fresh simulation runs. They are informational for now; aging, retirement, and age-based ability changes will come with future multiple-season work. Adding ages does not change existing players' names, ratings, attributes, experience, or game production.

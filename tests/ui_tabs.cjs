@@ -23,6 +23,9 @@ async function checkUI() {
  for(const [index,id] of cases.entries()) {
   const dom=new JSDOM(await (await fetch(base)).text(),{url:base,runScripts:'outside-only'});
   const w=dom.window, d=w.document;
+  // jsdom does not implement native dialog opening/closing or focus trapping.
+  w.HTMLDialogElement.prototype.showModal=function(){this.open=true;};
+  w.HTMLDialogElement.prototype.close=function(){this.open=false;this.dispatchEvent(new w.Event('close'));};
   let fail=false,randomCalls=0;
   const usedSeeds=[];
   Object.defineProperty(w.crypto,'getRandomValues',{value:array=>{array[0]=fixtureSeed+randomCalls++;return array}});
@@ -204,6 +207,50 @@ async function checkUI() {
    assert.equal(d.querySelectorAll('#playoff-race tr').length,14);
    assert.match(d.querySelector('#league-results-title').textContent,new RegExp(`Week ${week}$`));
    const weekData=await (await fetch(base+`/api/season/${id}/week/${week}?season=1&run_seed=${fixtureSeed}`)).json();
+   if(index===0 && week===1) {
+    go('standings');
+    const links=[...d.querySelectorAll('#group-standings .team-roster-link')];
+    assert.equal(links.length,30);
+    assert.deepEqual(new Set(links.map(button=>button.dataset.teamId)),new Set(teams.map(team=>team.id)));
+    const before={roster:d.querySelector('#roster-groups').innerHTML,team:d.querySelector('#team-name').textContent,record:d.querySelector('#season-record').textContent,week:d.querySelector('#simulate-button').textContent,seedCalls:randomCalls};
+    const dialog=d.querySelector('#team-roster-dialog');
+    const target=links.find(button=>button.dataset.teamId!==id);
+    target.click();
+    await until(()=>d.querySelectorAll('#scout-groups .roster-player').length===38);
+    assert.equal(dialog.open,true);
+    checkView('standings');
+    const profile=await (await fetch(base+`/api/team/${target.dataset.teamId}`)).json();
+    assert.equal(d.querySelector('#scout-title').textContent,`${profile.team.city} roster`);
+    assert.match(d.querySelector('#scout-status').textContent,new RegExp(`Offense ${profile.ratings.offense} · Defense ${profile.ratings.defense}`));
+    for(const player of profile.roster) {
+     const row=d.querySelector(`#scout-groups [data-player-id="${player.id}"]`);
+     assert.ok(row);
+     const rule=profile.roster_rules.find(rule=>rule.position===player.position);
+     assert.deepEqual([...row.children].map(cell=>cell.textContent),[String(player.depth),player.name,String(player.age),`${player.experience} yr`,String(player.rating),...rule.attributes.map(attribute=>String(player.attributes[attribute.key]))]);
+    }
+    d.querySelector('#scout-close').click();
+    assert.equal(dialog.open,false);
+    assert.equal(d.querySelector('#scout-groups').children.length,0);
+    // Failed inspection can retry without disturbing the managed team.
+    const realFetch=w.fetch;
+    w.fetch=url=>url===`/api/team/${target.dataset.teamId}`?Promise.resolve({ok:false}):realFetch(url);
+    target.click();await until(()=>!d.querySelector('#scout-retry').hidden);
+    assert.equal(dialog.open,true);
+    w.fetch=realFetch;d.querySelector('#scout-retry').click();
+    await until(()=>d.querySelectorAll('#scout-groups .roster-player').length===38);
+    d.querySelector('#scout-close').click();
+    // A late response from a closed inspection must not replace the next roster.
+    let release;
+    w.fetch=url=>url===`/api/team/${target.dataset.teamId}`?Promise.resolve({ok:true,json:()=>new Promise(resolve=>{release=()=>resolve(profile);})}):realFetch(url);
+    target.click();await until(()=>Boolean(release));d.querySelector('#scout-close').click();
+    const ownLink=links.find(button=>button.dataset.teamId===id);
+    ownLink.click();await until(()=>d.querySelectorAll('#scout-groups .roster-player').length===38);
+    release();await new Promise(resolve=>setImmediate(resolve));
+    assert.deepEqual([...d.querySelectorAll('#scout-groups .roster-player')].map(row=>row.dataset.playerId),api.roster.map(player=>player.id));
+    d.querySelector('#scout-close').click();w.fetch=realFetch;
+    assert.deepEqual({roster:d.querySelector('#roster-groups').innerHTML,team:d.querySelector('#team-name').textContent,record:d.querySelector('#season-record').textContent,week:d.querySelector('#simulate-button').textContent,seedCalls:randomCalls},before);
+    go(selected);
+   }
    const history=weekData.game_results;
    go('roster');checkRoster(weekData.roster_stats,'regular');checkRoster(api.roster_stats,'playoffs');go(selected);
    const cards=d.querySelectorAll('#schedule .game-card');

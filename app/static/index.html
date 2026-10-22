@@ -212,6 +212,15 @@
         </section>
       </section>
     </main>
+    <dialog id="team-roster-dialog" class="team-roster-dialog" aria-labelledby="scout-title">
+      <div class="scout-heading">
+        <div><p class="eyebrow">Scouting roster</p><h2 id="scout-title">Team roster</h2></div>
+        <button id="scout-close" class="secondary-button" type="button" autofocus>Close roster</button>
+      </div>
+      <p id="scout-status" class="roster-note" role="status"></p>
+      <button id="scout-retry" class="secondary-button" type="button" hidden>Retry</button>
+      <div id="scout-groups" class="roster-groups"></div>
+    </dialog>
     <script src="/static/app.js" defer></script>
   </body>
 </html>
