@@ -25,6 +25,50 @@ const rosterCompetition = document.querySelector("#roster-competition");
 let rosterProfile = null;
 let rosterMode = "ratings";
 let rosterTotals = null;
+const rosterDialog = document.querySelector("#team-roster-dialog");
+let scoutingRequest = 0;
+let scoutingTeamId = null;
+let scoutingCity = "";
+
+async function loadScoutingRoster(teamId, city) {
+  const request = ++scoutingRequest;
+  const owner = activeTeamId;
+  const runSeed = activeRunSeed;
+  scoutingTeamId = teamId;
+  scoutingCity = city;
+  document.querySelector("#scout-title").textContent = `${city} roster`;
+  const status = document.querySelector("#scout-status");
+  status.textContent = "Loading roster…";
+  document.querySelector("#scout-retry").hidden = true;
+  document.querySelector("#scout-groups").replaceChildren();
+  if (!rosterDialog.open) rosterDialog.showModal();
+  const isCurrent = () => request === scoutingRequest && rosterDialog.open
+    && owner === activeTeamId && runSeed === activeRunSeed;
+  try {
+    const response = await fetch(`/api/team/${teamId}`);
+    if (!response.ok) throw new Error("Roster could not be loaded. Please try again.");
+    const profile = await response.json();
+    if (!isCurrent()) return;
+    if (profile.team.id !== teamId) throw new Error("Roster could not be loaded. Please try again.");
+    document.querySelector("#scout-groups").replaceChildren(...createRosterGroups(profile, false));
+    status.textContent = `${profile.team.group} · ${profile.roster.length} players · Offense ${profile.ratings.offense} · Defense ${profile.ratings.defense} · Ratings out of 99`;
+  } catch (error) {
+    if (!isCurrent()) return;
+    status.textContent = "Roster could not be loaded. Please try again.";
+    document.querySelector("#scout-retry").hidden = false;
+  }
+}
+
+document.querySelector("#group-standings").addEventListener("click", event => {
+  const button = event.target.closest(".team-roster-link");
+  if (button) loadScoutingRoster(button.dataset.teamId, button.textContent);
+});
+document.querySelector("#scout-close").addEventListener("click", () => rosterDialog.close());
+document.querySelector("#scout-retry").addEventListener("click", () => loadScoutingRoster(scoutingTeamId, scoutingCity));
+rosterDialog.addEventListener("close", () => {
+  ++scoutingRequest;
+  document.querySelector("#scout-groups").replaceChildren();
+});
 
 function activateView(id, { focus = false } = {}) {
   for (const tab of viewTabs) {
@@ -75,14 +119,8 @@ function renderTeamOptions(teams) {
   }
 }
 
-function renderTeamProfile(profile) {
-  rosterProfile = profile;
-  rosterMode = "ratings";
-  rosterCompetition.value = "regular";
-  rosterTotals = { regular: profile.roster_stats, playoffs: profile.roster_stats };
-  document.querySelector("#offense-rating").textContent = profile.ratings.offense;
-  document.querySelector("#defense-rating").textContent = profile.ratings.defense;
-  const groups = profile.roster_rules.map((rule) => {
+function createRosterGroups(profile, includeStats = true) {
+  return profile.roster_rules.map((rule) => {
     const players = profile.roster.filter(player => player.position === rule.position);
     const group = document.createElement("details");
     group.className = "roster-group";
@@ -130,9 +168,20 @@ function renderTeamProfile(profile) {
     const untracked = document.createElement("p");
     untracked.className = "roster-note roster-untracked-note";
     untracked.textContent = "Season production isn't tracked for this position yet. Ratings are shown below.";
-    group.append(summary, untracked, wrap, statsWrap);
+    if (includeStats) group.append(summary, untracked, wrap, statsWrap);
+    else group.append(summary, wrap);
     return group;
   });
+}
+
+function renderTeamProfile(profile) {
+  rosterProfile = profile;
+  rosterMode = "ratings";
+  rosterCompetition.value = "regular";
+  rosterTotals = { regular: profile.roster_stats, playoffs: profile.roster_stats };
+  document.querySelector("#offense-rating").textContent = profile.ratings.offense;
+  document.querySelector("#defense-rating").textContent = profile.ratings.defense;
+  const groups = createRosterGroups(profile);
   document.querySelector("#roster-groups").replaceChildren(...groups);
   const guide = document.querySelector("#attribute-guide-list");
   const definitions = new Map(profile.roster_rules.flatMap(rule => rule.attributes).map(attribute => [attribute.key, attribute]));
@@ -182,7 +231,7 @@ function renderRosterStats() {
       column("kicking", "extra_points_made", "XPM"), column("kicking", "extra_points_attempted", "XPA"),
       column("kicking", "kicking_points", "Pts")],
   };
-  for (const group of document.querySelectorAll(".roster-group")) {
+  for (const group of document.querySelectorAll("#roster-groups .roster-group")) {
     const position = group.dataset.position;
     const tracked = Boolean(columns[position]);
     group.querySelector(".roster-rating-wrap").hidden = showStats && tracked;
@@ -241,6 +290,7 @@ function createRunSeed() {
 }
 
 function renderSchedule(data, runSeed) {
+  if (rosterDialog.open) rosterDialog.close();
   activeTeamId = data.team.id;
   activeRunSeed = runSeed;
   currentWeek = 0;
@@ -393,7 +443,7 @@ function renderResult(data) {
             ${group.teams.map((row) => `
               <tr class="${row.team.id === activeTeamId ? "selected-team" : ""}">
                 <td>${row.rank}</td>
-                <td><span class="team-cell">${row.team.city}${row.rank === 1 ? '<b class="leader-mark">L</b>' : ""}</span></td>
+                <td><span class="team-cell"><button class="team-roster-link" type="button" data-team-id="${row.team.id}" aria-label="View ${row.team.city} roster">${row.team.city}</button>${row.rank === 1 ? '<b class="leader-mark">L</b>' : ""}</span></td>
                 <td>${row.record}</td>
                 <td>${row.point_differential > 0 ? "+" : ""}${row.point_differential}</td>
               </tr>
