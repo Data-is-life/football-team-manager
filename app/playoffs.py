@@ -94,5 +94,5 @@ def playoffs_through_round(team_id: str, season: int, round_number: int, run_see
         "next_round": round_number + 1 if round_number < 4 else None,
         "postseason_complete": round_number == 4,
         "qualified": qualified, "eliminated": qualified and not alive,
-        "roster_stats": aggregate_player_stats(roster_for(team_id).values(), boxes),
+        "roster_stats": aggregate_player_stats(roster_for(team_id, run_seed).values(), boxes),
     }

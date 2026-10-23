@@ -31,13 +31,14 @@ def list_teams() -> dict[str, object]:
 
 
 @app.get("/api/team/{team_id}")
-def team_profile(team_id: str) -> dict[str, object]:
+def team_profile(team_id: str, run_seed: Annotated[int, Query(ge=0, le=4294967295)] = 0) -> dict[str, object]:
     if team_id not in TEAM_BY_ID:
         raise HTTPException(status_code=404, detail="Team not found")
-    players = list(roster_for(team_id).values())
+    players = list(roster_for(team_id, run_seed).values())
     return {
         "team": asdict(TEAM_BY_ID[team_id]),
-        "ratings": asdict(team_ratings(team_id)),
+        "ratings": asdict(team_ratings(team_id, run_seed)),
+        "run_seed": run_seed,
         "roster": [{**asdict(player), "attributes": {
             key: getattr(player.attributes, key) for key in attribute_keys(player.position)
         }} for player in players],

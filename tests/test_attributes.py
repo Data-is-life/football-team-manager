@@ -76,6 +76,6 @@ class PlayerAttributeTests(unittest.TestCase):
         original_roster_for = roster_for
         alternate = {slot: replace(player, attributes=generate_attributes(player.id, player.position, 1))
                      for slot, player in roster_for("seattle").items()}
-        with patch("app.simulation.roster_for", side_effect=lambda team_id:
+        with patch("app.simulation.roster_for", side_effect=lambda team_id, run_seed=0:
                    alternate if team_id == "seattle" else original_roster_for(team_id)):
             self.assertEqual(simulate_game("seattle", game, 1), expected)

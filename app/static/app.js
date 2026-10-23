@@ -45,11 +45,11 @@ async function loadScoutingRoster(teamId, city) {
   const isCurrent = () => request === scoutingRequest && rosterDialog.open
     && owner === activeTeamId && runSeed === activeRunSeed;
   try {
-    const response = await fetch(`/api/team/${teamId}`);
+    const response = await fetch(`/api/team/${teamId}?run_seed=${runSeed}`);
     if (!response.ok) throw new Error("Roster could not be loaded. Please try again.");
     const profile = await response.json();
     if (!isCurrent()) return;
-    if (profile.team.id !== teamId) throw new Error("Roster could not be loaded. Please try again.");
+    if (profile.team.id !== teamId || profile.run_seed !== runSeed) throw new Error("Roster could not be loaded. Please try again.");
     document.querySelector("#scout-groups").replaceChildren(...createRosterGroups(profile, false));
     status.textContent = `${profile.team.group} · ${profile.roster.length} players · Offense ${profile.ratings.offense} · Defense ${profile.ratings.defense} · Ratings out of 99`;
   } catch (error) {
@@ -545,9 +545,10 @@ form.addEventListener("submit", async (event) => {
   errorBox.hidden = true;
   try {
     const teamId = select.value;
+    const runSeed = createRunSeed();
     const [scheduleResponse, profileResponse] = await Promise.all([
       fetch(`/api/schedule/${teamId}?season=1`),
-      fetch(`/api/team/${teamId}`),
+      fetch(`/api/team/${teamId}?run_seed=${runSeed}`),
     ]);
     if (!scheduleResponse.ok || !profileResponse.ok) {
       throw new Error("Your team could not be loaded. Please try again.");
@@ -555,8 +556,11 @@ form.addEventListener("submit", async (event) => {
     const [schedule, profile] = await Promise.all([
       scheduleResponse.json(), profileResponse.json(),
     ]);
+    if (profile.run_seed !== runSeed || profile.team.id !== teamId) {
+      throw new Error("Your team could not be loaded. Please try again.");
+    }
     renderTeamProfile(profile);
-    renderSchedule(schedule, createRunSeed());
+    renderSchedule(schedule, runSeed);
   } catch (error) {
     showError(error.message);
   } finally {
