@@ -52,8 +52,8 @@ def main():
             raise RuntimeError("Benchmark server did not become ready")
         startup = (time.perf_counter() - started) * 1000
         schedule, first_schedule = request("/api/schedule/seattle?season=1")
-        profile, first_profile = request("/api/team/seattle")
-        profile_times = [request("/api/team/seattle")[1] for _ in range(7)]
+        profile, first_profile = request("/api/team/seattle?run_seed=1234")
+        profile_times = [request("/api/team/seattle?run_seed=1234")[1] for _ in range(7)]
         weekly, postseason, season_totals = [], [], []
         fixtures = {"teams": teams, "schedule": schedule, "profile": profile}
         for seed in (1234, 5678, 9012):

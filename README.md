@@ -18,7 +18,7 @@ Python owns the league rules and schedule generation. The browser layer only ren
 - responsive schedule screen
 - seven top tabs: Roster, Game Stats, Schedule, Standings, League Results, Playoff Race, and Playoffs
 - one-click, week-by-week simulation
-- deterministic fictional rosters and team ratings
+- fresh fictional rosters and team ratings on each start, reproducible within one run
 - final score, team comparison, and player box scores
 - player efficiency in regular-season and playoff box scores: NFL passer rating, completion percentage, passing yards/attempt, rushing yards/carry, and receiving yards/reception for all receivers
 - kicking box scores with FG made/attempted, FG percentage, longest made FG in yards, extra points made/attempted, and kicking points, including overtime
@@ -56,9 +56,9 @@ Click any team name in Group Standings to open its scouting roster in a separate
 
 Each team starts with 38 fictional players. Expand or collapse each position group to inspect its players, depth order, and scouting ratings.
 
-Both Ratings and Season Stats show each player's age in years. Initial ages are 21–36: a deterministic entry age of 21–24 plus the player's existing 0–12 years of experience. Ages stay fixed during the season and across fresh simulation runs. They are informational for now; aging, retirement, and age-based ability changes will come with future multiple-season work. Adding ages does not change existing players' names, ratings, attributes, experience, or game production.
+Both Ratings and Season Stats show each player's age in years. Initial ages are 21–36: a deterministic entry age of 21–24 plus the player's existing 0–12 years of experience. Ages stay fixed during a season and are regenerated for each new run. They are informational for now; aging, retirement, and age-based ability changes will come with future multiple-season work.
 
-Player names are loaded from `app/data/first_names.txt` and `app/data/last_names.txt`, with one name per line. The downloaded Census lists contain 1,219 first names and 5,000 surnames (6,095,000 combinations). See [name data sources and editing instructions](app/data/README.md). The files are bundled locally; no runtime internet access is needed. Names are deterministic and unique within each team's roster; editing the lists can change display names, while stable player IDs, ratings, experience, and production remain unchanged.
+Player names are loaded from `app/data/first_names.txt` and `app/data/last_names.txt`, with one name per line. The downloaded Census lists contain 1,219 first names and 5,000 surnames (6,095,000 combinations). See [name data sources and editing instructions](app/data/README.md). The files are bundled locally; no runtime internet access is needed. Names are reproducible within a run and unique within each team's roster; editing the lists can change display names, while stable player IDs, ratings, experience, and production remain unchanged.
 
 Choose **Season Stats** inside Roster to inspect cumulative production, then select **Regular season** or **Playoffs**. QB rows show passing totals and efficiency; RB rows combine rushing and receiving; WR/TE rows show receiving; K rows show FG, extra-point, longest made FG, and kicking-point totals. Backups with no production show zero counts and unavailable rates (`—`). OL and defensive groups continue to show ratings and experience with a note that their production is not tracked.
 
@@ -82,7 +82,7 @@ Team profiles return an empty `roster_stats` snapshot; weekly and playoff respon
 
 Offense has 18 players (QB, WR, TE, RB, OL), defense has 18 (DL, LB, CB, S), and two kickers complete the roster.
 
-The roster validator enforces these per-position minimums. The team profile API returns the rules and current counts alongside all players. Rosters have stable player IDs and names, and ratings are deterministic; defensive player scouting ratings use the team defense rating as their baseline.
+The roster validator enforces these per-position minimums. The team profile API returns the rules and current counts alongside all players. Player IDs identify city/position/depth slots. Names and ratings are stable within a run; defensive player scouting ratings use the team defense rating as their baseline.
 
 This PR provides roster depth and inspection. Releases, signings, and lineup selection are not yet available. QB1 receives all passing stats and K1 receives kicking stats. RB1/RB2 split rushing production, and receiving production is shared across every WR, both TEs, and both RBs. Team offense and defense still determine scoring; QB/RB skill and QB experience now affect pass volume.
 
@@ -103,7 +103,7 @@ Every player has **Football IQ, Speed, and Durability**, plus the specialties be
 
 Football IQ describes reads, positioning, and decision-making. Durability describes resistance to injury. Clutch Factor describes composure in high-pressure situations. These are currently scouting information for the future engine: they do not affect scoring, passing volume, injuries, or kicking outcomes in this PR. Existing scouting ratings and QB experience retain their current roles.
 
-Attributes are generated independently per stable player ID and attribute key, with a deterministic offset of −18 to +18 around the existing scouting rating, clamped to 1–99. Players with the same overall rating can have different attribute profiles. These are initial fictional scouting values; the existing overall rating is not recalculated from them. Names, IDs, experience, current ratings, and gameplay results are preserved.
+Attributes are generated independently per run seed, stable player ID, and attribute key, with a deterministic offset of −18 to +18 around the existing scouting rating, clamped to 1–99. Players with the same overall rating can have different attribute profiles. These are initial fictional scouting values; the existing overall rating is not recalculated from them.
 
 The team API includes an `attributes` object on each roster player, containing only applicable integer values. Each `roster_rules` entry includes the ordered attribute keys, labels, and descriptions for its position. Cached player attributes are immutable; API responses expose independent dictionaries.
 
@@ -165,11 +165,11 @@ The UI suite starts a local FastAPI server on port 8767 and checks tab/keyboard 
 
 Standings reuse a bounded cache of immutable weekly scores keyed by season, week, and run seed, avoiding repeated simulation of completed weeks. See [performance measurements and benchmark instructions](docs/performance.md) for API/UI timings, startup limits, and correctness checks.
 
-Starting a season generates a random 32-bit run seed in the browser using `crypto.getRandomValues`. A new start gets a seed different from the current run, including when selecting the same team again. Failed team loads and canceled changes preserve the current seed. Tabs, weeks, request retries, standings, final tiebreak draws, and playoff rounds share one seed; results agree from either team's perspective. Late weekly responses from a previous run are ignored.
+Starting a season generates a random 32-bit run seed in the browser using `crypto.getRandomValues`. A new start gets a seed different from the current run, including when selecting the same team again. A failed load discards its candidate seed and preserves the active run; canceling a change also preserves it. Own-roster profiles, scouting dialogs, weeks, retries, standings, final tiebreak draws, and playoff rounds share one seed; results agree from either team's perspective. Late weekly responses from a previous run are ignored.
 
-The weekly and playoff APIs accept `run_seed` from 0 through 4294967295 and echo it in the response. Standings/postseason caches include this value. Omitting it uses seed 0, preserving the previous deterministic API results for scripts and tests. Different seeds allow different champions but do not guarantee a different winner on every run.
+The team-profile, weekly, and playoff APIs accept `run_seed` from 0 through 4294967295 and echo it in the response. Standings/postseason caches include this value. Omitting it uses seed 0, preserving the previous deterministic API results for scripts and tests. Different seeds allow different champions but do not guarantee a different winner on every run.
 
-Team ratings, rosters, player identities, and the schedule formula remain fixed. This change randomizes game outcomes and production, not team strengths. A future save system can retain the seed to reproduce a run; browser refresh still discards progress.
+Each run generates new team offense/defense ratings, names, player ratings, attributes, experience, and ages for all 30 teams. Team ratings remain in the existing 72–88 range, player attributes stay 1–99, and roster counts/minimums remain unchanged. Player IDs remain city/position/depth slot IDs; stats reset on each new start, and roster, standings, and score caches include the run seed. The schedule formula stays fixed. Attributes remain scouting information; team ratings and QB/RB skill retain their existing simulation roles. A future save system can retain the seed to reproduce a run; browser refresh still discards progress.
 
 ## Aggregate game usage
 
