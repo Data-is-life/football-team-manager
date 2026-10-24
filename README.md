@@ -220,6 +220,8 @@ Round arrows show tournament progression, rather than fixed game-to-game paths: 
 
 Regular-season records stay separate from playoff results. Like the regular season, postseason results are reproducible within the same run seed, and refreshing resets browser progress.
 
+Your latest playoff outcome appears above the bracket: green congratulations after a win (including the championship), or a red sorry/elimination message after a loss. The loss message remains while you follow later rounds. Byes and missed qualification use neutral status text. Starting another season clears the outcome message.
+
 ## Next build slice
 
 Add meaningful pregame management decisions and saved progress. The leaderboard service for the wider arcade can remain separate and be shared by every future game.

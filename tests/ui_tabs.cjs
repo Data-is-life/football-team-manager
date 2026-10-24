@@ -304,6 +304,7 @@ async function checkUI() {
   assert.equal(d.querySelector('#playoffs-empty').hidden,true);
   if(index===0) assert.match(d.querySelector('#postseason-status').textContent,/bye/);
   if(index===3) assert.match(d.querySelector('#postseason-status').textContent,/missed/);
+  assert.equal(d.querySelector('#postseason-status').dataset.outcome,'neutral');
   function checkPlayoffHighlight(state) {
    function checkGames(selector,games) {
     const cards=d.querySelectorAll(`${selector} .playoff-game-card`);
@@ -365,6 +366,13 @@ async function checkUI() {
    go('roster');checkRoster(state.roster_stats,'playoffs');checkRoster(regularFinal,'regular');checkRoster(state.roster_stats,'playoffs');go('playoffs');
    const latest=state.rounds.at(-1);
    const own=latest.games.find(g=>g.home.team.id===id||g.away.team.id===id);
+   const latestOwn=state.rounds.flatMap(r=>r.games).filter(g=>g.home.team.id===id||g.away.team.id===id).at(-1);
+   const outcome=d.querySelector('#postseason-status');
+   const expectedOutcome=!state.qualified?'neutral':latestOwn?(latestOwn.winner.team.id===id?'win':'loss'):'neutral';
+   assert.equal(outcome.dataset.outcome,expectedOutcome);
+   if(expectedOutcome==='win') assert.match(outcome.textContent,/Congratulations!/);
+   if(expectedOutcome==='loss') assert.match(outcome.textContent,/Sorry!.*eliminated/);
+   if(expectedOutcome==='neutral') assert.doesNotMatch(outcome.textContent,/Congratulations!|Sorry!/);
    assert.equal(d.querySelector('#your-playoff-game').hidden,!own);
    assert.equal(d.querySelectorAll('#playoff-bracket .playoff-game-card').length,state.rounds.reduce((sum,r)=>sum+r.games.length,0)+(state.upcoming?.games.length??0));
    if(own) {
@@ -406,6 +414,8 @@ async function checkUI() {
   await until(()=>!d.querySelector('#schedule-section').hidden);
   assert.equal(d.querySelector('#postseason-section').hidden,true);
   assert.equal(d.querySelectorAll('#schedule .completed').length,0);
+  assert.equal(d.querySelector('#postseason-status').dataset.outcome,'neutral');
+  assert.equal(d.querySelector('#postseason-status').textContent,'');
   for(const record of d.querySelectorAll('#schedule .opponent-record')) assert.equal(record.textContent,'Record: 0–0');
   assert.equal(d.querySelector('#roster-ratings-button').getAttribute('aria-pressed'),'true');
   assert.equal(d.querySelector('#roster-competition').value,'regular');

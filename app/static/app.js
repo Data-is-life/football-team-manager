@@ -311,6 +311,8 @@ function renderSchedule(data, runSeed) {
     document.querySelector(`#${id}-empty`).hidden = false;
   }
   document.querySelector("#playoffs-empty p").textContent = "Playoffs begin after Week 17.";
+  document.querySelector("#postseason-status").textContent = "";
+  document.querySelector("#postseason-status").dataset.outcome = "neutral";
   activateView("schedule");
   document.querySelector("#team-group").textContent = data.team.group;
   document.querySelector("#team-name").textContent = data.team.city;
@@ -655,13 +657,24 @@ function renderPostseason(data) {
   postseasonSection.hidden = false;
   const champion = data.champion;
   const selectedChampion = champion && champion.team.id === activeTeamId;
+  const latestOwn = data.rounds.flatMap(round => round.games.map(game => ({ round, game })))
+    .filter(({ game }) => game.home.team.id === activeTeamId || game.away.team.id === activeTeamId).at(-1);
+  const won = latestOwn && latestOwn.game.winner.team.id === activeTeamId;
+  const ownSide = latestOwn?.game.home.team.id === activeTeamId ? "home" : "away";
+  const otherSide = ownSide === "home" ? "away" : "home";
+  const score = latestOwn ? `${latestOwn.game.result[ownSide].score}–${latestOwn.game.result[otherSide].score}` : "";
   const status = !data.qualified ? "Your team missed the playoffs. Follow the league through the championship."
-    : selectedChampion ? "Your team are champions!"
-    : data.eliminated ? "Your team has been eliminated. You can still follow the remaining rounds."
+    : selectedChampion ? `Congratulations! ${data.team.city} are Season ${data.season} champions!`
+    : latestOwn && !won ? `Sorry! ${data.team.city} lost ${score} in the ${latestOwn.round.name} and has been eliminated. You can still follow the remaining rounds.`
+    : data.eliminated ? "Sorry! Your team has been eliminated. You can still follow the remaining rounds."
+    : won ? `Congratulations! ${data.team.city} won ${score} in the ${latestOwn.round.name}. Your team is still in the title race.`
     : data.completed_round === 0 && data.field.some(team => team.team.id === activeTeamId && team.bye)
       ? "Your team earned a Wild Card bye. Advance the round to see your quarterfinal opponent."
     : "Your team is still in the title race.";
-  document.querySelector("#postseason-status").textContent = status;
+  const statusBox = document.querySelector("#postseason-status");
+  statusBox.textContent = status;
+  statusBox.dataset.outcome = !data.qualified ? "neutral" : selectedChampion ? "win"
+    : data.eliminated ? "loss" : latestOwn ? (won ? "win" : "loss") : "neutral";
   document.querySelector("#season-status").textContent = data.champion
     ? `Season ${data.season} champions: ${data.champion.team.city}.`
     : data.completed_round ? `${data.rounds.at(-1).name} complete. ${status}` : status;
