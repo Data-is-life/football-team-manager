@@ -147,6 +147,8 @@ async function checkUI() {
    assert.equal(d.querySelector('#roster-competition-control').hidden,false);
    assert.match(d.querySelector('#roster-stats-status').textContent,new RegExp(`${snapshot.games} team game`));
    const schemas={
+    OL:[['blocking','pass_block_snaps'],['blocking','run_block_snaps'],['blocking','sacks_allowed']],
+    ...Object.fromEntries(['DL','LB','CB','S'].map(position=>[position,[['defense','snaps'],['defense','tackles'],['defense','sacks'],['defense','interceptions']]])),
     QB:[['passing','completions'],['passing','attempts'],['passing','completion_percentage'],['passing','yards'],['passing','touchdowns'],['passing','interceptions'],['passing','yards_per_attempt'],['passing','passer_rating']],
     RB:[['rushing','attempts'],['rushing','yards'],['rushing','yards_per_carry'],['rushing','touchdowns'],['receiving','receptions'],['receiving','yards'],['receiving','yards_per_reception'],['receiving','touchdowns']],
     WR:[['receiving','receptions'],['receiving','yards'],['receiving','yards_per_reception'],['receiving','touchdowns']],
@@ -163,6 +165,7 @@ async function checkUI() {
      continue;
     }
     assert.equal(group.querySelector('.roster-rating-wrap').hidden,true);
+    assert.equal(group.querySelector('.roster-untracked-note').hidden,true);
     assert.equal(group.querySelector('.roster-stats-wrap').hidden,false);
     const total=snapshot.players.find(row=>row.player_id===player.id);
     const cells=group.querySelector(`.roster-season-player[data-player-id="${player.id}"]`).children;
@@ -175,6 +178,8 @@ async function checkUI() {
      assert.equal(cells[i+3].textContent,expected,`${player.id} ${category}.${field}`);
     });
    }
+   assert.equal(d.querySelectorAll('#roster-groups .roster-season-player').length,38);
+   assert.equal(d.querySelector('#roster-stats-note').hidden,false);
    assert.deepEqual([...d.querySelectorAll('.roster-group')].map(group=>group.open),before);
   }
   const initialRequests=requests;

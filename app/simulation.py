@@ -12,6 +12,7 @@ from .kicking import add_kicking_stats
 from .player_stats import aggregate_player_stats
 from .names import FIRST_NAMES, LAST_NAMES
 from .attributes import PlayerAttributes, generate_attributes
+from .defense import add_defense_and_blocking
 
 
 # Position: (initial players, minimum required).
@@ -342,6 +343,7 @@ def simulate_game(
     game: ScheduledGame,
     season: int,
     *, allow_ties: bool = True, neutral_site: bool = False, run_seed: int = 0,
+    include_defense_and_blocking: bool = True,
 ) -> dict[str, object]:
     selected_team = TEAM_BY_ID[selected_team_id]
     opponent = TEAM_BY_ID[game.opponent_id]
@@ -370,6 +372,10 @@ def simulate_game(
                       overtime_winner=overtime and home_box["score"] > away_box["score"])
     add_kicking_stats(away_box, kicking_rng,
                       overtime_winner=overtime and away_box["score"] > home_box["score"])
+    if include_defense_and_blocking:
+        defense_rng = random.Random(_stable_number(f"defense:{seed}"))
+        add_defense_and_blocking(home_box, away_box, roster_for(home_team.id, run_seed), defense_rng)
+        add_defense_and_blocking(away_box, home_box, roster_for(away_team.id, run_seed), defense_rng)
     selected_score = int(selected_box["score"])
     opponent_score = int(opponent_box["score"])
     outcome = "T" if selected_score == opponent_score else ("W" if selected_score > opponent_score else "L")
@@ -384,7 +390,8 @@ def simulate_game(
     }
 
 
-def simulate_league_week(season: int, week: int, run_seed: int = 0) -> list[dict[str, object]]:
+def simulate_league_week(season: int, week: int, run_seed: int = 0,
+                         *, include_defense_and_blocking: bool = True) -> list[dict[str, object]]:
     if week < 1 or week > 17:
         raise ValueError("Week must be between 1 and 17")
     results: list[dict[str, object]] = []
@@ -400,7 +407,8 @@ def simulate_league_week(season: int, week: int, run_seed: int = 0) -> list[dict
             venue="Home",
             reason=league_game.reason,
         )
-        result = simulate_game(league_game.home_id, game, season, run_seed=run_seed)
+        result = simulate_game(league_game.home_id, game, season, run_seed=run_seed,
+                               include_defense_and_blocking=include_defense_and_blocking)
         results.append(result)
     return results
 
@@ -410,7 +418,7 @@ def league_week_scores(season: int, week: int, run_seed: int = 0) -> tuple[tuple
     """Cache only immutable standings inputs, keyed by the complete run context."""
     return tuple((game["home"]["team"]["id"], game["away"]["team"]["id"],
                   game["home"]["score"], game["away"]["score"])
-                 for game in simulate_league_week(season, week, run_seed))
+                 for game in simulate_league_week(season, week, run_seed, include_defense_and_blocking=False))
 
 
 def simulate_through_week(team_id: str, season: int, week: int, run_seed: int = 0) -> dict[str, object]:
@@ -433,7 +441,7 @@ def simulate_through_week(team_id: str, season: int, week: int, run_seed: int = 
             "opponent_score": result[other_side]["score"], "overtime": result["overtime"],
         })
     other_results = []
-    for league_result in simulate_league_week(season, week, run_seed):
+    for league_result in simulate_league_week(season, week, run_seed, include_defense_and_blocking=False):
         if team_id in (league_result["home"]["team"]["id"], league_result["away"]["team"]["id"]):
             continue
         other_results.append({
