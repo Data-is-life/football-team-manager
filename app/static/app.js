@@ -208,6 +208,7 @@ function renderRosterStats() {
   document.querySelector("#roster-competition-control").hidden = !showStats;
   const status = document.querySelector("#roster-stats-status");
   status.hidden = !showStats;
+  document.querySelector("#roster-stats-note").hidden = !showStats;
   const snapshot = rosterTotals[rosterCompetition.value];
   const competition = rosterCompetition.value === "regular" ? "Regular season" : "Playoffs";
   status.textContent = `${competition} · ${snapshot.games} team game${snapshot.games === 1 ? "" : "s"} recorded.${snapshot.games ? "" : " No completed games in this competition."}`;
@@ -217,7 +218,12 @@ function renderRosterStats() {
   const column = (category, key, label, format) => ({ category, key, label, format });
   const receiving = [column("receiving", "receptions", "Rec"), column("receiving", "yards", "Rec Yds"),
     column("receiving", "yards_per_reception", "Y/Rec", decimal), column("receiving", "touchdowns", "Rec TD")];
+  const defense = [column("defense", "snaps", "Snaps"), column("defense", "tackles", "Tackles"),
+    column("defense", "sacks", "Sacks"), column("defense", "interceptions", "INT")];
   const columns = {
+    DL: defense, LB: defense, CB: defense, S: defense,
+    OL: [column("blocking", "pass_block_snaps", "Pass snaps"),
+      column("blocking", "run_block_snaps", "Run snaps"), column("blocking", "sacks_allowed", "Sacks allowed")],
     QB: [column("passing", "completions", "Cmp"), column("passing", "attempts", "Att"),
       column("passing", "completion_percentage", "Cmp%", percentage), column("passing", "yards", "Pass Yds"),
       column("passing", "touchdowns", "TD"), column("passing", "interceptions", "INT"),

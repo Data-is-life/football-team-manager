@@ -4,6 +4,8 @@ from .stats import add_efficiency_stats, per_opportunity
 
 
 COUNT_FIELDS = {
+    "defense": ("snaps", "tackles", "sacks", "interceptions"),
+    "blocking": ("pass_block_snaps", "run_block_snaps", "sacks_allowed"),
     "passing": ("completions", "attempts", "yards", "touchdowns", "interceptions"),
     "rushing": ("attempts", "yards", "touchdowns"),
     "receiving": ("receptions", "yards", "touchdowns"),
@@ -11,6 +13,8 @@ COUNT_FIELDS = {
                 "extra_points_attempted", "kicking_points"),
 }
 POSITION_CATEGORIES = {
+    "DL": ("defense",), "LB": ("defense",), "CB": ("defense",), "S": ("defense",),
+    "OL": ("blocking",),
     "QB": ("passing",), "RB": ("rushing", "receiving"),
     "WR": ("receiving",), "TE": ("receiving",), "K": ("kicking",),
 }
@@ -31,7 +35,7 @@ def aggregate_player_stats(players, boxes) -> dict:
     for box in boxes:
         games += 1
         for category, fields in COUNT_FIELDS.items():
-            for row in box[category]:
+            for row in box.get(category, []):
                 target = totals[row["player_id"]][category]
                 for field in fields:
                     target[field] += row[field]
