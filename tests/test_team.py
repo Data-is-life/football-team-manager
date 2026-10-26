@@ -5,6 +5,7 @@ from fastapi import HTTPException
 from app.league import TEAMS, generate_schedule
 from app.main import team_profile
 from app.simulation import ROSTER_RULES, roster_for, simulate_game, team_ratings
+from app.standings import standings_through_week
 
 
 class TeamProfileTests(unittest.TestCase):
@@ -53,6 +54,21 @@ class TeamProfileTests(unittest.TestCase):
         box = result["home"] if game.venue == "Home" else result["away"]
         for category in ("passing", "rushing", "receiving", "kicking"):
             self.assertTrue(all(row["player"] in players for row in box[category]))
+
+    def test_standings_ratings_match_all_team_profiles_for_each_run_and_season(self):
+        for seed in (0, 1234, 5678):
+            profiles = {team.id: team_profile(team.id, seed)["ratings"] for team in TEAMS}
+            first_final = standings_through_week(1, 17, seed)
+            ranks = tuple(sorted((row["team"]["id"], row["rank"])
+                                 for group in first_final["groups"] for row in group["teams"]))
+            for season, week, prior in ((1, 1, ()), (1, 17, ()), (2, 1, ranks)):
+                standings = standings_through_week(season, week, seed, prior)
+                rows = [row for group in standings["groups"] for row in group["teams"]]
+                self.assertEqual({row["team"]["id"] for row in rows}, set(profiles))
+                self.assertEqual(len(rows), 30)
+                for row in rows + standings["playoff_race"]:
+                    with self.subTest(season=season, week=week, seed=seed, team=row["team"]["id"]):
+                        self.assertEqual(row["ratings"], profiles[row["team"]["id"]])
 
     def test_unknown_team_returns_404(self):
         with self.assertRaises(HTTPException) as error:

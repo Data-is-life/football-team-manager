@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from functools import lru_cache
 
 from .league import GROUPS, TEAM_BY_ID, TEAMS
-from .simulation import _run_number, league_week_scores
+from .simulation import _run_number, league_week_scores, team_ratings
 
 
 @dataclass
@@ -103,10 +103,11 @@ def _rank_teams(
     return ranked
 
 
-def _standing_payload(standing: TeamStanding, rank: int) -> dict[str, object]:
+def _standing_payload(standing: TeamStanding, rank: int, run_seed: int = 0) -> dict[str, object]:
     team = TEAM_BY_ID[standing.team_id]
     return {
         "rank": rank,
+        "ratings": asdict(team_ratings(team.id, run_seed)),
         "team": {"id": team.id, "city": team.city, "group": team.group},
         "record": standing.record,
         "wins": standing.wins,
@@ -144,7 +145,7 @@ def standings_through_week(season: int, week: int, run_seed: int = 0,
         group_winners.append(ranked[0])
         group_tables.append({
             "group": group,
-            "teams": [_standing_payload(standings[team_id], rank) for rank, team_id in enumerate(ranked, 1)],
+            "teams": [_standing_payload(standings[team_id], rank, run_seed) for rank, team_id in enumerate(ranked, 1)],
         })
 
     seeded_group_winners = _rank_teams(group_winners, standings, season, run_seed)
@@ -153,7 +154,7 @@ def standings_through_week(season: int, week: int, run_seed: int = 0,
     playoff_ids = [*seeded_group_winners, *wildcards]
     playoff_race = []
     for seed, team_id in enumerate(playoff_ids, start=1):
-        row = _standing_payload(standings[team_id], seed)
+        row = _standing_payload(standings[team_id], seed, run_seed)
         row.update({
             "seed": seed,
             "qualification": "Group winner" if seed <= 6 else "Wildcard",
