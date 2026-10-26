@@ -48,7 +48,7 @@ Overtime is a lightweight game mechanic rather than a play-by-play NFL rules imp
 
 After choosing a team, use the tabs above the content to view one screen at a time. Team identity, ratings, regular-season record, and simulation controls remain above every view. Simulating a week updates all screens while keeping the selected tab, with the latest final score in the shared status line. Game Stats shows the most recent regular-season game; playoff games and box scores appear under Playoffs.
 
-Tabs support Left/Right arrows (including wraparound), Home, and End. The tab bar scrolls horizontally on smaller screens. Views with no results explain when their data becomes available. After Week 17, choose **View playoffs** to load the field; advancing a playoff round opens the Playoffs tab. Switching tabs or canceling a team change preserves progress and collapsed roster groups. Starting another team resets the screens and returns to Schedule. Refreshing still resets the game.
+Tabs support Left/Right arrows (including wraparound), Home, and End. The tab bar scrolls horizontally on smaller screens. Views with no results explain when their data becomes available. After Week 17, choose **View playoffs** to load the field; advancing a playoff round opens the Playoffs tab. Switching tabs or canceling a team change preserves progress and collapsed roster groups. Starting another team resets the screens and returns to Schedule. Refreshing resumes the saved game.
 
 ## Roster
 
@@ -70,7 +70,7 @@ New `defense` and `blocking` box-score rows include player IDs and feed the same
 
 Only completed games for the selected team count. Byes add no games; playoff totals stop changing after elimination, and teams that miss qualification keep zero playoff totals. The two competitions stay separate. Rates and passer rating are recalculated from cumulative counts, and longest FG is the maximum made distance. Switching roster views, competitions, or top tabs preserves collapsed position groups. Starting another team resets to Ratings and Regular season.
 
-Team profiles return an empty `roster_stats` snapshot; weekly and playoff responses return the respective completed-game snapshot. Each snapshot has `games` (team games recorded) and `players` keyed by stable `player_id`. Box-score rows also include `player_id`, so identical player names cannot merge production. Aggregation rebuilds each snapshot rather than incrementing browser totals, making retries idempotent. Refreshing still resets progress.
+Team profiles return an empty `roster_stats` snapshot; weekly and playoff responses return the respective completed-game snapshot. Each snapshot has `games` (team games recorded) and `players` keyed by stable `player_id`. Box-score rows also include `player_id`, so identical player names cannot merge production. Aggregation rebuilds each snapshot rather than incrementing browser totals, making retries idempotent. Refreshing restores saved progress.
 
 | Position | Initial count | Minimum required |
 | --- | ---: | ---: |
@@ -146,7 +146,7 @@ Opening a PR alone does not update the main game URL. This setup does not create
 ### Demo behavior
 
 - The free service sleeps after 15 minutes without traffic; the next visit can take about a minute to wake it.
-- No database or account is required. The current team and week live in browser memory, so refreshing the page resets your progress.
+- No database or account is required. Progress autosaves in browser local storage and resumes on refresh.
 - Each successful season start gets a fresh random run seed, so weekly results and playoff outcomes can vary between runs. Within one run, every screen and retry uses the same results.
 - After Week 17, choose **View playoffs**, then simulate one round at a time.
 
@@ -175,7 +175,7 @@ Starting a season generates a random 32-bit run seed in the browser using `crypt
 
 The team-profile, weekly, and playoff APIs accept `run_seed` from 0 through 4294967295 and echo it in the response. Standings/postseason caches include this value. Omitting it uses seed 0, preserving the previous deterministic API results for scripts and tests. Different seeds allow different champions but do not guarantee a different winner on every run.
 
-Each run generates new team offense/defense ratings, names, player ratings, attributes, experience, and ages for all 30 teams. Team ratings remain in the existing 72–88 range, player attributes stay 1–99, and roster counts/minimums remain unchanged. Player IDs remain city/position/depth slot IDs; stats reset on each new start, and roster, standings, and score caches include the run seed. The schedule formula stays fixed. Attributes remain scouting information; team ratings and QB/RB skill retain their existing simulation roles. A future save system can retain the seed to reproduce a run; browser refresh still discards progress.
+Each run generates new team offense/defense ratings, names, player ratings, attributes, experience, and ages for all 30 teams. Team ratings remain in the existing 72–88 range, player attributes stay 1–99, and roster counts/minimums remain unchanged. Player IDs remain city/position/depth slot IDs; stats reset on each new start, and roster, standings, and score caches include the run seed. The schedule formula stays fixed. Attributes remain scouting information; team ratings and QB/RB skill retain their existing simulation roles. The browser save retains the seed to reproduce the same run after refresh.
 
 ## Aggregate game usage
 
@@ -218,10 +218,18 @@ Round arrows show tournament progression, rather than fixed game-to-game paths: 
 - Playoff overtime always selects a winner. Scoring uses the same simplified overtime mechanic as the regular season.
 - Eliminated teams and teams that miss qualification can still follow every round to the champion.
 
-Regular-season records stay separate from playoff results. Like the regular season, postseason results are reproducible within the same run seed, and refreshing resets browser progress.
+Regular-season records stay separate from playoff results. Like the regular season, postseason results are reproducible within the same run seed, and refreshing restores saved browser progress.
 
 Your latest playoff outcome appears above the bracket: green congratulations after a win (including the championship), or a red sorry/elimination message after a loss. The loss message remains while you follow later rounds. Byes and missed qualification use neutral status text. Starting another season clears the outcome message.
 
 ## Next build slice
 
-Add meaningful pregame management decisions and saved progress. The leaderboard service for the wider arcade can remain separate and be shared by every future game.
+Add multiple seasons, then meaningful pregame management decisions. The leaderboard service for the wider arcade can remain separate and be shared by every future game.
+
+## Saved progress
+
+Your game autosaves after a successful team selection, simulated week, or playoff round (including revealing the playoff field). Reopening the game restores your team, randomized roster, completed schedule, standings, season stats, and playoff bracket. The next simulation continues from the saved point.
+
+There is one save per browser and site address, using browser local storage; no account or cross-device sync is provided. Clearing site data removes it. Starting another team replaces it only after the new game loads successfully. If saving fails, the game displays a warning and can still be played in the open page. Failed simulations leave the previous save intact. Failed restores keep the save and offer Retry.
+
+Saves store a versioned team/season/run-seed/progress checkpoint; the API reconstructs results deterministically rather than storing rendered HTML. Changing the simulation rules in a future release may require a save migration/version change. Unsupported or damaged saves show a message and are replaced only after a successful new-game start.

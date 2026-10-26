@@ -13,6 +13,7 @@ const rosterSection = document.querySelector("#roster-section");
 const cancelTeamChange = document.querySelector("#cancel-team-change");
 let activeTeamId = null;
 let activeRunSeed = 0;
+let activeSeason = 1;
 let currentWeek = 0;
 let latestResult = null;
 let completedPlayoffRound = 0;
@@ -29,6 +30,94 @@ const rosterDialog = document.querySelector("#team-roster-dialog");
 let scoutingRequest = 0;
 let scoutingTeamId = null;
 let scoutingCity = "";
+
+const SAVE_KEY = "arcade-league-save";
+const saveStatus = document.querySelector("#save-status");
+const resumeButton = document.querySelector("#resume-save");
+let restoring = false;
+
+function saveProgress() {
+  if (!activeTeamId || restoring) return;
+  const save = { version: 1, teamId: activeTeamId, runSeed: activeRunSeed,
+    season: activeSeason, week: currentWeek,
+    playoffRound: playoffState ? completedPlayoffRound : null };
+  try {
+    localStorage.setItem(SAVE_KEY, JSON.stringify(save));
+    saveStatus.textContent = "Progress saved in this browser.";
+    resumeButton.hidden = true;
+  } catch {
+    saveStatus.textContent = "Progress could not be saved. Browser storage may be unavailable or full. Keep this page open to continue.";
+  }
+}
+
+function readSave() {
+  const raw = localStorage.getItem(SAVE_KEY);
+  if (!raw) return null;
+  const save = JSON.parse(raw);
+  const integer = (value, min, max) => Number.isInteger(value) && value >= min && value <= max;
+  if (!save || save.version !== 1 || typeof save.teamId !== "string"
+      || ![...select.options].some(option => option.value && option.value === save.teamId)
+      || !integer(save.runSeed, 0, 4294967295) || !integer(save.season, 1, 999)
+      || !integer(save.week, 0, 17)
+      || !(save.playoffRound === null || (save.week === 17 && integer(save.playoffRound, 0, 4)))) {
+    throw new Error("Invalid save");
+  }
+  return save;
+}
+
+async function resumeProgress() {
+  if (restoring) return;
+  let save;
+  try { save = readSave(); }
+  catch {
+    saveStatus.textContent = "Saved progress could not be read or uses an unsupported format. Starting a new game will replace it.";
+    return;
+  }
+  if (!save) return;
+  restoring = true;
+  const submit = form.querySelector('button[type="submit"]');
+  submit.disabled = true;
+  select.disabled = true;
+  resumeButton.disabled = true;
+  saveStatus.textContent = "Restoring saved progress…";
+  try {
+    const requests = [
+      `/api/schedule/${save.teamId}?season=${save.season}`,
+      `/api/team/${save.teamId}?run_seed=${save.runSeed}`,
+    ];
+    if (save.week) requests.push(`/api/season/${save.teamId}/week/${save.week}?season=${save.season}&run_seed=${save.runSeed}`);
+    if (save.playoffRound !== null) requests.push(`/api/playoffs/${save.teamId}/round/${save.playoffRound}?season=${save.season}&run_seed=${save.runSeed}`);
+    const payloads = await Promise.all(requests.map(async url => {
+      const response = await fetch(url);
+      if (!response.ok) throw new Error("Restore failed");
+      return response.json();
+    }));
+    const [schedule, profile, regular, postseason] = payloads;
+    if (profile.team.id !== save.teamId || profile.run_seed !== save.runSeed
+        || schedule.team.id !== save.teamId || schedule.season !== save.season
+        || (regular && (regular.team.id !== save.teamId || regular.week !== save.week || regular.season !== save.season))
+        || (postseason && (postseason.team.id !== save.teamId || postseason.completed_round !== save.playoffRound || postseason.season !== save.season))) {
+      throw new Error("Restore failed");
+    }
+    renderTeamProfile(profile);
+    renderSchedule(schedule, save.runSeed);
+    if (regular) renderResult(regular);
+    if (postseason) { renderPostseason(postseason); activateView("playoffs"); }
+    select.value = save.teamId;
+    saveStatus.textContent = "Saved progress restored. Autosave is on in this browser.";
+    resumeButton.hidden = true;
+  } catch {
+    saveStatus.textContent = "Saved progress could not be loaded. Retry to resume, or start a new game to replace it. Your save has been kept.";
+    resumeButton.hidden = false;
+  } finally {
+    restoring = false;
+    submit.disabled = false;
+    select.disabled = false;
+    resumeButton.disabled = false;
+    submit.textContent = activeTeamId ? "Start new season" : "Start season";
+  }
+}
+resumeButton.addEventListener("click", resumeProgress);
 
 async function loadScoutingRoster(teamId, city) {
   const request = ++scoutingRequest;
@@ -299,6 +388,8 @@ function renderSchedule(data, runSeed) {
   if (rosterDialog.open) rosterDialog.close();
   activeTeamId = data.team.id;
   activeRunSeed = runSeed;
+  activeSeason = data.season;
+  document.querySelector("#season-display").textContent = activeSeason;
   currentWeek = 0;
   latestResult = null;
   completedPlayoffRound = 0;
@@ -518,6 +609,7 @@ async function loadTeams() {
     if (!response.ok) throw new Error("Teams could not be loaded.");
     const data = await response.json();
     renderTeamOptions(data.teams);
+    await resumeProgress();
   } catch (error) {
     select.replaceChildren(new Option("Unavailable", ""));
     showError(error.message);
@@ -547,6 +639,7 @@ form.addEventListener("submit", async (event) => {
   const submit = form.querySelector('button[type="submit"]');
   if (submit.disabled) return;
   submit.disabled = true;
+  resumeButton.disabled = true;
   submit.textContent = "Loading team…";
   select.disabled = true;
   cancelTeamChange.disabled = true;
@@ -569,6 +662,7 @@ form.addEventListener("submit", async (event) => {
     }
     renderTeamProfile(profile);
     renderSchedule(schedule, runSeed);
+    saveProgress();
   } catch (error) {
     showError(error.message);
   } finally {
@@ -576,6 +670,7 @@ form.addEventListener("submit", async (event) => {
     submit.textContent = activeTeamId ? "Start new season" : "Start season";
     select.disabled = false;
     cancelTeamChange.disabled = false;
+    resumeButton.disabled = false;
   }
 });
 
@@ -588,10 +683,13 @@ simulateButton.addEventListener("click", async () => {
   const runSeed = activeRunSeed;
   try {
     const nextWeek = currentWeek + 1;
-    const response = await fetch(`/api/season/${teamId}/week/${nextWeek}?season=1&run_seed=${runSeed}`);
+    const response = await fetch(`/api/season/${teamId}/week/${nextWeek}?season=${activeSeason}&run_seed=${runSeed}`);
     if (!response.ok) throw new Error("The week could not be simulated.");
     const data = await response.json();
-    if (teamId === activeTeamId && runSeed === activeRunSeed) renderResult(data);
+    if (teamId === activeTeamId && runSeed === activeRunSeed) {
+      renderResult(data);
+      saveProgress();
+    }
   } catch (error) {
     if (teamId !== activeTeamId || runSeed !== activeRunSeed) return;
     simulateButton.disabled = false;
@@ -705,9 +803,10 @@ async function loadPlayoffRound(number) {
   playoffSimulate.disabled = true;
   document.querySelector("#change-team-button").disabled = true;
   try {
-    const response = await fetch(`/api/playoffs/${activeTeamId}/round/${number}?season=1&run_seed=${activeRunSeed}`);
+    const response = await fetch(`/api/playoffs/${activeTeamId}/round/${number}?season=${activeSeason}&run_seed=${activeRunSeed}`);
     if (!response.ok) throw new Error("The playoff round could not be loaded. Please try again.");
     renderPostseason(await response.json());
+    saveProgress();
     activateView("playoffs", { focus: true });
   } catch (error) {
     showError(error.message);
