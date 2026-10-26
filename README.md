@@ -18,7 +18,7 @@ Python owns the league rules and schedule generation. The browser layer only ren
 - responsive schedule screen
 - seven top tabs: Roster, Game Stats, Schedule, Standings, League Results, Playoff Race, and Playoffs
 - one-click, week-by-week simulation
-- deterministic fictional rosters and team ratings
+- fresh fictional rosters and team ratings on each start, reproducible within one run
 - final score, team comparison, and player box scores
 - player efficiency in regular-season and playoff box scores: NFL passer rating, completion percentage, passing yards/attempt, rushing yards/carry, and receiving yards/reception for all receivers
 - kicking box scores with FG made/attempted, FG percentage, longest made FG in yards, extra points made/attempted, and kicking points, including overtime
@@ -26,10 +26,11 @@ Python owns the league rules and schedule generation. The browser layer only ren
 - overtime labels on your result and other league results
 - season record that updates after every completed game
 - final scores and W/L/T labels on every completed schedule card, with OT markers; your team's score is shown first
+- opponents' current regular-season records on every schedule card, starting at 0–0 and updating after each simulated week (including ties); completed and upcoming cards both reflect the latest week
 - a separate compact League Results section with the other 14 weekly scores
 - one coherent league schedule: 15 games per week and no duplicate team appearances
 - all six group standings recalculated after every simulated week
-- offense and defense ratings out of 99 for every team in Group Standings, matching team profiles
+- offense and defense ratings out of 99 for every team in Group Standings, matching the current run’s team profiles
 - a provisional 14-team playoff field: six group winners plus eight wildcards
 - League Results, Group Standings, and Playoff Race each use their own tab and show available content without hide/show buttons
 - a finalized playoff field after Week 17, with one-round-at-a-time postseason simulation
@@ -48,19 +49,29 @@ Overtime is a lightweight game mechanic rather than a play-by-play NFL rules imp
 
 After choosing a team, use the tabs above the content to view one screen at a time. Team identity, ratings, regular-season record, and simulation controls remain above every view. Simulating a week updates all screens while keeping the selected tab, with the latest final score in the shared status line. Game Stats shows the most recent regular-season game; playoff games and box scores appear under Playoffs.
 
-Tabs support Left/Right arrows (including wraparound), Home, and End. The tab bar scrolls horizontally on smaller screens. Views with no results explain when their data becomes available. After Week 17, choose **View playoffs** to load the field; advancing a playoff round opens the Playoffs tab. Switching tabs or canceling a team change preserves progress and collapsed roster groups. Starting another team resets the screens and returns to Schedule. Refreshing still resets the game.
+Tabs support Left/Right arrows (including wraparound), Home, and End. The tab bar scrolls horizontally on smaller screens. Views with no results explain when their data becomes available. After Week 17, choose **View playoffs** to load the field; advancing a playoff round opens the Playoffs tab. Switching tabs or canceling a team change preserves progress and collapsed roster groups. Starting another team resets the screens and returns to Schedule. Refreshing resumes the saved game.
 
 ## Roster
 
+Click any team name in Group Standings to open its scouting roster in a separate dialog. Inspect all 38 players by position, including age, experience, scouting rating, and position attributes, plus the team's offense and defense ratings. Close the dialog or press Escape to return to Standings. Browsing preserves your managed team, season progress, and roster settings. A failed load can be retried inside the dialog; browsing does not simulate games.
+
 Each team starts with 38 fictional players. Expand or collapse each position group to inspect its players, depth order, and scouting ratings.
 
-Player names are loaded from `app/data/first_names.txt` and `app/data/last_names.txt`, with one name per line. The downloaded Census lists contain 1,219 first names and 5,000 surnames (6,095,000 combinations). See [name data sources and editing instructions](app/data/README.md). The files are bundled locally; no runtime internet access is needed. Names are deterministic and unique within each team's roster; editing the lists can change display names, while stable player IDs, ratings, experience, and production remain unchanged.
+Both Ratings and Season Stats show each player's age in years. Initial ages are 21–36: a deterministic entry age of 21–24 plus the player's existing 0–12 years of experience. Ages stay fixed during a season and are regenerated for each new run. They are informational for now; aging, development, retirement, and age-based ability changes remain future offseason features. Ages and experience currently stay fixed across continued seasons.
 
-Choose **Season Stats** inside Roster to inspect cumulative production, then select **Regular season** or **Playoffs**. QB rows show passing totals and efficiency; RB rows combine rushing and receiving; WR/TE rows show receiving; K rows show FG, extra-point, longest made FG, and kicking-point totals. Backups with no production show zero counts and unavailable rates (`—`). OL and defensive groups continue to show ratings and experience with a note that their production is not tracked.
+Player names are loaded from `app/data/first_names.txt` and `app/data/last_names.txt`, with one name per line. The downloaded Census lists contain 1,219 first names and 5,000 surnames (6,095,000 combinations). See [name data sources and editing instructions](app/data/README.md). The files are bundled locally; no runtime internet access is needed. Names are reproducible within a run and unique within each team's roster; editing the lists can change display names, while stable player IDs, ratings, experience, and production remain unchanged.
+
+Choose **Season Stats** inside Roster to inspect cumulative production, then select **Regular season** or **Playoffs**. QB rows show passing totals and efficiency; RB rows combine rushing and receiving; WR/TE rows show receiving; K rows show FG, extra-point, longest made FG, and kicking-point totals. Backups with no production show zero counts and unavailable rates (`—`). Defenders show snaps, tackles, sacks, and interceptions. OL shows pass-blocking snaps, run-blocking snaps, and sacks allowed. All positions use Season Stats tables.
+
+Defensive and line production is aggregate detail derived after the game result. Tackles assume one credit per non-scoring completion/rush plus each sack; sacks are included in tackles, and defensive interceptions exactly match the opponent's passing interceptions. This does not yet model assists, pressures, forced fumbles, missed tackles, or individual blocking grades.
+
+Defense rotates through a 4-DL, 3-LB, 2-CB, 2-S unit. Snaps are shared using depth and scouting ratings, capped at one full game's snaps per player. Tackles/interceptions cannot exceed participation. Five starting linemen (OL depths 1–5) receive pass attempts plus sacks as pass-blocking snaps and rush attempts as run-blocking snaps; OL reserves remain at zero until substitutions exist. Each sack allowed is charged to one starter, favoring lower-rated blockers. Defensive and line snaps include sacks, exclude kicking plays, and describe regulation-equivalent offensive activity, like the existing usage model.
+
+New `defense` and `blocking` box-score rows include player IDs and feed the same season aggregation as offensive stats. An independent random stream generates the detail, preserving scores, offensive/kicking production, and playoff outcomes. Attributes remain scouting information for the future engine.
 
 Only completed games for the selected team count. Byes add no games; playoff totals stop changing after elimination, and teams that miss qualification keep zero playoff totals. The two competitions stay separate. Rates and passer rating are recalculated from cumulative counts, and longest FG is the maximum made distance. Switching roster views, competitions, or top tabs preserves collapsed position groups. Starting another team resets to Ratings and Regular season.
 
-Team profiles return an empty `roster_stats` snapshot; weekly and playoff responses return the respective completed-game snapshot. Each snapshot has `games` (team games recorded) and `players` keyed by stable `player_id`. Box-score rows also include `player_id`, so identical player names cannot merge production. Aggregation rebuilds each snapshot rather than incrementing browser totals, making retries idempotent. Refreshing still resets progress.
+Team profiles return an empty `roster_stats` snapshot; weekly and playoff responses return the respective completed-game snapshot. Each snapshot has `games` (team games recorded) and `players` keyed by stable `player_id`. Box-score rows also include `player_id`, so identical player names cannot merge production. Aggregation rebuilds each snapshot rather than incrementing browser totals, making retries idempotent. Refreshing restores saved progress.
 
 | Position | Initial count | Minimum required |
 | --- | ---: | ---: |
@@ -78,7 +89,7 @@ Team profiles return an empty `roster_stats` snapshot; weekly and playoff respon
 
 Offense has 18 players (QB, WR, TE, RB, OL), defense has 18 (DL, LB, CB, S), and two kickers complete the roster.
 
-The roster validator enforces these per-position minimums. The team profile API returns the rules and current counts alongside all players. Rosters have stable player IDs and names, and ratings are deterministic; defensive player scouting ratings use the team defense rating as their baseline.
+The roster validator enforces these per-position minimums. The team profile API returns the rules and current counts alongside all players. Player IDs identify city/position/depth slots. Names and ratings are stable within a run; defensive player scouting ratings use the team defense rating as their baseline.
 
 This PR provides roster depth and inspection. Releases, signings, and lineup selection are not yet available. QB1 receives all passing stats and K1 receives kicking stats. RB1/RB2 split rushing production, and receiving production is shared across every WR, both TEs, and both RBs. Team offense and defense still determine scoring; QB/RB skill and QB experience now affect pass volume.
 
@@ -99,7 +110,7 @@ Every player has **Football IQ, Speed, and Durability**, plus the specialties be
 
 Football IQ describes reads, positioning, and decision-making. Durability describes resistance to injury. Clutch Factor describes composure in high-pressure situations. These are currently scouting information for the future engine: they do not affect scoring, passing volume, injuries, or kicking outcomes in this PR. Existing scouting ratings and QB experience retain their current roles.
 
-Attributes are generated independently per stable player ID and attribute key, with a deterministic offset of −18 to +18 around the existing scouting rating, clamped to 1–99. Players with the same overall rating can have different attribute profiles. These are initial fictional scouting values; the existing overall rating is not recalculated from them. Names, IDs, experience, current ratings, and gameplay results are preserved.
+Attributes are generated independently per run seed, stable player ID, and attribute key, with a deterministic offset of −18 to +18 around the existing scouting rating, clamped to 1–99. Players with the same overall rating can have different attribute profiles. These are initial fictional scouting values; the existing overall rating is not recalculated from them.
 
 The team API includes an `attributes` object on each roster player, containing only applicable integer values. Each `roster_rules` entry includes the ordered attribute keys, labels, and descriptions for its position. Cached player attributes are immutable; API responses expose independent dictionaries.
 
@@ -136,8 +147,8 @@ Opening a PR alone does not update the main game URL. This setup does not create
 ### Demo behavior
 
 - The free service sleeps after 15 minutes without traffic; the next visit can take about a minute to wake it.
-- No database or account is required. The current team and week live in browser memory, so refreshing the page resets your progress.
-- Each successful season start gets a fresh random run seed, so weekly results and playoff outcomes can vary between runs. Within one run, every screen and retry uses the same results.
+- No database or account is required. Progress autosaves in browser local storage and resumes on refresh.
+- Each successful new career gets a fresh random run seed, so weekly results and playoff outcomes can vary between runs. Within one run, every screen and retry uses the same results.
 - After Week 17, choose **View playoffs**, then simulate one round at a time.
 
 See Render's [FastAPI guide](https://render.com/docs/deploy-fastapi), [free-tier limits](https://render.com/docs/free), and [automatic deploy settings](https://render.com/docs/deploys).
@@ -155,15 +166,17 @@ npm ci
 npm run test:ui
 ```
 
-The UI suite starts a local FastAPI server on port 8767 and checks tab/keyboard navigation, empty states, full seasons and playoffs, box-score values, roster collapse state, always-expanded league content, failed-request retry, and team reset/cancel using jsdom. Node dependencies are only for development checks; Render still runs the Python app directly. These DOM checks do not verify visual layout.
+The UI suites start local FastAPI servers on ports 8767, 8769, and 8770 and checks tab/keyboard navigation, empty states, full seasons and playoffs, box-score values, roster collapse state, always-expanded league content, failed-request retry, team reset/cancel, save restoration, and multiple-season continuation using jsdom. Node dependencies are only for development checks; Render still runs the Python app directly. These DOM checks do not verify visual layout.
 
 ## Randomized runs
 
-Starting a season generates a random 32-bit run seed in the browser using `crypto.getRandomValues`. A new start gets a seed different from the current run, including when selecting the same team again. Failed team loads and canceled changes preserve the current seed. Tabs, weeks, request retries, standings, final tiebreak draws, and playoff rounds share one seed; results agree from either team's perspective. Late weekly responses from a previous run are ignored.
+Standings reuse a bounded cache of immutable weekly scores keyed by season, week, run seed, and prior-season group ranks, avoiding repeated simulation of completed weeks. See [performance measurements and benchmark instructions](docs/performance.md) for API/UI timings, startup limits, and correctness checks.
 
-The weekly and playoff APIs accept `run_seed` from 0 through 4294967295 and echo it in the response. Standings/postseason caches include this value. Omitting it uses seed 0, preserving the previous deterministic API results for scripts and tests. Different seeds allow different champions but do not guarantee a different winner on every run.
+Starting a new career generates a random 32-bit run seed in the browser using `crypto.getRandomValues`. A new start gets a seed different from the current run, including when selecting the same team again. A failed load discards its candidate seed and preserves the active run; canceling a change also preserves it. Own-roster profiles, scouting dialogs, weeks, retries, standings, final tiebreak draws, and playoff rounds share one seed; results agree from either team's perspective. Late weekly responses from a previous run are ignored.
 
-Team ratings, rosters, player identities, and the schedule formula remain fixed. This change randomizes game outcomes and production, not team strengths. A future save system can retain the seed to reproduce a run; browser refresh still discards progress.
+The team-profile, weekly, and playoff APIs accept `run_seed` from 0 through 4294967295 and echo it in the response. Standings/postseason caches include this value. Omitting it uses seed 0, preserving the previous deterministic API results for scripts and tests. Different seeds allow different champions but do not guarantee a different winner on every run.
+
+Each run generates new team offense/defense ratings, names, player ratings, attributes, experience, and ages for all 30 teams. Team ratings remain in the existing 72–88 range, player attributes stay 1–99, and roster counts/minimums remain unchanged. Player IDs remain city/position/depth slot IDs; stats reset on each new start, and roster, standings, and score caches include the run seed. The schedule formula stays fixed. Attributes remain scouting information; team ratings and QB/RB skill retain their existing simulation roles. The browser save retains the seed to reproduce the same run after refresh.
 
 ## Aggregate game usage
 
@@ -206,8 +219,30 @@ Round arrows show tournament progression, rather than fixed game-to-game paths: 
 - Playoff overtime always selects a winner. Scoring uses the same simplified overtime mechanic as the regular season.
 - Eliminated teams and teams that miss qualification can still follow every round to the champion.
 
-Regular-season records stay separate from playoff results. Like the regular season, postseason results are reproducible within the same run seed, and refreshing resets browser progress.
+Regular-season records stay separate from playoff results. Like the regular season, postseason results are reproducible within the same run seed, and refreshing restores saved browser progress.
+
+Your latest playoff outcome appears above the bracket: green congratulations after a win (including the championship), or a red sorry/elimination message after a loss. The loss message remains while you follow later rounds. Byes and missed qualification use neutral status text. Starting another season clears the outcome message.
 
 ## Next build slice
 
-Add meaningful pregame management decisions and saved progress. The leaderboard service for the wider arcade can remain separate and be shared by every future game.
+Plan the drive engine together, then add meaningful pregame management decisions. The leaderboard service for the wider arcade can remain separate and be shared by every future game.
+
+## Saved progress
+
+Your game autosaves after a successful team selection, next-season transition, simulated week, or playoff round (including revealing the playoff field). Reopening the game restores your team, randomized roster, completed schedule, standings, season stats, and playoff bracket. The next simulation continues from the saved point.
+
+There is one save per browser and site address, using browser local storage; no account or cross-device sync is provided. Clearing site data removes it. Starting another team replaces it only after the new game loads successfully. If saving fails, the game displays a warning and can still be played in the open page. Failed simulations leave the previous save intact. Failed restores keep the save and offer Retry.
+
+Saves store a versioned team/season/run-seed/progress checkpoint; the API reconstructs results deterministically rather than storing rendered HTML. Changing the simulation rules in a future release may require a save migration/version change. Unsupported or damaged saves show a message and are replaced only after a successful new-game start.
+
+## Multiple seasons
+
+After completing the league championship, choose **Continue to Season 2** (then Season 3, and so on). This is available whether your team wins, loses, or misses qualification, once all four playoff rounds are complete. The API currently supports seasons 1–999; continuation stops at that limit.
+
+Continuing retains your franchise, run seed, all 30 teams' rosters, and team/player ratings. Ages, experience, and attributes remain unchanged in this initial version; development, aging, retirements, draft, free agency, and trades are separate future features. The new season has a fresh 17-game schedule, a new group rotation, a 0–0 record, and zero regular-season/playoff stats. Game results use the new season number, so they are not a replay of Season 1.
+
+Same-place opponents use the previous season's actual final group ranks. The browser carries all 30 ranks into schedule, simulation, standings, and postseason requests as the optional JSON `prior_standings` query parameter. The API validates one rank from 1–5 per team/group and canonicalizes the mapping for bounded cache keys. Existing API callers that omit the mapping keep the original placeholder ranks; Season 1 also uses those placeholders. This avoids replaying every past season when restoring a later save.
+
+**Franchise history** above the tabs lists completed prior seasons: your regular-season record, playoff finish, and league champion. It is a summary archive; individual past-season box scores and player/career totals are not retained. A failed season transition leaves the current game and saved checkpoint intact; retrying cannot append duplicate history. **Choose another team → Start new career** explicitly resets season, history, and seed instead of continuing the franchise.
+
+Save version 2 includes the active season's prior ranks and the history summaries. Version 1 saves from the saved-progress PR still restore with identical first-season results and upgrade on the next successful save. Refreshing in later seasons restores the correct schedule, standings, season totals, and postseason without mixing seasons.

@@ -4,7 +4,7 @@ from dataclasses import asdict, dataclass, field
 from functools import lru_cache
 
 from .league import GROUPS, TEAM_BY_ID, TEAMS
-from .simulation import _run_number, simulate_league_week, team_ratings
+from .simulation import _run_number, league_week_scores, team_ratings
 
 
 @dataclass
@@ -103,12 +103,12 @@ def _rank_teams(
     return ranked
 
 
-def _standing_payload(standing: TeamStanding, rank: int) -> dict[str, object]:
+def _standing_payload(standing: TeamStanding, rank: int, run_seed: int = 0) -> dict[str, object]:
     team = TEAM_BY_ID[standing.team_id]
     return {
         "rank": rank,
+        "ratings": asdict(team_ratings(team.id, run_seed)),
         "team": {"id": team.id, "city": team.city, "group": team.group},
-        "ratings": asdict(team_ratings(team.id)),
         "record": standing.record,
         "wins": standing.wins,
         "losses": standing.losses,
@@ -122,26 +122,19 @@ def _standing_payload(standing: TeamStanding, rank: int) -> dict[str, object]:
 
 
 @lru_cache(maxsize=128)
-def standings_through_week(season: int, week: int, run_seed: int = 0) -> dict[str, object]:
+def standings_through_week(season: int, week: int, run_seed: int = 0,
+                           prior_standings: tuple[tuple[str, int], ...] = ()) -> dict[str, object]:
     if week < 1 or week > 17:
         raise ValueError("Week must be between 1 and 17")
     standings = {team.id: TeamStanding(team_id=team.id) for team in TEAMS}
 
     for completed_week in range(1, week + 1):
-        for result in simulate_league_week(season, completed_week, run_seed):
-            home = result["home"]
-            away = result["away"]
+        for home_id, away_id, home_score, away_score in league_week_scores(season, completed_week, run_seed, prior_standings):
             _apply_result(
-                standings[home["team"]["id"]],
-                away["team"]["id"],
-                int(home["score"]),
-                int(away["score"]),
+                standings[home_id], away_id, home_score, away_score,
             )
             _apply_result(
-                standings[away["team"]["id"]],
-                home["team"]["id"],
-                int(away["score"]),
-                int(home["score"]),
+                standings[away_id], home_id, away_score, home_score,
             )
 
     group_tables: list[dict[str, object]] = []
@@ -152,7 +145,7 @@ def standings_through_week(season: int, week: int, run_seed: int = 0) -> dict[st
         group_winners.append(ranked[0])
         group_tables.append({
             "group": group,
-            "teams": [_standing_payload(standings[team_id], rank) for rank, team_id in enumerate(ranked, 1)],
+            "teams": [_standing_payload(standings[team_id], rank, run_seed) for rank, team_id in enumerate(ranked, 1)],
         })
 
     seeded_group_winners = _rank_teams(group_winners, standings, season, run_seed)
@@ -161,7 +154,7 @@ def standings_through_week(season: int, week: int, run_seed: int = 0) -> dict[st
     playoff_ids = [*seeded_group_winners, *wildcards]
     playoff_race = []
     for seed, team_id in enumerate(playoff_ids, start=1):
-        row = _standing_payload(standings[team_id], seed)
+        row = _standing_payload(standings[team_id], seed, run_seed)
         row.update({
             "seed": seed,
             "qualification": "Group winner" if seed <= 6 else "Wildcard",

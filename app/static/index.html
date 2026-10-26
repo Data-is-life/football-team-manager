@@ -33,10 +33,13 @@
             </select>
             <button type="submit">Start season</button>
           </div>
-          <p id="new-season-note" class="rotation-note" hidden>Starting another team resets your current season.</p>
+          <p id="new-season-note" class="rotation-note" hidden>Choosing another team starts a new career and replaces your saved game and history.</p>
           <button id="cancel-team-change" class="secondary-button" type="button" hidden>Keep current team</button>
         </form>
         </div>
+
+        <p id="save-status" class="roster-note" role="status">Progress saves automatically in this browser. Clearing site data removes your save.</p>
+        <button id="resume-save" class="secondary-button" type="button" hidden>Retry saved game</button>
 
         <div id="error" class="error" role="alert" hidden></div>
 
@@ -65,9 +68,17 @@
               <button id="simulate-button" type="button">Simulate Week 1</button>
               <button id="playoffs-start" type="button" hidden>View playoffs</button>
               <button id="playoff-simulate" type="button" hidden></button>
+              <button id="next-season" type="button" hidden></button>
             </div>
           </div>
           <p id="season-status" class="season-status" role="status">Ready for Week 1.</p>
+          <details id="season-history" class="attribute-guide" hidden>
+            <summary>Franchise history</summary>
+            <div class="table-wrap"><table>
+              <thead><tr><th>Season</th><th>Your record</th><th>Playoff finish</th><th>League champion</th></tr></thead>
+              <tbody id="season-history-rows"></tbody>
+            </table></div>
+          </details>
           <div class="view-tabs" role="tablist" aria-label="Team and league views">
             <button id="view-roster" class="view-tab" type="button" role="tab" aria-selected="false" aria-controls="panel-roster" tabindex="-1">Roster</button>
             <button id="view-game" class="view-tab" type="button" role="tab" aria-selected="false" aria-controls="panel-game" tabindex="-1">Game Stats</button>
@@ -110,6 +121,7 @@
                 </div>
               </div>
               <p id="roster-stats-status" class="roster-note" role="status" hidden></p>
+              <p id="roster-stats-note" class="roster-note" hidden>Defense and line stats are aggregate estimates. Tackles include sacks; pass snaps include sacks.</p>
               <p class="roster-note">38 players across ten position groups. Each group shows its minimum required count. Scouting ratings are out of 99; team ratings determine scoring, while QB/RB skill and QB experience shape passing volume. Player attributes use a 1–99 scale and are scouting information for now; they do not affect games yet.</p>
               <details class="attribute-guide">
                 <summary>Attribute guide</summary>
@@ -212,6 +224,15 @@
         </section>
       </section>
     </main>
+    <dialog id="team-roster-dialog" class="team-roster-dialog" aria-labelledby="scout-title">
+      <div class="scout-heading">
+        <div><p class="eyebrow">Scouting roster</p><h2 id="scout-title">Team roster</h2></div>
+        <button id="scout-close" class="secondary-button" type="button" autofocus>Close roster</button>
+      </div>
+      <p id="scout-status" class="roster-note" role="status"></p>
+      <button id="scout-retry" class="secondary-button" type="button" hidden>Retry</button>
+      <div id="scout-groups" class="roster-groups"></div>
+    </dialog>
     <script src="/static/app.js" defer></script>
   </body>
 </html>

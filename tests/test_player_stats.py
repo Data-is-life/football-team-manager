@@ -11,7 +11,7 @@ from app.stats import passer_rating
 
 
 class PlayerSeasonStatsTests(unittest.TestCase):
-    def test_initial_roster_includes_backups_and_untracked_positions(self):
+    def test_initial_roster_includes_zero_totals_for_every_position(self):
         profile = team_profile("seattle")
         stats = profile["roster_stats"]
         self.assertEqual(stats["games"], 0)
@@ -23,8 +23,10 @@ class PlayerSeasonStatsTests(unittest.TestCase):
             if player["position"] == "QB":
                 self.assertEqual(row["passing"]["attempts"], 0)
                 self.assertIsNone(row["passing"]["passer_rating"])
-            elif player["position"] in ("OL", "DL", "LB", "CB", "S"):
-                self.assertEqual(set(row), {"player_id", "position"})
+            elif player["position"] in ("DL", "LB", "CB", "S"):
+                self.assertEqual(row['defense'], {'snaps': 0, 'tackles': 0, 'sacks': 0, 'interceptions': 0})
+            elif player["position"] == "OL":
+                self.assertEqual(row['blocking'], {'pass_block_snaps': 0, 'run_block_snaps': 0, 'sacks_allowed': 0})
         self.assertIsNone(totals["seattle-k2"]["kicking"]["longest_field_goal"])
 
     def test_rates_use_combined_opportunities_and_longest_uses_max(self):

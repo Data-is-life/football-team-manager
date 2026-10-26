@@ -11,12 +11,12 @@ async function until(check) {
 }
 const fixtureSeed=1234;
 async function checkUI() {
- for(const endpoint of ['/api/season/seattle/week/1','/api/playoffs/seattle/round/0']) {
+ for(const endpoint of ['/api/team/seattle','/api/season/seattle/week/1','/api/playoffs/seattle/round/0']) {
   for(const bad of ['-1','4294967296','abc']) assert.equal((await fetch(base+endpoint+'?run_seed='+bad)).status,422);
  }
  const finished=await (await fetch(base+'/api/playoffs/seattle/round/4?run_seed='+fixtureSeed)).json();
  const teams=(await (await fetch(base+'/api/teams')).json()).teams;
- const ratingsByTeam=new Map(await Promise.all(teams.map(async team=>[team.id,(await (await fetch(base+`/api/team/${team.id}`)).json()).ratings])));
+ const ratingsByTeam=new Map(await Promise.all(teams.map(async team=>[team.id,(await (await fetch(base+`/api/team/${team.id}?run_seed=${fixtureSeed}`)).json()).ratings])));
  const field=finished.field;
  const firstLoser=finished.rounds[0].games[0];
  const loserId=firstLoser.winner.team.id===firstLoser.home.team.id ? firstLoser.away.team.id : firstLoser.home.team.id;
@@ -24,6 +24,9 @@ async function checkUI() {
  for(const [index,id] of cases.entries()) {
   const dom=new JSDOM(await (await fetch(base)).text(),{url:base,runScripts:'outside-only'});
   const w=dom.window, d=w.document;
+  // jsdom does not implement native dialog opening/closing or focus trapping.
+  w.HTMLDialogElement.prototype.showModal=function(){this.open=true;};
+  w.HTMLDialogElement.prototype.close=function(){this.open=false;this.dispatchEvent(new w.Event('close'));};
   let fail=false,randomCalls=0;
   const usedSeeds=[];
   Object.defineProperty(w.crypto,'getRandomValues',{value:array=>{array[0]=fixtureSeed+randomCalls++;return array}});
@@ -38,6 +41,8 @@ async function checkUI() {
   d.querySelector('#team-select').value=id;
   d.querySelector('#team-form').dispatchEvent(new w.Event('submit',{cancelable:true}));
   await until(()=>!d.querySelector('#schedule-section').hidden);
+  assert.equal(d.querySelectorAll('#schedule .opponent-record').length,17);
+  for(const record of d.querySelectorAll('#schedule .opponent-record')) assert.equal(record.textContent,'Record: 0–0');
   assert.equal(d.querySelectorAll('.roster-player').length,38);
   assert.equal(d.querySelectorAll('.roster-group').length,10);
   const expected={QB:[2,1],WR:[4,2],TE:[2,1],RB:[2,1],OL:[8,5],K:[2,1],DL:[6,4],LB:[5,3],CB:[4,2],S:[3,2]};
@@ -47,19 +52,21 @@ async function checkUI() {
    assert.equal(group.querySelector('summary').textContent,`${position} · ${count} players · minimum ${min}`);
    group.open=false; assert.equal(group.open,false); group.open=true;
   }
-  const api=await (await fetch(base+`/api/team/${id}`)).json();
+  const api=await (await fetch(base+`/api/team/${id}?run_seed=${fixtureSeed}`)).json();
   assert.deepEqual([...d.querySelectorAll('.roster-player')].map(row=>row.dataset.playerId),api.roster.map(player=>player.id));
-  assert.equal(d.querySelector('.roster-player').children[2].textContent,`${api.roster[0].experience} yr`);
+  assert.equal(d.querySelector('.roster-player').children[3].textContent,`${api.roster[0].experience} yr`);
   const specialties={QB:['Accuracy','Arm Strength','Clutch Factor'],WR:['Catching','Route Running','Strength'],TE:['Catching','Route Running','Strength'],RB:['Strength','Agility','Ball Security'],OL:['Strength','Pass Blocking','Run Blocking'],DL:['Strength','Pass Rush','Tackling'],LB:['Strength','Tackling','Coverage'],CB:['Agility','Coverage','Tackling'],S:['Agility','Coverage','Tackling'],K:['Kick Accuracy','Kick Power']};
   function checkAttributes(profile) {
    for (const rule of profile.roster_rules) {
     const group=d.querySelector(`.roster-group[data-position="${rule.position}"]`);
     const headings=[...group.querySelectorAll('.roster-rating-wrap th')].map(cell=>cell.textContent);
-    assert.deepEqual(headings,['Depth','Player','Experience','Scouting rating','Football IQ','Speed','Durability',...specialties[rule.position]]);
+    assert.deepEqual(headings,['Depth','Player','Age','Experience','Scouting rating','Football IQ','Speed','Durability',...specialties[rule.position]]);
     for(const player of profile.roster.filter(player=>player.position===rule.position)) {
      const cells=group.querySelector(`.roster-player[data-player-id="${player.id}"]`).children;
-     assert.equal(cells.length,4+rule.attributes.length);
-     rule.attributes.forEach((attribute,i)=>assert.equal(cells[i+4].textContent,String(player.attributes[attribute.key])));
+     assert.equal(cells.length,5+rule.attributes.length);
+     assert.equal(cells[2].textContent,String(player.age));
+     assert.equal(cells[3].textContent,`${player.experience} yr`);
+     rule.attributes.forEach((attribute,i)=>assert.equal(cells[i+5].textContent,String(player.attributes[attribute.key])));
     }
    }
    const guide=d.querySelector('#attribute-guide-list');
@@ -141,6 +148,8 @@ async function checkUI() {
    assert.equal(d.querySelector('#roster-competition-control').hidden,false);
    assert.match(d.querySelector('#roster-stats-status').textContent,new RegExp(`${snapshot.games} team game`));
    const schemas={
+    OL:[['blocking','pass_block_snaps'],['blocking','run_block_snaps'],['blocking','sacks_allowed']],
+    ...Object.fromEntries(['DL','LB','CB','S'].map(position=>[position,[['defense','snaps'],['defense','tackles'],['defense','sacks'],['defense','interceptions']]])),
     QB:[['passing','completions'],['passing','attempts'],['passing','completion_percentage'],['passing','yards'],['passing','touchdowns'],['passing','interceptions'],['passing','yards_per_attempt'],['passing','passer_rating']],
     RB:[['rushing','attempts'],['rushing','yards'],['rushing','yards_per_carry'],['rushing','touchdowns'],['receiving','receptions'],['receiving','yards'],['receiving','yards_per_reception'],['receiving','touchdowns']],
     WR:[['receiving','receptions'],['receiving','yards'],['receiving','yards_per_reception'],['receiving','touchdowns']],
@@ -157,16 +166,21 @@ async function checkUI() {
      continue;
     }
     assert.equal(group.querySelector('.roster-rating-wrap').hidden,true);
+    assert.equal(group.querySelector('.roster-untracked-note').hidden,true);
     assert.equal(group.querySelector('.roster-stats-wrap').hidden,false);
     const total=snapshot.players.find(row=>row.player_id===player.id);
     const cells=group.querySelector(`.roster-season-player[data-player-id="${player.id}"]`).children;
     assert.equal(cells[0].textContent,String(player.depth));assert.equal(cells[1].textContent,player.name);
+    assert.equal(cells[2].textContent,String(player.age));
+    assert.equal(group.querySelectorAll('.roster-season-table th')[2].textContent,'Age');
     schema.forEach(([category,field],i)=>{
      const value=total[category][field];
      const expected=value==null?'—':field.includes('percentage')?`${value.toFixed(1)}%`:field==='longest_field_goal'?`${value} yd`:field.startsWith('yards_per_')||field==='passer_rating'?value.toFixed(1):String(value);
-     assert.equal(cells[i+2].textContent,expected,`${player.id} ${category}.${field}`);
+     assert.equal(cells[i+3].textContent,expected,`${player.id} ${category}.${field}`);
     });
    }
+   assert.equal(d.querySelectorAll('#roster-groups .roster-season-player').length,38);
+   assert.equal(d.querySelector('#roster-stats-note').hidden,false);
    assert.deepEqual([...d.querySelectorAll('.roster-group')].map(group=>group.open),before);
   }
   const initialRequests=requests;
@@ -199,6 +213,50 @@ async function checkUI() {
    assert.equal(d.querySelectorAll('#playoff-race tr').length,14);
    assert.match(d.querySelector('#league-results-title').textContent,new RegExp(`Week ${week}$`));
    const weekData=await (await fetch(base+`/api/season/${id}/week/${week}?season=1&run_seed=${fixtureSeed}`)).json();
+   if(index===0 && week===1) {
+    go('standings');
+    const links=[...d.querySelectorAll('#group-standings .team-roster-link')];
+    assert.equal(links.length,30);
+    assert.deepEqual(new Set(links.map(button=>button.dataset.teamId)),new Set(teams.map(team=>team.id)));
+    const before={roster:d.querySelector('#roster-groups').innerHTML,team:d.querySelector('#team-name').textContent,record:d.querySelector('#season-record').textContent,week:d.querySelector('#simulate-button').textContent,seedCalls:randomCalls};
+    const dialog=d.querySelector('#team-roster-dialog');
+    const target=links.find(button=>button.dataset.teamId!==id);
+    target.click();
+    await until(()=>d.querySelectorAll('#scout-groups .roster-player').length===38);
+    assert.equal(dialog.open,true);
+    checkView('standings');
+    const profile=await (await fetch(base+`/api/team/${target.dataset.teamId}?run_seed=${fixtureSeed}`)).json();
+    assert.equal(d.querySelector('#scout-title').textContent,`${profile.team.city} roster`);
+    assert.match(d.querySelector('#scout-status').textContent,new RegExp(`Offense ${profile.ratings.offense} · Defense ${profile.ratings.defense}`));
+    for(const player of profile.roster) {
+     const row=d.querySelector(`#scout-groups [data-player-id="${player.id}"]`);
+     assert.ok(row);
+     const rule=profile.roster_rules.find(rule=>rule.position===player.position);
+     assert.deepEqual([...row.children].map(cell=>cell.textContent),[String(player.depth),player.name,String(player.age),`${player.experience} yr`,String(player.rating),...rule.attributes.map(attribute=>String(player.attributes[attribute.key]))]);
+    }
+    d.querySelector('#scout-close').click();
+    assert.equal(dialog.open,false);
+    assert.equal(d.querySelector('#scout-groups').children.length,0);
+    // Failed inspection can retry without disturbing the managed team.
+    const realFetch=w.fetch;
+    w.fetch=url=>url===`/api/team/${target.dataset.teamId}?run_seed=${fixtureSeed}`?Promise.resolve({ok:false}):realFetch(url);
+    target.click();await until(()=>!d.querySelector('#scout-retry').hidden);
+    assert.equal(dialog.open,true);
+    w.fetch=realFetch;d.querySelector('#scout-retry').click();
+    await until(()=>d.querySelectorAll('#scout-groups .roster-player').length===38);
+    d.querySelector('#scout-close').click();
+    // A late response from a closed inspection must not replace the next roster.
+    let release;
+    w.fetch=url=>url===`/api/team/${target.dataset.teamId}?run_seed=${fixtureSeed}`?Promise.resolve({ok:true,json:()=>new Promise(resolve=>{release=()=>resolve(profile);})}):realFetch(url);
+    target.click();await until(()=>Boolean(release));d.querySelector('#scout-close').click();
+    const ownLink=links.find(button=>button.dataset.teamId===id);
+    ownLink.click();await until(()=>d.querySelectorAll('#scout-groups .roster-player').length===38);
+    release();await new Promise(resolve=>setImmediate(resolve));
+    assert.deepEqual([...d.querySelectorAll('#scout-groups .roster-player')].map(row=>row.dataset.playerId),api.roster.map(player=>player.id));
+    d.querySelector('#scout-close').click();w.fetch=realFetch;
+    assert.deepEqual({roster:d.querySelector('#roster-groups').innerHTML,team:d.querySelector('#team-name').textContent,record:d.querySelector('#season-record').textContent,week:d.querySelector('#simulate-button').textContent,seedCalls:randomCalls},before);
+    go(selected);
+   }
    const groupCards=d.querySelectorAll('#group-standings .standings-card');
    weekData.standings.groups.forEach((group,i)=>{
     assert.deepEqual([...groupCards[i].querySelectorAll('th')].map(cell=>cell.textContent),['#','Team','Offense','Defense','Record','Diff']);
@@ -206,6 +264,7 @@ async function checkUI() {
     assert.equal(rows.length,5);
     group.teams.forEach((team,j)=>{
      const ratings=ratingsByTeam.get(team.team.id),cells=rows[j].children;
+     assert.equal(cells[1].querySelector('.team-roster-link').dataset.teamId,team.team.id);
      assert.ok(cells[1].textContent.startsWith(team.team.city));
      assert.equal(cells[2].textContent,String(ratings.offense));
      assert.equal(cells[3].textContent,String(ratings.defense));
@@ -217,6 +276,13 @@ async function checkUI() {
    const history=weekData.game_results;
    go('roster');checkRoster(weekData.roster_stats,'regular');checkRoster(api.roster_stats,'playoffs');go(selected);
    const cards=d.querySelectorAll('#schedule .game-card');
+   const opponentRows=new Map(weekData.standings.groups.flatMap(group=>group.teams).map(row=>[row.team.id,row]));
+   cards.forEach(card=>{
+    const row=opponentRows.get(card.dataset.opponentId);
+    assert.ok(row,'Schedule opponents must match real standings teams');
+    assert.equal(card.querySelector('.opponent-record').textContent,`Record: ${row.wins}–${row.losses}${row.ties?`–${row.ties}`:''}`);
+    assert.equal(row.wins+row.losses+row.ties,week);
+   });
    assert.equal(d.querySelectorAll('#schedule .completed').length,week);
    history.forEach((game,i)=> {
     assert.equal(cards[i].querySelector('.game-final').textContent,`${game.outcome} · ${game.team_score}–${game.opponent_score}${game.overtime ? ' · OT' : ''}`);
@@ -255,6 +321,7 @@ async function checkUI() {
   assert.equal(d.querySelector('#playoffs-empty').hidden,true);
   if(index===0) assert.match(d.querySelector('#postseason-status').textContent,/bye/);
   if(index===3) assert.match(d.querySelector('#postseason-status').textContent,/missed/);
+  assert.equal(d.querySelector('#postseason-status').dataset.outcome,'neutral');
   function checkPlayoffHighlight(state) {
    function checkGames(selector,games) {
     const cards=d.querySelectorAll(`${selector} .playoff-game-card`);
@@ -316,6 +383,13 @@ async function checkUI() {
    go('roster');checkRoster(state.roster_stats,'playoffs');checkRoster(regularFinal,'regular');checkRoster(state.roster_stats,'playoffs');go('playoffs');
    const latest=state.rounds.at(-1);
    const own=latest.games.find(g=>g.home.team.id===id||g.away.team.id===id);
+   const latestOwn=state.rounds.flatMap(r=>r.games).filter(g=>g.home.team.id===id||g.away.team.id===id).at(-1);
+   const outcome=d.querySelector('#postseason-status');
+   const expectedOutcome=!state.qualified?'neutral':latestOwn?(latestOwn.winner.team.id===id?'win':'loss'):'neutral';
+   assert.equal(outcome.dataset.outcome,expectedOutcome);
+   if(expectedOutcome==='win') assert.match(outcome.textContent,/Congratulations!/);
+   if(expectedOutcome==='loss') assert.match(outcome.textContent,/Sorry!.*eliminated/);
+   if(expectedOutcome==='neutral') assert.doesNotMatch(outcome.textContent,/Congratulations!|Sorry!/);
    assert.equal(d.querySelector('#your-playoff-game').hidden,!own);
    assert.equal(d.querySelectorAll('#playoff-bracket .playoff-game-card').length,state.rounds.reduce((sum,r)=>sum+r.games.length,0)+(state.upcoming?.games.length??0));
    if(own) {
@@ -345,23 +419,35 @@ async function checkUI() {
   assert.ok(usedSeeds.length>0 && usedSeeds.every(seed=>seed===fixtureSeed));
   d.querySelector('#team-select').value='seattle';
   const realFetch=w.fetch;
+  const previousRoster=d.querySelector('#roster-groups').innerHTML;
   w.fetch=()=>Promise.resolve({ok:false});
   d.querySelector('#team-form').dispatchEvent(new w.Event('submit',{cancelable:true}));
   await until(()=>!d.querySelector('#error').hidden && !d.querySelector('#team-form button[type=submit]').disabled);
-  assert.equal(randomCalls,1,'A failed team load must preserve the existing seed');
+  assert.equal(randomCalls,2,'A failed start can draw a candidate seed without replacing the active run');
+  assert.equal(d.querySelector('#roster-groups').innerHTML,previousRoster);
+  assert.equal(d.querySelector('#season-record').textContent,record);
   w.fetch=realFetch;
   d.querySelector('#team-form').dispatchEvent(new w.Event('submit',{cancelable:true}));
   await until(()=>!d.querySelector('#schedule-section').hidden);
   assert.equal(d.querySelector('#postseason-section').hidden,true);
   assert.equal(d.querySelectorAll('#schedule .completed').length,0);
+  assert.equal(d.querySelector('#postseason-status').dataset.outcome,'neutral');
+  assert.equal(d.querySelector('#postseason-status').textContent,'');
+  for(const record of d.querySelectorAll('#schedule .opponent-record')) assert.equal(record.textContent,'Record: 0–0');
   assert.equal(d.querySelector('#roster-ratings-button').getAttribute('aria-pressed'),'true');
   assert.equal(d.querySelector('#roster-competition').value,'regular');
-  checkAttributes(await (await fetch(base+'/api/team/seattle')).json());
+  const freshProfile=await (await fetch(base+`/api/team/seattle?run_seed=${fixtureSeed+2}`)).json();
+  const oldSeattle=await (await fetch(base+`/api/team/seattle?run_seed=${fixtureSeed}`)).json();
+  checkAttributes(freshProfile);
+  assert.notDeepEqual(freshProfile.roster.map(player=>player.name),oldSeattle.roster.map(player=>player.name));
+  assert.deepEqual([...d.querySelectorAll('#roster-groups .roster-player')].map(row=>row.children[1].textContent),freshProfile.roster.map(player=>player.name));
+  assert.equal(d.querySelector('#offense-rating').textContent,String(freshProfile.ratings.offense));
+  assert.equal(d.querySelector('#defense-rating').textContent,String(freshProfile.ratings.defense));
   go('roster');
   // The new roster has Seattle IDs, so inspect zero totals directly after switching teams.
   d.querySelector('#roster-stats-button').click();
   assert.match(d.querySelector('#roster-stats-status').textContent,/0 team games/);
-  assert.equal(d.querySelector('.roster-season-player[data-player-id="seattle-qb1"]').children[3].textContent,'0');
+  assert.equal(d.querySelector('.roster-season-player[data-player-id="seattle-qb1"]').children[4].textContent,'0');
   go('schedule');
   checkView('schedule');
   assert.equal(advance.hidden,true);
@@ -372,15 +458,15 @@ async function checkUI() {
   assert.equal(start.hidden,true);
   assert.equal(d.querySelectorAll('.roster-player').length,38);
   assert.equal(d.querySelectorAll('.roster-group').length,10);
-  assert.equal(randomCalls,2,'Starting another season gets a fresh seed');
+  assert.equal(randomCalls,3,'Starting another season gets a fresh seed');
   d.querySelector('#simulate-button').click();
   await until(()=>d.querySelector('#simulate-button').textContent==='Simulate Week 2');
-  assert.equal(usedSeeds.at(-1),fixtureSeed+1);
-  const freshGame=await (await fetch(base+`/api/season/seattle/week/1?run_seed=${fixtureSeed+1}`)).json();
+  assert.equal(usedSeeds.at(-1),fixtureSeed+2);
+  const freshGame=await (await fetch(base+`/api/season/seattle/week/1?run_seed=${fixtureSeed+2}`)).json();
   assert.equal(d.querySelector('#season-record').textContent,`${freshGame.record.wins}–${freshGame.record.losses}${freshGame.record.ties?`–${freshGame.record.ties}`:''}`);
   assert.equal(d.querySelector('#schedule .game-final').textContent,`${freshGame.game_results[0].outcome} · ${freshGame.game_results[0].team_score}–${freshGame.game_results[0].opponent_score}${freshGame.game_results[0].overtime?' · OT':''}`);
   if(index===0) {
-   const oldData=await (await fetch(base+`/api/season/seattle/week/2?run_seed=${fixtureSeed+1}`)).json();
+   const oldData=await (await fetch(base+`/api/season/seattle/week/2?run_seed=${fixtureSeed+2}`)).json();
    const live=w.fetch;let release;
    w.fetch=path=>path.startsWith('/api/season/') ? Promise.resolve({ok:true,json:()=>new Promise(resolve=>{release=()=>resolve(oldData)})}) : live(path);
    d.querySelector('#simulate-button').click();await until(()=>Boolean(release));

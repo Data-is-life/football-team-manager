@@ -1,3 +1,4 @@
+import json
 from dataclasses import asdict
 from pathlib import Path
 from typing import Annotated
@@ -6,7 +7,7 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from .league import GROUPS, TEAM_BY_ID, generate_schedule, rotating_group, schedule_payload, teams_payload
+from .league import GROUPS, TEAM_BY_ID, generate_schedule, rotating_group, schedule_payload, teams_payload, validate_standings
 from .playoffs import playoffs_through_round
 from .player_stats import aggregate_player_stats
 from .simulation import ROSTER_RULES, roster_for, simulate_through_week, team_ratings
@@ -31,13 +32,14 @@ def list_teams() -> dict[str, object]:
 
 
 @app.get("/api/team/{team_id}")
-def team_profile(team_id: str) -> dict[str, object]:
+def team_profile(team_id: str, run_seed: Annotated[int, Query(ge=0, le=4294967295)] = 0) -> dict[str, object]:
     if team_id not in TEAM_BY_ID:
         raise HTTPException(status_code=404, detail="Team not found")
-    players = list(roster_for(team_id).values())
+    players = list(roster_for(team_id, run_seed).values())
     return {
         "team": asdict(TEAM_BY_ID[team_id]),
-        "ratings": asdict(team_ratings(team_id)),
+        "ratings": asdict(team_ratings(team_id, run_seed)),
+        "run_seed": run_seed,
         "roster": [{**asdict(player), "attributes": {
             key: getattr(player.attributes, key) for key in attribute_keys(player.position)
         }} for player in players],
@@ -54,15 +56,31 @@ def team_profile(team_id: str) -> dict[str, object]:
     }
 
 
+def parse_prior_standings(raw: str | None) -> tuple[tuple[str, int], ...]:
+    """Validate and canonicalize the saved previous-season group ranks for cache keys."""
+    if raw is None:
+        return ()
+    try:
+        ranks = json.loads(raw)
+        if not isinstance(ranks, dict) or any(type(rank) is not int for rank in ranks.values()):
+            raise ValueError("Ranks must be integers")
+        validate_standings(ranks)
+    except (ValueError, TypeError) as error:
+        raise HTTPException(status_code=422, detail="Prior standings must rank all 30 teams 1–5 within each group") from error
+    return tuple(sorted(ranks.items()))
+
+
 @app.get("/api/schedule/{team_id}")
 def team_schedule(
     team_id: str,
     season: int = Query(default=1, ge=1, le=999),
+    prior_standings: Annotated[str | None, Query(max_length=2000)] = None,
 ) -> dict[str, object]:
     if team_id not in TEAM_BY_ID:
         raise HTTPException(status_code=404, detail="Team not found")
     team = TEAM_BY_ID[team_id]
-    games = generate_schedule(team_id=team_id, season=season)
+    games = generate_schedule(team_id=team_id, season=season,
+                              standings=dict(parse_prior_standings(prior_standings)) or None)
     return {
         "team": {"id": team.id, "city": team.city, "group": team.group},
         "season": season,
@@ -77,12 +95,14 @@ def simulate_week(
     week: int,
     season: int = Query(default=1, ge=1, le=999),
     run_seed: Annotated[int, Query(ge=0, le=4294967295)] = 0,
+    prior_standings: Annotated[str | None, Query(max_length=2000)] = None,
 ) -> dict[str, object]:
     if team_id not in TEAM_BY_ID:
         raise HTTPException(status_code=404, detail="Team not found")
     if week < 1 or week > 17:
         raise HTTPException(status_code=400, detail="Week must be between 1 and 17")
-    return simulate_through_week(team_id=team_id, season=season, week=week, run_seed=run_seed)
+    return simulate_through_week(team_id=team_id, season=season, week=week, run_seed=run_seed,
+                                 prior_standings=parse_prior_standings(prior_standings))
 
 
 @app.get("/api/playoffs/{team_id}/round/{round_number}")
@@ -91,9 +111,11 @@ def playoff_round(
     round_number: int,
     season: int = Query(default=1, ge=1, le=999),
     run_seed: Annotated[int, Query(ge=0, le=4294967295)] = 0,
+    prior_standings: Annotated[str | None, Query(max_length=2000)] = None,
 ) -> dict[str, object]:
     if team_id not in TEAM_BY_ID:
         raise HTTPException(status_code=404, detail="Team not found")
     if round_number < 0 or round_number > 4:
         raise HTTPException(status_code=400, detail="Playoff round must be between 0 and 4")
-    return playoffs_through_round(team_id, season, round_number, run_seed)
+    return playoffs_through_round(team_id, season, round_number, run_seed,
+                                  parse_prior_standings(prior_standings))

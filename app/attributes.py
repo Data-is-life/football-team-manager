@@ -62,10 +62,13 @@ def attribute_keys(position: str) -> tuple[str, ...]:
     return COMMON_ATTRIBUTES + POSITION_ATTRIBUTES[position]
 
 
-def generate_attributes(player_id: str, position: str, rating: int) -> PlayerAttributes:
+def generate_attributes(player_id: str, position: str, rating: int, run_seed: int = 0) -> PlayerAttributes:
     values = {}
     for key in attribute_keys(position):
-        seed = hashlib.sha256(f"{player_id}:attribute:{key}".encode("utf-8")).digest()
+        context = f"{player_id}:attribute:{key}"
+        if run_seed:
+            context = f"run:{run_seed}:{context}"
+        seed = hashlib.sha256(context.encode("utf-8")).digest()
         offset = int.from_bytes(seed[:8], "big") % 37 - 18
         values[key] = max(1, min(99, rating + offset))
     return PlayerAttributes(**values)
