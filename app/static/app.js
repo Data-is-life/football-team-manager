@@ -14,6 +14,10 @@ const cancelTeamChange = document.querySelector("#cancel-team-change");
 let activeTeamId = null;
 let activeRunSeed = 0;
 let activeSeason = 1;
+let activePriorStandings = {};
+let careerHistory = [];
+let regularSnapshot = null;
+const nextSeasonButton = document.querySelector("#next-season");
 let currentWeek = 0;
 let latestResult = null;
 let completedPlayoffRound = 0;
@@ -38,8 +42,9 @@ let restoring = false;
 
 function saveProgress() {
   if (!activeTeamId || restoring) return;
-  const save = { version: 1, teamId: activeTeamId, runSeed: activeRunSeed,
+  const save = { version: 2, teamId: activeTeamId, runSeed: activeRunSeed,
     season: activeSeason, week: currentWeek,
+    priorStandings: activePriorStandings, history: careerHistory,
     playoffRound: playoffState ? completedPlayoffRound : null };
   try {
     localStorage.setItem(SAVE_KEY, JSON.stringify(save));
@@ -55,14 +60,56 @@ function readSave() {
   if (!raw) return null;
   const save = JSON.parse(raw);
   const integer = (value, min, max) => Number.isInteger(value) && value >= min && value <= max;
-  if (!save || save.version !== 1 || typeof save.teamId !== "string"
+  if (!save || ![1, 2].includes(save.version) || typeof save.teamId !== "string"
       || ![...select.options].some(option => option.value && option.value === save.teamId)
       || !integer(save.runSeed, 0, 4294967295) || !integer(save.season, 1, 999)
       || !integer(save.week, 0, 17)
       || !(save.playoffRound === null || (save.week === 17 && integer(save.playoffRound, 0, 4)))) {
     throw new Error("Invalid save");
   }
+  if (save.version === 1) {
+    // PR #31 only created first-season saves. Upgrade without changing its seed or results.
+    if (save.season !== 1) throw new Error("Invalid legacy save");
+    save.priorStandings = {};
+    save.history = [];
+  }
+  const allowedFinishes = ["Champions", "Missed playoffs", "Lost in Wild Card", "Lost in Quarterfinals", "Lost in Semifinals", "Lost in Championship"];
+  const knownTeam = id => [...select.options].some(option => option.value && option.value === id);
+  if (!Array.isArray(save.history) || save.history.length !== save.season - 1
+      || !save.history.every((entry, index) => entry && entry.season === index + 1
+        && [entry.wins, entry.losses, entry.ties].every(value => integer(value, 0, 17))
+        && entry.wins + entry.losses + entry.ties === 17
+        && knownTeam(entry.championId) && allowedFinishes.includes(entry.playoffFinish))
+      || !validPriorStandings(save.priorStandings, save.season)) throw new Error("Invalid career save");
   return save;
+}
+
+function validPriorStandings(ranks, season) {
+  if (!ranks || typeof ranks !== "object" || Array.isArray(ranks)) return false;
+  if (season === 1) return Object.keys(ranks).length === 0;
+  if (Object.keys(ranks).length !== 30) return false;
+  return [...select.querySelectorAll("optgroup")].every(group => {
+    const positions = [...group.children].map(option => ranks[option.value]);
+    return positions.every(Number.isInteger) && positions.sort((a, b) => a - b).join(",") === "1,2,3,4,5";
+  });
+}
+
+function priorStandingsQuery(ranks = activePriorStandings) {
+  return Object.keys(ranks).length ? `&prior_standings=${encodeURIComponent(JSON.stringify(ranks))}` : "";
+}
+
+function renderSeasonHistory() {
+  const section = document.querySelector("#season-history");
+  section.hidden = careerHistory.length === 0;
+  const rows = careerHistory.map(entry => {
+    const row = document.createElement("tr");
+    const champion = [...select.options].find(option => option.value === entry.championId)?.textContent;
+    for (const value of [entry.season, `${entry.wins}–${entry.losses}${entry.ties ? `–${entry.ties}` : ""}`, entry.playoffFinish, champion]) {
+      const cell = document.createElement("td"); cell.textContent = value; row.append(cell);
+    }
+    return row;
+  });
+  document.querySelector("#season-history-rows").replaceChildren(...rows);
 }
 
 async function resumeProgress() {
@@ -82,11 +129,11 @@ async function resumeProgress() {
   saveStatus.textContent = "Restoring saved progress…";
   try {
     const requests = [
-      `/api/schedule/${save.teamId}?season=${save.season}`,
+      `/api/schedule/${save.teamId}?season=${save.season}${priorStandingsQuery(save.priorStandings)}`,
       `/api/team/${save.teamId}?run_seed=${save.runSeed}`,
     ];
-    if (save.week) requests.push(`/api/season/${save.teamId}/week/${save.week}?season=${save.season}&run_seed=${save.runSeed}`);
-    if (save.playoffRound !== null) requests.push(`/api/playoffs/${save.teamId}/round/${save.playoffRound}?season=${save.season}&run_seed=${save.runSeed}`);
+    if (save.week) requests.push(`/api/season/${save.teamId}/week/${save.week}?season=${save.season}&run_seed=${save.runSeed}${priorStandingsQuery(save.priorStandings)}`);
+    if (save.playoffRound !== null) requests.push(`/api/playoffs/${save.teamId}/round/${save.playoffRound}?season=${save.season}&run_seed=${save.runSeed}${priorStandingsQuery(save.priorStandings)}`);
     const payloads = await Promise.all(requests.map(async url => {
       const response = await fetch(url);
       if (!response.ok) throw new Error("Restore failed");
@@ -100,7 +147,7 @@ async function resumeProgress() {
       throw new Error("Restore failed");
     }
     renderTeamProfile(profile);
-    renderSchedule(schedule, save.runSeed);
+    renderSchedule(schedule, save.runSeed, { priorStandings: save.priorStandings, history: save.history });
     if (regular) renderResult(regular);
     if (postseason) { renderPostseason(postseason); activateView("playoffs"); }
     select.value = save.teamId;
@@ -114,7 +161,7 @@ async function resumeProgress() {
     submit.disabled = false;
     select.disabled = false;
     resumeButton.disabled = false;
-    submit.textContent = activeTeamId ? "Start new season" : "Start season";
+    submit.textContent = activeTeamId ? "Start new career" : "Start season";
   }
 }
 resumeButton.addEventListener("click", resumeProgress);
@@ -384,11 +431,16 @@ function createRunSeed() {
   return candidate === activeRunSeed ? (candidate % 4294967295) + 1 : candidate;
 }
 
-function renderSchedule(data, runSeed) {
+function renderSchedule(data, runSeed, { priorStandings = {}, history = [] } = {}) {
   if (rosterDialog.open) rosterDialog.close();
   activeTeamId = data.team.id;
   activeRunSeed = runSeed;
   activeSeason = data.season;
+  activePriorStandings = priorStandings;
+  careerHistory = history;
+  regularSnapshot = null;
+  nextSeasonButton.hidden = true;
+  renderSeasonHistory();
   document.querySelector("#season-display").textContent = activeSeason;
   currentWeek = 0;
   latestResult = null;
@@ -478,6 +530,7 @@ function selectBoxScore(side) {
 }
 
 function renderResult(data) {
+  regularSnapshot = data;
   rosterTotals.regular = data.roster_stats;
   renderRosterStats();
   latestResult = data.result;
@@ -621,7 +674,7 @@ document.querySelector("#change-team-button").addEventListener("click", () => {
   franchiseSetup.hidden = false;
   cancelTeamChange.hidden = false;
   document.querySelector("#new-season-note").hidden = false;
-  form.querySelector('button[type="submit"]').textContent = "Start new season";
+  form.querySelector('button[type="submit"]').textContent = "Start new career";
   errorBox.hidden = true;
   select.focus();
 });
@@ -667,7 +720,7 @@ form.addEventListener("submit", async (event) => {
     showError(error.message);
   } finally {
     submit.disabled = false;
-    submit.textContent = activeTeamId ? "Start new season" : "Start season";
+    submit.textContent = activeTeamId ? "Start new career" : "Start season";
     select.disabled = false;
     cancelTeamChange.disabled = false;
     resumeButton.disabled = false;
@@ -683,7 +736,7 @@ simulateButton.addEventListener("click", async () => {
   const runSeed = activeRunSeed;
   try {
     const nextWeek = currentWeek + 1;
-    const response = await fetch(`/api/season/${teamId}/week/${nextWeek}?season=${activeSeason}&run_seed=${runSeed}`);
+    const response = await fetch(`/api/season/${teamId}/week/${nextWeek}?season=${activeSeason}&run_seed=${runSeed}${priorStandingsQuery()}`);
     if (!response.ok) throw new Error("The week could not be simulated.");
     const data = await response.json();
     if (teamId === activeTeamId && runSeed === activeRunSeed) {
@@ -779,6 +832,9 @@ function renderPostseason(data) {
   const banner = document.querySelector("#champion-banner");
   banner.hidden = !champion;
   banner.textContent = champion ? `Season ${data.season} champions: ${champion.team.city} · Seed #${champion.seed}` : "";
+  nextSeasonButton.hidden = !data.postseason_complete;
+  nextSeasonButton.disabled = activeSeason >= 999;
+  nextSeasonButton.textContent = activeSeason < 999 ? `Continue to Season ${activeSeason + 1}` : "Season limit reached";
   playoffSimulate.disabled = data.postseason_complete;
   playoffSimulate.textContent = data.upcoming ? `Simulate ${data.upcoming.name}` : "Postseason complete";
 
@@ -803,7 +859,7 @@ async function loadPlayoffRound(number) {
   playoffSimulate.disabled = true;
   document.querySelector("#change-team-button").disabled = true;
   try {
-    const response = await fetch(`/api/playoffs/${activeTeamId}/round/${number}?season=${activeSeason}&run_seed=${activeRunSeed}`);
+    const response = await fetch(`/api/playoffs/${activeTeamId}/round/${number}?season=${activeSeason}&run_seed=${activeRunSeed}${priorStandingsQuery()}`);
     if (!response.ok) throw new Error("The playoff round could not be loaded. Please try again.");
     renderPostseason(await response.json());
     saveProgress();
@@ -823,6 +879,39 @@ playoffsStart.addEventListener("click", () => {
 });
 playoffSimulate.addEventListener("click", () => {
   if (playoffState?.next_round && !playoffSimulate.disabled) loadPlayoffRound(completedPlayoffRound + 1);
+});
+
+nextSeasonButton.addEventListener("click", async () => {
+  if (nextSeasonButton.disabled || !playoffState?.postseason_complete || !regularSnapshot || activeSeason >= 999) return;
+  nextSeasonButton.disabled = true;
+  document.querySelector("#change-team-button").disabled = true;
+  errorBox.hidden = true;
+  const nextSeason = activeSeason + 1;
+  const ranks = Object.fromEntries(regularSnapshot.standings.groups.flatMap(group => group.teams)
+    .map(row => [row.team.id, row.rank]));
+  const lastOwnRound = playoffState.rounds.filter(round => round.games.some(game =>
+    game.home.team.id === activeTeamId || game.away.team.id === activeTeamId)).at(-1);
+  const summary = { season: activeSeason, ...regularSnapshot.record,
+    championId: playoffState.champion.team.id,
+    playoffFinish: playoffState.champion.team.id === activeTeamId ? "Champions"
+      : !playoffState.qualified ? "Missed playoffs" : `Lost in ${lastOwnRound.name}` };
+  try {
+    const response = await fetch(`/api/schedule/${activeTeamId}?season=${nextSeason}${priorStandingsQuery(ranks)}`);
+    if (!response.ok) throw new Error("The next season could not be loaded. Please try again.");
+    const schedule = await response.json();
+    if (schedule.team.id !== activeTeamId || schedule.season !== nextSeason) {
+      throw new Error("The next season could not be loaded. Please try again.");
+    }
+    const history = [...careerHistory, summary];
+    renderTeamProfile(rosterProfile);
+    renderSchedule(schedule, activeRunSeed, { priorStandings: ranks, history });
+    saveProgress();
+  } catch (error) {
+    showError(error.message);
+    nextSeasonButton.disabled = false;
+  } finally {
+    document.querySelector("#change-team-button").disabled = false;
+  }
 });
 
 loadTeams();

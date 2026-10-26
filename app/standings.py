@@ -121,13 +121,14 @@ def _standing_payload(standing: TeamStanding, rank: int) -> dict[str, object]:
 
 
 @lru_cache(maxsize=128)
-def standings_through_week(season: int, week: int, run_seed: int = 0) -> dict[str, object]:
+def standings_through_week(season: int, week: int, run_seed: int = 0,
+                           prior_standings: tuple[tuple[str, int], ...] = ()) -> dict[str, object]:
     if week < 1 or week > 17:
         raise ValueError("Week must be between 1 and 17")
     standings = {team.id: TeamStanding(team_id=team.id) for team in TEAMS}
 
     for completed_week in range(1, week + 1):
-        for home_id, away_id, home_score, away_score in league_week_scores(season, completed_week, run_seed):
+        for home_id, away_id, home_score, away_score in league_week_scores(season, completed_week, run_seed, prior_standings):
             _apply_result(
                 standings[home_id], away_id, home_score, away_score,
             )
