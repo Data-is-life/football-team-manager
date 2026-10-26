@@ -56,7 +56,7 @@ Click any team name in Group Standings to open its scouting roster in a separate
 
 Each team starts with 38 fictional players. Expand or collapse each position group to inspect its players, depth order, and scouting ratings.
 
-Both Ratings and Season Stats show each player's age in years. Initial ages are 21–36: a deterministic entry age of 21–24 plus the player's existing 0–12 years of experience. Ages stay fixed during a season and are regenerated for each new run. They are informational for now; aging, retirement, and age-based ability changes will come with future multiple-season work.
+Both Ratings and Season Stats show each player's age in years. Initial ages are 21–36: a deterministic entry age of 21–24 plus the player's existing 0–12 years of experience. Ages stay fixed during a season and are regenerated for each new run. They are informational for now; aging, development, retirement, and age-based ability changes remain future offseason features. Ages and experience currently stay fixed across continued seasons.
 
 Player names are loaded from `app/data/first_names.txt` and `app/data/last_names.txt`, with one name per line. The downloaded Census lists contain 1,219 first names and 5,000 surnames (6,095,000 combinations). See [name data sources and editing instructions](app/data/README.md). The files are bundled locally; no runtime internet access is needed. Names are reproducible within a run and unique within each team's roster; editing the lists can change display names, while stable player IDs, ratings, experience, and production remain unchanged.
 
@@ -147,7 +147,7 @@ Opening a PR alone does not update the main game URL. This setup does not create
 
 - The free service sleeps after 15 minutes without traffic; the next visit can take about a minute to wake it.
 - No database or account is required. Progress autosaves in browser local storage and resumes on refresh.
-- Each successful season start gets a fresh random run seed, so weekly results and playoff outcomes can vary between runs. Within one run, every screen and retry uses the same results.
+- Each successful new career gets a fresh random run seed, so weekly results and playoff outcomes can vary between runs. Within one run, every screen and retry uses the same results.
 - After Week 17, choose **View playoffs**, then simulate one round at a time.
 
 See Render's [FastAPI guide](https://render.com/docs/deploy-fastapi), [free-tier limits](https://render.com/docs/free), and [automatic deploy settings](https://render.com/docs/deploys).
@@ -165,13 +165,13 @@ npm ci
 npm run test:ui
 ```
 
-The UI suite starts a local FastAPI server on port 8767 and checks tab/keyboard navigation, empty states, full seasons and playoffs, box-score values, roster collapse state, always-expanded league content, failed-request retry, and team reset/cancel using jsdom. Node dependencies are only for development checks; Render still runs the Python app directly. These DOM checks do not verify visual layout.
+The UI suites start local FastAPI servers on ports 8767, 8769, and 8770 and checks tab/keyboard navigation, empty states, full seasons and playoffs, box-score values, roster collapse state, always-expanded league content, failed-request retry, team reset/cancel, save restoration, and multiple-season continuation using jsdom. Node dependencies are only for development checks; Render still runs the Python app directly. These DOM checks do not verify visual layout.
 
 ## Randomized runs
 
-Standings reuse a bounded cache of immutable weekly scores keyed by season, week, and run seed, avoiding repeated simulation of completed weeks. See [performance measurements and benchmark instructions](docs/performance.md) for API/UI timings, startup limits, and correctness checks.
+Standings reuse a bounded cache of immutable weekly scores keyed by season, week, run seed, and prior-season group ranks, avoiding repeated simulation of completed weeks. See [performance measurements and benchmark instructions](docs/performance.md) for API/UI timings, startup limits, and correctness checks.
 
-Starting a season generates a random 32-bit run seed in the browser using `crypto.getRandomValues`. A new start gets a seed different from the current run, including when selecting the same team again. A failed load discards its candidate seed and preserves the active run; canceling a change also preserves it. Own-roster profiles, scouting dialogs, weeks, retries, standings, final tiebreak draws, and playoff rounds share one seed; results agree from either team's perspective. Late weekly responses from a previous run are ignored.
+Starting a new career generates a random 32-bit run seed in the browser using `crypto.getRandomValues`. A new start gets a seed different from the current run, including when selecting the same team again. A failed load discards its candidate seed and preserves the active run; canceling a change also preserves it. Own-roster profiles, scouting dialogs, weeks, retries, standings, final tiebreak draws, and playoff rounds share one seed; results agree from either team's perspective. Late weekly responses from a previous run are ignored.
 
 The team-profile, weekly, and playoff APIs accept `run_seed` from 0 through 4294967295 and echo it in the response. Standings/postseason caches include this value. Omitting it uses seed 0, preserving the previous deterministic API results for scripts and tests. Different seeds allow different champions but do not guarantee a different winner on every run.
 
@@ -224,12 +224,24 @@ Your latest playoff outcome appears above the bracket: green congratulations aft
 
 ## Next build slice
 
-Add multiple seasons, then meaningful pregame management decisions. The leaderboard service for the wider arcade can remain separate and be shared by every future game.
+Plan the drive engine together, then add meaningful pregame management decisions. The leaderboard service for the wider arcade can remain separate and be shared by every future game.
 
 ## Saved progress
 
-Your game autosaves after a successful team selection, simulated week, or playoff round (including revealing the playoff field). Reopening the game restores your team, randomized roster, completed schedule, standings, season stats, and playoff bracket. The next simulation continues from the saved point.
+Your game autosaves after a successful team selection, next-season transition, simulated week, or playoff round (including revealing the playoff field). Reopening the game restores your team, randomized roster, completed schedule, standings, season stats, and playoff bracket. The next simulation continues from the saved point.
 
 There is one save per browser and site address, using browser local storage; no account or cross-device sync is provided. Clearing site data removes it. Starting another team replaces it only after the new game loads successfully. If saving fails, the game displays a warning and can still be played in the open page. Failed simulations leave the previous save intact. Failed restores keep the save and offer Retry.
 
 Saves store a versioned team/season/run-seed/progress checkpoint; the API reconstructs results deterministically rather than storing rendered HTML. Changing the simulation rules in a future release may require a save migration/version change. Unsupported or damaged saves show a message and are replaced only after a successful new-game start.
+
+## Multiple seasons
+
+After completing the league championship, choose **Continue to Season 2** (then Season 3, and so on). This is available whether your team wins, loses, or misses qualification, once all four playoff rounds are complete. The API currently supports seasons 1–999; continuation stops at that limit.
+
+Continuing retains your franchise, run seed, all 30 teams' rosters, and team/player ratings. Ages, experience, and attributes remain unchanged in this initial version; development, aging, retirements, draft, free agency, and trades are separate future features. The new season has a fresh 17-game schedule, a new group rotation, a 0–0 record, and zero regular-season/playoff stats. Game results use the new season number, so they are not a replay of Season 1.
+
+Same-place opponents use the previous season's actual final group ranks. The browser carries all 30 ranks into schedule, simulation, standings, and postseason requests as the optional JSON `prior_standings` query parameter. The API validates one rank from 1–5 per team/group and canonicalizes the mapping for bounded cache keys. Existing API callers that omit the mapping keep the original placeholder ranks; Season 1 also uses those placeholders. This avoids replaying every past season when restoring a later save.
+
+**Franchise history** above the tabs lists completed prior seasons: your regular-season record, playoff finish, and league champion. It is a summary archive; individual past-season box scores and player/career totals are not retained. A failed season transition leaves the current game and saved checkpoint intact; retrying cannot append duplicate history. **Choose another team → Start new career** explicitly resets season, history, and seed instead of continuing the franchise.
+
+Save version 2 includes the active season's prior ranks and the history summaries. Version 1 saves from the saved-progress PR still restore with identical first-season results and upgrade on the next successful save. Refreshing in later seasons restores the correct schedule, standings, season totals, and postseason without mixing seasons.
