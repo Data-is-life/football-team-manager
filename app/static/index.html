@@ -33,10 +33,13 @@
             </select>
             <button type="submit">Start season</button>
           </div>
-          <p id="new-season-note" class="rotation-note" hidden>Starting another team resets your current season.</p>
+          <p id="new-season-note" class="rotation-note" hidden>Starting another team replaces your saved game and resets your current season.</p>
           <button id="cancel-team-change" class="secondary-button" type="button" hidden>Keep current team</button>
         </form>
         </div>
+
+        <p id="save-status" class="roster-note" role="status">Progress saves automatically in this browser. Clearing site data removes your save.</p>
+        <button id="resume-save" class="secondary-button" type="button" hidden>Retry saved game</button>
 
         <div id="error" class="error" role="alert" hidden></div>
 
