@@ -42,10 +42,10 @@ def draft_class(season: int, run_seed: int) -> tuple[Player, ...]:
     return tuple(sorted(players, key=lambda player: (-player.rating, player.id)))
 
 
-def draft_order(season: int, run_seed: int, prior_standings: tuple = ()) -> list[dict]:
-    tables = standings_through_week(season, 17, run_seed, prior_standings)
+def draft_order(season: int, run_seed: int, prior_standings: tuple = (), roster_context: tuple = ()) -> list[dict]:
+    tables = standings_through_week(season, 17, run_seed, prior_standings, roster_context)
     rows = {row['team']['id']: row for group in tables['groups'] for row in group['teams']}
-    postseason = postseason_snapshot(season, 4, run_seed, prior_standings)
+    postseason = postseason_snapshot(season, 4, run_seed, prior_standings, roster_context)
     playoff_ids = {row['team']['id'] for row in postseason['field']}
     # Worst regular-season record first within each finish group. Explicit draft tiebreakers
     # avoid reversing group-winner seeding, which is not an overall league ranking.
@@ -64,7 +64,7 @@ def draft_order(season: int, run_seed: int, prior_standings: tuple = ()) -> list
 
 
 def build_draft(team_id: str, season: int, run_seed: int, choices: tuple[str, ...] = (),
-                prior_standings: tuple = ()) -> tuple[dict, list[Player]]:
+                prior_standings: tuple = (), roster_context: tuple = (), return_league: bool = False) -> tuple[dict, list[Player]]:
     """Auto-pick up to the user's next turn, or finish after their fourth pick.
 
     Replaying all choices validates availability at the actual pick, including CPU picks.
@@ -78,8 +78,8 @@ def build_draft(team_id: str, season: int, run_seed: int, choices: tuple[str, ..
     available = {player.id: player for player in prospects}
     if any(choice not in available for choice in choices):
         raise ValueError('Unknown prospect')
-    order = draft_order(season, run_seed, prior_standings)
-    rosters = {team.id: list(roster_for(team.id, run_seed).values()) for team in TEAMS}
+    order = draft_order(season, run_seed, prior_standings, roster_context)
+    rosters = {team.id: list(roster_for(team.id, run_seed, roster_context).values()) for team in TEAMS}
     additions = {team.id: {} for team in TEAMS}
     picks = []
     consumed = 0
@@ -116,4 +116,4 @@ def build_draft(team_id: str, season: int, run_seed: int, choices: tuple[str, ..
              'available': [player_payload(player) for player in prospects if player.id in available],
              'manual_picks': list(choices), 'complete': complete,
              'next_pick': None if complete else len(picks) + 1,
-             'next_round': None if complete else len(choices) + 1}, rosters[team_id])
+             'next_round': None if complete else len(choices) + 1}, rosters if return_league else rosters[team_id])

@@ -75,7 +75,7 @@ async function checks(){
  }
  assert.equal(p.state.last.complete,true);assert.equal(p.state.last.picks.length,120);assert.equal(p.state.last.available.length,80);
  assert.equal(q(p,'#draft-board').hidden,true);assert.equal(q(p,'#draft-picks').children.length,120);
- assert.equal(p.d.querySelectorAll('.your-draft-pick').length,4);assert.match(q(p,'#draft-summary').textContent,/42 players.*38/);
+ assert.equal(p.d.querySelectorAll('.your-draft-pick').length,4);assert.match(q(p,'#draft-summary').textContent,/42\/38 players/);
  const complete=raw(p);q(p,'#draft-close').click();
  const other=p.state.last.picks.find(pick=>pick.team.id!==owner).team.id;
  q(p,`.team-roster-link[data-team-id="${other}"]`).click();await until(()=>q(p,'#scout-status').textContent.includes('42 players'));
