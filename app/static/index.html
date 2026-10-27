@@ -56,6 +56,7 @@
               <div><span class="control-label">Defense</span><strong id="defense-rating"></strong><span class="rating-scale">/ 99</span></div>
             </div>
             <div class="team-actions">
+              <button id="manage-roster" class="secondary-button" type="button" hidden>Manage roster</button>
               <button id="change-team-button" class="secondary-button" type="button">Choose another team</button>
             </div>
           </section>
@@ -257,6 +258,15 @@
         <p>Non-playoff teams pick first, followed by teams eliminated in each playoff round. The runner-up picks 29th and the champion 30th. Within each group: worst regular-season record, then lower point differential, fewer points scored, and a seeded draw.</p>
       </details>
       <details class="attribute-guide" open><summary>Selections</summary><ol id="draft-picks"></ol></details>
+    </dialog>
+    <dialog id="cut-dialog" class="team-roster-dialog" aria-labelledby="cut-title">
+      <div class="scout-heading"><h2 id="cut-title">Manage offseason roster</h2><button id="cut-close" class="secondary-button" type="button" autofocus>Close roster management</button></div>
+      <p id="cut-count" class="roster-note" role="status"></p>
+      <p class="roster-note">The regular-season maximum is 38. You may drop to a position's minimum; further cuts at that position are blocked. Retained players are ordered by rating for next season's depth chart.</p>
+      <p id="cut-error" class="error" role="alert" hidden></p>
+      <section id="cut-confirmation" class="empty-state" hidden><p id="cut-confirm-text"></p>
+        <button id="cut-confirm" type="button">Confirm drop</button><button id="cut-cancel" class="secondary-button" type="button">Cancel</button></section>
+      <div class="table-wrap"><table class="roster-table"><thead><tr><th>Player</th><th>Position</th><th>Rating</th><th>Position count</th><th>Action</th></tr></thead><tbody id="cut-players"></tbody></table></div>
     </dialog>
     <script src="/static/app.js" defer></script>
   </body>

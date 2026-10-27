@@ -1,7 +1,7 @@
 import json
 from dataclasses import asdict
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import FastAPI, HTTPException, Query
 from pydantic import BaseModel, Field, StrictInt
@@ -14,6 +14,7 @@ from .player_stats import aggregate_player_stats
 from .simulation import ROSTER_RULES, roster_for, simulate_through_week, team_ratings
 from .attributes import ATTRIBUTE_INFO, attribute_keys
 from .draft import build_draft
+from .career import ROSTER_MAX, offseason, replay_career
 
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -41,10 +42,10 @@ def team_profile(team_id: str, run_seed: Annotated[int, Query(ge=0, le=429496729
     return profile_payload(team_id, players, run_seed)
 
 
-def profile_payload(team_id, players, run_seed):
+def profile_payload(team_id, players, run_seed, roster_context=()):
     return {
         "team": asdict(TEAM_BY_ID[team_id]),
-        "ratings": asdict(team_ratings(team_id, run_seed)),
+        "ratings": asdict(team_ratings(team_id, run_seed, roster_context)),
         "run_seed": run_seed,
         "roster": [{**asdict(player), "attributes": {
             key: getattr(player.attributes, key) for key in attribute_keys(player.position)
@@ -145,3 +146,59 @@ def rookie_draft(team_id: str, request: DraftRequest) -> dict:
     except ValueError as error:
         raise HTTPException(status_code=422, detail=str(error)) from error
     return {**draft, "profile": profile_payload(team_id, players, request.run_seed)}
+
+
+class CareerStep(BaseModel):
+    season: int = Field(ge=1, le=998)
+    prior_standings: dict[str, StrictInt] | None = None
+    manual_picks: list[str] = Field(min_length=4, max_length=4)
+    dropped: list[str] = Field(default_factory=list, max_length=42)
+
+
+class CareerRequest(BaseModel):
+    action: Literal['profile', 'week', 'playoffs', 'draft', 'cuts']
+    season: int = Field(default=1, ge=1, le=999)
+    run_seed: int = Field(default=0, ge=0, le=4294967295)
+    prior_standings: dict[str, StrictInt] | None = None
+    career: list[CareerStep] = Field(default_factory=list, max_length=998)
+    manual_picks: list[str] = Field(default_factory=list, max_length=4)
+    dropped: list[str] = Field(default_factory=list, max_length=42)
+    week: int = Field(default=1, ge=1, le=17)
+    round_number: int = Field(default=0, ge=0, le=4)
+    view_team: str | None = None
+
+
+def ranks_context(ranks):
+    return parse_prior_standings(json.dumps(ranks) if ranks is not None else None)
+
+
+@app.post('/api/career/{team_id}')
+def career_action(team_id: str, request: CareerRequest) -> dict:
+    if team_id not in TEAM_BY_ID or (request.view_team is not None and request.view_team not in TEAM_BY_ID):
+        raise HTTPException(status_code=404, detail='Team not found')
+    try:
+        if any(step.season >= request.season for step in request.career):
+            raise ValueError('Past offseasons must precede the current season')
+        steps = tuple((step.season, ranks_context(step.prior_standings), tuple(step.manual_picks), tuple(step.dropped))
+                      for step in request.career)
+        context = replay_career(team_id, request.run_seed, steps)
+        prior = ranks_context(request.prior_standings)
+        viewed = request.view_team or team_id
+        if request.action == 'week':
+            return simulate_through_week(team_id, request.season, request.week, request.run_seed, prior, context)
+        if request.action == 'playoffs':
+            return playoffs_through_round(team_id, request.season, request.round_number, request.run_seed, prior, context)
+        if request.action in ('draft', 'cuts'):
+            if request.action == 'cuts':
+                draft, cut_context = offseason(team_id, request.season, request.run_seed,
+                    tuple(request.manual_picks), tuple(request.dropped), prior, context)
+                players = list(roster_for(viewed, request.run_seed, cut_context).values())
+                return {**draft, 'dropped': request.dropped, 'cuts_applied': True,
+                        'can_continue': len(dict(cut_context)[team_id]) <= ROSTER_MAX,
+                        'profile': profile_payload(viewed, players, request.run_seed, cut_context)}
+            draft, players = build_draft(team_id, request.season, request.run_seed,
+                                        tuple(request.manual_picks), prior, context)
+            return {**draft, 'profile': profile_payload(team_id, players, request.run_seed, context)}
+        return profile_payload(viewed, list(roster_for(viewed, request.run_seed, context).values()), request.run_seed, context)
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error

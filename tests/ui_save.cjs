@@ -58,7 +58,7 @@ async function checks() {
  p.d.querySelector('#team-select').value=id;
  p.d.querySelector('#team-form').dispatchEvent(new p.w.Event('submit',{cancelable:true}));
  await until(()=>/Progress saved/.test(status(p)));
- assert.deepEqual(JSON.parse(saved(p)),{version:3,teamId:id,runSeed:5678,season:1,week:0,priorStandings:{},history:[],draftChoices:null,playoffRound:null});
+ assert.deepEqual(JSON.parse(saved(p)),{version:4,teamId:id,runSeed:5678,season:1,week:0,priorStandings:{},history:[],draftChoices:null,dropped:[],career:[],playoffRound:null});
  const first=saved(p);p.dom.window.close();
  p=await restored(first);
  assert.equal(p.d.querySelectorAll('#schedule .completed').length,0);

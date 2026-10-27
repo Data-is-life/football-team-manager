@@ -2,7 +2,7 @@
   "name": "arcade-league-ui-checks",
   "private": true,
   "scripts": {
-    "test:ui": "node tests/ui_tabs.cjs && node tests/ui_save.cjs && node tests/ui_seasons.cjs && node tests/ui_draft.cjs"
+    "test:ui": "node tests/ui_tabs.cjs && node tests/ui_save.cjs && node tests/ui_seasons.cjs && node tests/ui_draft.cjs && node tests/ui_cuts.cjs"
   },
   "devDependencies": {
     "jsdom": "30.1.2"

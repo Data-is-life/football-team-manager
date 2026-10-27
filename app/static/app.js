@@ -19,6 +19,13 @@ let careerHistory = [];
 let regularSnapshot = null;
 let activeDraftChoices = null;
 let draftState = null;
+let activeDropped = [];
+let activeCareer = [];
+let cutBusy = false;
+let advancingSeason = false;
+let pendingCut = null;
+const cutDialog = document.querySelector("#cut-dialog");
+const manageRoster = document.querySelector("#manage-roster");
 let draftBusy = false;
 let draftPendingChoice = null;
 const draftButton = document.querySelector("#draft-button");
@@ -48,10 +55,11 @@ let restoring = false;
 
 function saveProgress() {
   if (!activeTeamId || restoring) return;
-  const save = { version: 3, teamId: activeTeamId, runSeed: activeRunSeed,
+  const save = { version: 4, teamId: activeTeamId, runSeed: activeRunSeed,
     season: activeSeason, week: currentWeek,
     priorStandings: activePriorStandings, history: careerHistory,
     draftChoices: activeDraftChoices,
+    dropped: activeDropped, career: activeCareer,
     playoffRound: playoffState ? completedPlayoffRound : null };
   try {
     localStorage.setItem(SAVE_KEY, JSON.stringify(save));
@@ -67,7 +75,7 @@ function readSave() {
   if (!raw) return null;
   const save = JSON.parse(raw);
   const integer = (value, min, max) => Number.isInteger(value) && value >= min && value <= max;
-  if (!save || ![1, 2, 3].includes(save.version) || typeof save.teamId !== "string"
+  if (!save || ![1, 2, 3, 4].includes(save.version) || typeof save.teamId !== "string"
       || ![...select.options].some(option => option.value && option.value === save.teamId)
       || !integer(save.runSeed, 0, 4294967295) || !integer(save.season, 1, 999)
       || !integer(save.week, 0, 17)
@@ -85,6 +93,16 @@ function readSave() {
       && save.season < 999 && Array.isArray(save.draftChoices) && save.draftChoices.length <= 4
       && save.draftChoices.every(id => typeof id === "string" && id.length < 100)
       && new Set(save.draftChoices).size === save.draftChoices.length))) throw new Error("Invalid draft save");
+  if (save.version < 4) { save.dropped = []; save.career = []; }
+  const ids = values => Array.isArray(values) && values.length <= 42
+    && values.every(id => typeof id === "string" && id.length < 100)
+    && new Set(values).size === values.length;
+  if (!ids(save.dropped) || (save.dropped.length && save.draftChoices?.length !== 4)
+      || !Array.isArray(save.career) || save.career.length > 998
+      || !save.career.every((step, index) => step && integer(step.season, 1, save.season - 1)
+        && (!index || step.season > save.career[index - 1].season)
+        && ids(step.manual_picks) && step.manual_picks.length === 4 && ids(step.dropped)
+        && validPriorStandings(step.prior_standings ?? {}, step.season))) throw new Error("Invalid roster save");
   const allowedFinishes = ["Champions", "Missed playoffs", "Lost in Wild Card", "Lost in Quarterfinals", "Lost in Semifinals", "Lost in Championship"];
   const knownTeam = id => [...select.options].some(option => option.value && option.value === id);
   if (!Array.isArray(save.history) || save.history.length !== save.season - 1
@@ -147,6 +165,11 @@ async function resumeProgress() {
     if (save.week) requests.push(`/api/season/${save.teamId}/week/${save.week}?season=${save.season}&run_seed=${save.runSeed}${priorStandingsQuery(save.priorStandings)}`);
     if (save.playoffRound !== null) requests.push(`/api/playoffs/${save.teamId}/round/${save.playoffRound}?season=${save.season}&run_seed=${save.runSeed}${priorStandingsQuery(save.priorStandings)}`);
     const payloads = await Promise.all(requests.map(async url => {
+      if (save.career.length) {
+        if (url.startsWith("/api/team/")) return careerRequest("profile", {}, save);
+        if (url.startsWith("/api/season/")) return careerRequest("week", { week: save.week }, save);
+        if (url.startsWith("/api/playoffs/")) return careerRequest("playoffs", { round_number: save.playoffRound }, save);
+      }
       const response = await fetch(url);
       if (!response.ok) throw new Error("Restore failed");
       return response.json();
@@ -161,7 +184,7 @@ async function resumeProgress() {
       throw new Error("Restore failed");
     }
     renderTeamProfile(profile);
-    renderSchedule(schedule, save.runSeed, { priorStandings: save.priorStandings, history: save.history });
+    renderSchedule(schedule, save.runSeed, { priorStandings: save.priorStandings, history: save.history, career: save.career });
     if (regular) renderResult(regular);
     if (postseason) { renderPostseason(postseason); activateView("playoffs"); }
     if (savedDraft) applyDraft(savedDraft);
@@ -185,6 +208,7 @@ async function loadScoutingRoster(teamId, city) {
   const request = ++scoutingRequest;
   const owner = activeTeamId;
   const runSeed = activeRunSeed;
+  const season = activeSeason;
   scoutingTeamId = teamId;
   scoutingCity = city;
   document.querySelector("#scout-title").textContent = `${city} roster`;
@@ -194,14 +218,20 @@ async function loadScoutingRoster(teamId, city) {
   document.querySelector("#scout-groups").replaceChildren();
   if (!rosterDialog.open) rosterDialog.showModal();
   const isCurrent = () => request === scoutingRequest && rosterDialog.open
-    && owner === activeTeamId && runSeed === activeRunSeed;
+    && owner === activeTeamId && runSeed === activeRunSeed && season === activeSeason;
   try {
-    const response = await fetch(`/api/team/${teamId}?run_seed=${runSeed}`);
-    if (!response.ok) throw new Error("Roster could not be loaded. Please try again.");
-    const profile = await response.json();
+    let profile;
+    if (activeDropped.length && draftState?.complete) {
+      profile = (await careerRequest("cuts", { view_team: teamId, manual_picks: activeDraftChoices, dropped: activeDropped })).profile;
+    } else if (activeCareer.length) profile = await careerRequest("profile", { view_team: teamId });
+    else {
+      const response = await fetch(`/api/team/${teamId}?run_seed=${runSeed}`);
+      if (!response.ok) throw new Error("Roster could not be loaded. Please try again.");
+      profile = await response.json();
+    }
     if (!isCurrent()) return;
     if (profile.team.id !== teamId || profile.run_seed !== runSeed) throw new Error("Roster could not be loaded. Please try again.");
-    if (draftState) {
+    if (draftState && !activeDropped.length) {
       const rookies = draftState.picks.filter(pick => pick.team.id === teamId).map(pick => pick.player);
       profile.roster.push(...rookies);
       for (const rule of profile.roster_rules) rule.count = profile.roster.filter(p => p.position === rule.position).length;
@@ -451,7 +481,7 @@ function createRunSeed() {
   return candidate === activeRunSeed ? (candidate % 4294967295) + 1 : candidate;
 }
 
-function renderSchedule(data, runSeed, { priorStandings = {}, history = [] } = {}) {
+function renderSchedule(data, runSeed, { priorStandings = {}, history = [], career = [] } = {}) {
   if (rosterDialog.open) rosterDialog.close();
   activeTeamId = data.team.id;
   activeRunSeed = runSeed;
@@ -461,6 +491,11 @@ function renderSchedule(data, runSeed, { priorStandings = {}, history = [] } = {
   regularSnapshot = null;
   activeDraftChoices = null;
   draftState = null;
+  activeDropped = [];
+  activeCareer = career;
+  manageRoster.hidden = true;
+  if (cutDialog.open) cutDialog.close();
+  pendingCut = null;
   draftPendingChoice = null;
   draftButton.hidden = true;
   draftButton.textContent = "Start rookie draft";
@@ -771,17 +806,22 @@ simulateButton.addEventListener("click", async () => {
   errorBox.hidden = true;
   const teamId = activeTeamId;
   const runSeed = activeRunSeed;
+  const season = activeSeason;
   try {
     const nextWeek = currentWeek + 1;
-    const response = await fetch(`/api/season/${teamId}/week/${nextWeek}?season=${activeSeason}&run_seed=${runSeed}${priorStandingsQuery()}`);
-    if (!response.ok) throw new Error("The week could not be simulated.");
-    const data = await response.json();
-    if (teamId === activeTeamId && runSeed === activeRunSeed) {
+    let data;
+    if (activeCareer.length) data = await careerRequest("week", { week: nextWeek });
+    else {
+      const response = await fetch(`/api/season/${teamId}/week/${nextWeek}?season=${activeSeason}&run_seed=${runSeed}${priorStandingsQuery()}`);
+      if (!response.ok) throw new Error("The week could not be simulated.");
+      data = await response.json();
+    }
+    if (teamId === activeTeamId && runSeed === activeRunSeed && season === activeSeason) {
       renderResult(data);
       saveProgress();
     }
   } catch (error) {
-    if (teamId !== activeTeamId || runSeed !== activeRunSeed) return;
+    if (teamId !== activeTeamId || runSeed !== activeRunSeed || season !== activeSeason) return;
     simulateButton.disabled = false;
     simulateButton.textContent = `Simulate Week ${currentWeek + 1}`;
     showError(error.message);
@@ -897,9 +937,14 @@ async function loadPlayoffRound(number) {
   playoffSimulate.disabled = true;
   document.querySelector("#change-team-button").disabled = true;
   try {
-    const response = await fetch(`/api/playoffs/${activeTeamId}/round/${number}?season=${activeSeason}&run_seed=${activeRunSeed}${priorStandingsQuery()}`);
-    if (!response.ok) throw new Error("The playoff round could not be loaded. Please try again.");
-    renderPostseason(await response.json());
+    let data;
+    if (activeCareer.length) data = await careerRequest("playoffs", { round_number: number });
+    else {
+      const response = await fetch(`/api/playoffs/${activeTeamId}/round/${number}?season=${activeSeason}&run_seed=${activeRunSeed}${priorStandingsQuery()}`);
+      if (!response.ok) throw new Error("The playoff round could not be loaded. Please try again.");
+      data = await response.json();
+    }
+    renderPostseason(data);
     saveProgress();
     activateView("playoffs", { focus: true });
   } catch (error) {
@@ -919,11 +964,36 @@ playoffSimulate.addEventListener("click", () => {
   if (playoffState?.next_round && !playoffSimulate.disabled) loadPlayoffRound(completedPlayoffRound + 1);
 });
 
+async function careerRequest(action, extra = {}, context = null) {
+  const teamId = context?.teamId ?? activeTeamId;
+  const ranks = context?.priorStandings ?? activePriorStandings;
+  const response = await fetch(`/api/career/${teamId}`, {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action, season: context?.season ?? activeSeason,
+      run_seed: context?.runSeed ?? activeRunSeed,
+      prior_standings: Object.keys(ranks).length ? ranks : null,
+      career: context?.career ?? activeCareer, ...extra }),
+  });
+  if (!response.ok) {
+    let detail;
+    try { const data = await response.json(); if (typeof data.detail === "string") detail = data.detail; } catch {}
+    throw new Error(detail ?? "Roster progress could not be loaded. Please try again.");
+  }
+  return response.json();
+}
+
 async function fetchDraft(choices, context = null) {
   const teamId = context?.teamId ?? activeTeamId;
   const season = context?.season ?? activeSeason;
   const seed = context?.runSeed ?? activeRunSeed;
   const ranks = context?.priorStandings ?? activePriorStandings;
+  const dropped = context?.dropped ?? activeDropped;
+  if ((context?.career ?? activeCareer).length || dropped.length) {
+    const data = await careerRequest(dropped.length ? "cuts" : "draft", { manual_picks: choices, dropped }, context);
+    if (data.team.id !== teamId || data.season !== season || data.run_seed !== seed
+        || JSON.stringify(data.manual_picks) !== JSON.stringify(choices)) throw new Error("Draft could not be restored.");
+    return data;
+  }
   const response = await fetch(`/api/draft/${teamId}`, {
     method: "POST", headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ season, run_seed: seed,
@@ -941,6 +1011,7 @@ async function fetchDraft(choices, context = null) {
 function applyDraft(data) {
   draftState = data;
   activeDraftChoices = data.manual_picks;
+  activeDropped = data.dropped ?? [];
   // Extend the finished season's snapshots with zero-production rookies, without
   // losing any existing player totals or attributing last season's stats to rookies.
   const previous = rosterTotals;
@@ -959,15 +1030,17 @@ function applyDraft(data) {
   renderRosterStats();
   for (const position of collapsed) document.querySelector(`#roster-groups [data-position="${position}"]`).open = false;
   const count = data.profile.roster.length;
-  nextSeasonButton.disabled = true;
-  nextSeasonButton.textContent = data.complete ? "Roster limit: 38" : "Finish rookie draft";
+  nextSeasonButton.disabled = !data.complete || count > 38;
+  nextSeasonButton.textContent = !data.complete ? "Finish rookie draft" : count > 38 ? "Roster limit: 38" : `Continue to Season ${activeSeason + 1}`;
+  manageRoster.hidden = !data.complete;
   draftButton.textContent = data.complete ? "Review draft" : "Resume draft";
   const summary = document.querySelector("#draft-summary");
   summary.hidden = false;
   summary.textContent = data.complete
-    ? `Draft complete · ${count} players. Reduce your roster to 38 before the next season.`
+    ? `Draft complete · ${count}/38 players. ${count > 38 ? "Use Manage roster to drop players before the next season." : "Roster ready for next season."}`
     : `Draft in progress · ${activeDraftChoices.length} of 4 picks made · ${count} players.`;
   renderDraft();
+  renderCuts();
 }
 
 function renderDraft() {
@@ -1017,7 +1090,7 @@ function renderDraft() {
 }
 
 async function loadDraft(choice = null) {
-  if (draftBusy || !playoffState?.postseason_complete || activeSeason >= 999) return;
+  if (draftBusy || advancingSeason || !playoffState?.postseason_complete || activeSeason >= 999) return;
   draftBusy = true;
   draftPendingChoice = choice;
   draftButton.disabled = true;
@@ -1064,9 +1137,83 @@ document.querySelector("#draft-prospects").addEventListener("click", event => {
   if (button && !button.disabled) loadDraft(button.dataset.draftId);
 });
 
-nextSeasonButton.addEventListener("click", async () => {
-  if (nextSeasonButton.disabled || activeDraftChoices !== null || draftBusy || !playoffState?.postseason_complete || !regularSnapshot || activeSeason >= 999) return;
+function renderCuts() {
+  if (!rosterProfile) return;
+  document.querySelector("#cut-count").textContent = `${rosterProfile.roster.length}/38 players · Keep each position at or above its minimum.`;
+  const rows = rosterProfile.roster.map(player => {
+    const count = rosterProfile.roster.filter(p => p.position === player.position).length;
+    const minimum = rosterProfile.roster_rules.find(rule => rule.position === player.position).minimum;
+    const row = document.createElement("tr"); row.dataset.cutPlayerId = player.id;
+    for (const value of [player.name, player.position, player.rating, `${count} / minimum ${minimum}`]) {
+      const cell = document.createElement("td"); cell.textContent = value; row.append(cell);
+    }
+    const cell = document.createElement("td");
+    const button = document.createElement("button"); button.type = "button"; button.dataset.dropId = player.id;
+    button.textContent = count <= minimum ? "Minimum reached" : "Drop";
+    button.disabled = cutBusy || count <= minimum;
+    button.setAttribute("aria-label", `Drop ${player.name}, ${player.position}`);
+    if (count <= minimum) button.title = `Keep at least ${minimum} ${player.position} players`;
+    cell.append(button); row.append(cell); return row;
+  });
+  document.querySelector("#cut-players").replaceChildren(...rows);
+}
+function openCuts() {
+  if (!draftState?.complete || cutBusy || advancingSeason) return;
+  if (draftDialog.open) draftDialog.close();
+  renderCuts();
+  if (!cutDialog.open) cutDialog.showModal();
+}
+manageRoster.addEventListener("click", openCuts);
+cutDialog.addEventListener("close", () => {
+  if (!cutBusy) { pendingCut = null; document.querySelector("#cut-confirmation").hidden = true; }
+});
+document.querySelector("#cut-close").addEventListener("click", () => cutDialog.close());
+document.querySelector("#cut-cancel").addEventListener("click", () => {
+  pendingCut = null; document.querySelector("#cut-confirmation").hidden = true;
+});
+document.querySelector("#cut-players").addEventListener("click", event => {
+  const button = event.target.closest("[data-drop-id]");
+  if (!button || button.disabled || cutBusy) return;
+  pendingCut = button.dataset.dropId;
+  const player = rosterProfile.roster.find(p => p.id === pendingCut);
+  document.querySelector("#cut-confirm-text").textContent = `Drop ${player.name} (${player.position})? This removes the player from your next-season roster.`;
+  document.querySelector("#cut-confirmation").hidden = false;
+  document.querySelector("#cut-confirm").focus();
+});
+document.querySelector("#cut-confirm").addEventListener("click", async () => {
+  if (!pendingCut || cutBusy || advancingSeason || !draftState?.complete) return;
+  cutBusy = true;
+  document.querySelector("#cut-confirm").disabled = true;
+  document.querySelector("#cut-cancel").disabled = true;
+  document.querySelector("#cut-error").hidden = true;
+  document.querySelector("#change-team-button").disabled = true;
   nextSeasonButton.disabled = true;
+  renderCuts();
+  try {
+    const data = await careerRequest("cuts", { manual_picks: activeDraftChoices, dropped: [...activeDropped, pendingCut] });
+    applyDraft(data);
+    saveProgress();
+    pendingCut = null;
+    document.querySelector("#cut-confirmation").hidden = true;
+  } catch (error) {
+    document.querySelector("#cut-error").textContent = error.message;
+    document.querySelector("#cut-error").hidden = false;
+  } finally {
+    cutBusy = false;
+    document.querySelector("#cut-confirm").disabled = false;
+    document.querySelector("#cut-cancel").disabled = false;
+    document.querySelector("#change-team-button").disabled = false;
+    nextSeasonButton.disabled = rosterProfile.roster.length > 38;
+    renderCuts();
+  }
+});
+
+nextSeasonButton.addEventListener("click", async () => {
+  if (advancingSeason || nextSeasonButton.disabled || (activeDraftChoices !== null && (!draftState?.complete || rosterProfile.roster.length > 38)) || cutBusy || draftBusy || !playoffState?.postseason_complete || !regularSnapshot || activeSeason >= 999) return;
+  advancingSeason = true;
+  nextSeasonButton.disabled = true;
+  manageRoster.disabled = true;
+  draftButton.disabled = true;
   document.querySelector("#change-team-button").disabled = true;
   errorBox.hidden = true;
   const nextSeason = activeSeason + 1;
@@ -1079,6 +1226,10 @@ nextSeasonButton.addEventListener("click", async () => {
     playoffFinish: playoffState.champion.team.id === activeTeamId ? "Champions"
       : !playoffState.qualified ? "Missed playoffs" : `Lost in ${lastOwnRound.name}` };
   try {
+    const career = activeDraftChoices === null ? activeCareer : [...activeCareer, {
+      season: activeSeason, prior_standings: Object.keys(activePriorStandings).length ? activePriorStandings : null,
+      manual_picks: activeDraftChoices, dropped: activeDropped,
+    }];
     const response = await fetch(`/api/schedule/${activeTeamId}?season=${nextSeason}${priorStandingsQuery(ranks)}`);
     if (!response.ok) throw new Error("The next season could not be loaded. Please try again.");
     const schedule = await response.json();
@@ -1086,13 +1237,17 @@ nextSeasonButton.addEventListener("click", async () => {
       throw new Error("The next season could not be loaded. Please try again.");
     }
     const history = [...careerHistory, summary];
-    renderTeamProfile(rosterProfile);
-    renderSchedule(schedule, activeRunSeed, { priorStandings: ranks, history });
+    const profile = career.length ? await careerRequest("profile", { season: nextSeason, career }) : rosterProfile;
+    renderTeamProfile(profile);
+    renderSchedule(schedule, activeRunSeed, { priorStandings: ranks, history, career });
     saveProgress();
   } catch (error) {
     showError(error.message);
     nextSeasonButton.disabled = false;
   } finally {
+    advancingSeason = false;
+    manageRoster.disabled = false;
+    draftButton.disabled = false;
     document.querySelector("#change-team-button").disabled = false;
   }
 });

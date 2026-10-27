@@ -54,9 +54,22 @@ def _run_number(value: str, run_seed: int) -> int:
     return _stable_number(value if run_seed == 0 else f"run:{run_seed}:{value}")
 
 
-def team_ratings(team_id: str, run_seed: int = 0) -> TeamRatings:
+def team_ratings(team_id: str, run_seed: int = 0, roster_context: tuple = ()) -> TeamRatings:
     if team_id not in TEAM_BY_ID:
         raise KeyError(f"Unknown team: {team_id}")
+    if roster_context:
+        current = dict(roster_context)[team_id]
+        original = _roster_players(team_id, run_seed)
+        base = team_ratings(team_id, run_seed)
+        def strength(players, positions):
+            starters = [p.rating for p in players
+                        if p.position in positions and p.depth <= ROSTER_RULES[p.position][1]]
+            return sum(starters) / len(starters)
+        offense = {"QB", "RB", "WR", "TE", "OL"}
+        defense = {"DL", "LB", "CB", "S"}
+        return TeamRatings(
+            max(1, min(99, round(base.offense + strength(current, offense) - strength(original, offense)))),
+            max(1, min(99, round(base.defense + strength(current, defense) - strength(original, defense)))))
     return TeamRatings(
         offense=72 + _run_number(f"{team_id}:offense", run_seed) % 17,
         defense=72 + _run_number(f"{team_id}:defense", run_seed) % 17,
@@ -113,9 +126,9 @@ def _roster_players(team_id: str, run_seed: int = 0) -> tuple[Player, ...]:
     return tuple(players)
 
 
-def roster_for(team_id: str, run_seed: int = 0) -> dict[str, Player]:
+def roster_for(team_id: str, run_seed: int = 0, roster_context: tuple = ()) -> dict[str, Player]:
     # Return a fresh mapping so callers cannot mutate the cached roster.
-    return {f"{player.position}{player.depth}": player for player in _roster_players(team_id, run_seed)}
+    return {f"{player.position}{player.depth}": player for player in (dict(roster_context)[team_id] if roster_context else _roster_players(team_id, run_seed))}
 
 
 def _split_total(total: int, weights: list[float]) -> list[int]:
@@ -141,9 +154,10 @@ def _team_box(
     is_home: bool | None,
     rng: random.Random,
     run_seed: int = 0,
+    roster_context: tuple = (),
 ) -> dict[str, object]:
-    ratings = team_ratings(team.id, run_seed)
-    opponent_ratings = team_ratings(opponent.id, run_seed)
+    ratings = team_ratings(team.id, run_seed, roster_context)
+    opponent_ratings = team_ratings(opponent.id, run_seed, roster_context)
     expected_points = 22.0 + (ratings.offense - opponent_ratings.defense) * 0.36
     expected_points += 0.0 if is_home is None else (1.6 if is_home else -0.4)
 
@@ -164,7 +178,7 @@ def _team_box(
     rushing_yards = max(42, round(rng.gauss(112 + (ratings.offense - opponent_ratings.defense) * 1.8, 32)))
     sacks_allowed = max(0, min(7, round(rng.gauss(2.3 + (opponent_ratings.defense - ratings.offense) / 12, 1.2))))
 
-    roster = roster_for(team.id, run_seed)
+    roster = roster_for(team.id, run_seed, roster_context)
     reception_weights = [rng.uniform(0.28, 0.38), rng.uniform(0.20, 0.30), rng.uniform(0.13, 0.21), rng.uniform(0.12, 0.20)]
     receiving_yards = _split_total(passing_yards, reception_weights)
     receptions = _split_total(completions, [weight ** 0.82 for weight in reception_weights])
@@ -229,7 +243,7 @@ def _team_box(
 
 def resolve_overtime(
     home_box: dict, away_box: dict, rng: random.Random,
-    *, allow_ties: bool = True, neutral_site: bool = False, run_seed: int = 0,
+    *, allow_ties: bool = True, neutral_site: bool = False, run_seed: int = 0, roster_context: tuple = (),
 ) -> bool:
     """Resolve a regulation tie with a simplified overtime field goal.
 
@@ -241,8 +255,8 @@ def resolve_overtime(
     if allow_ties and rng.random() < 0.05:
         return True
 
-    home = team_ratings(home_box["team"]["id"], run_seed)
-    away = team_ratings(away_box["team"]["id"], run_seed)
+    home = team_ratings(home_box["team"]["id"], run_seed, roster_context)
+    away = team_ratings(away_box["team"]["id"], run_seed, roster_context)
     advantage = home.offense + home.defense - away.offense - away.defense
     home_win_probability = max(0.25, min(0.75, (0.5 if neutral_site else 0.52) + advantage / 100))
     winner = home_box if rng.random() < home_win_probability else away_box
@@ -270,16 +284,16 @@ def possession_weights(carries: int, completions: int, incompletions: int) -> in
     return carries * 35 + completions * 28 + incompletions * 8
 
 
-def apply_usage(box: dict, opponent_box: dict, rng: random.Random, run_seed: int = 0) -> None:
+def apply_usage(box: dict, opponent_box: dict, rng: random.Random, run_seed: int = 0, roster_context: tuple = ()) -> None:
     """Shape aggregate box scores after scoring; this is not a drive engine."""
-    roster = roster_for(box["team"]["id"], run_seed)
+    roster = roster_for(box["team"]["id"], run_seed, roster_context)
     qb = roster["QB1"]
-    backs = [roster["RB1"], roster["RB2"]]
-    rb1_share = rng.uniform(0.50, 0.90)
-    back_weights = [rb1_share, 1 - rb1_share]
+    backs = [player for player in roster.values() if player.position == "RB"][:2]
+    rb1_share = rng.uniform(0.50, 0.90) if len(backs) > 1 else 1.0
+    back_weights = [rb1_share, 1 - rb1_share] if len(backs) > 1 else [1.0]
     rb_skill = sum(player.rating * weight for player, weight in zip(backs, back_weights))
-    ratings = team_ratings(box["team"]["id"], run_seed)
-    opponent_ratings = team_ratings(opponent_box["team"]["id"], run_seed)
+    ratings = team_ratings(box["team"]["id"], run_seed, roster_context)
+    opponent_ratings = team_ratings(opponent_box["team"]["id"], run_seed, roster_context)
     plays = total_plays(box["score"] + opponent_box["score"],
                         ratings.offense - opponent_ratings.defense, rng)
     attempts = round(plays * pass_share(qb.rating, rb_skill,
@@ -344,6 +358,7 @@ def simulate_game(
     season: int,
     *, allow_ties: bool = True, neutral_site: bool = False, run_seed: int = 0,
     include_defense_and_blocking: bool = True,
+    roster_context: tuple = (),
 ) -> dict[str, object]:
     selected_team = TEAM_BY_ID[selected_team_id]
     opponent = TEAM_BY_ID[game.opponent_id]
@@ -354,15 +369,15 @@ def simulate_game(
     selected_is_home = game.venue == "Home"
     home_team = selected_team if selected_is_home else opponent
     away_team = opponent if selected_is_home else selected_team
-    home_box = _team_box(home_team, away_team, None if neutral_site else True, rng, run_seed)
-    away_box = _team_box(away_team, home_team, None if neutral_site else False, rng, run_seed)
-    overtime = resolve_overtime(home_box, away_box, rng, allow_ties=allow_ties, neutral_site=neutral_site, run_seed=run_seed)
+    home_box = _team_box(home_team, away_team, None if neutral_site else True, rng, run_seed, roster_context)
+    away_box = _team_box(away_team, home_team, None if neutral_site else False, rng, run_seed, roster_context)
+    overtime = resolve_overtime(home_box, away_box, rng, allow_ties=allow_ties, neutral_site=neutral_site, run_seed=run_seed, roster_context=roster_context)
     selected_box = home_box if selected_is_home else away_box
     opponent_box = away_box if selected_is_home else home_box
     # Independent usage stream keeps the existing scoring/overtime draws stable.
     usage_rng = random.Random(_stable_number(f"usage:{seed}"))
-    apply_usage(home_box, away_box, usage_rng, run_seed)
-    apply_usage(away_box, home_box, usage_rng, run_seed)
+    apply_usage(home_box, away_box, usage_rng, run_seed, roster_context)
+    apply_usage(away_box, home_box, usage_rng, run_seed, roster_context)
     assign_possession(home_box, away_box)
     add_efficiency_stats(home_box)
     add_efficiency_stats(away_box)
@@ -374,8 +389,8 @@ def simulate_game(
                       overtime_winner=overtime and away_box["score"] > home_box["score"])
     if include_defense_and_blocking:
         defense_rng = random.Random(_stable_number(f"defense:{seed}"))
-        add_defense_and_blocking(home_box, away_box, roster_for(home_team.id, run_seed), defense_rng)
-        add_defense_and_blocking(away_box, home_box, roster_for(away_team.id, run_seed), defense_rng)
+        add_defense_and_blocking(home_box, away_box, roster_for(home_team.id, run_seed, roster_context), defense_rng)
+        add_defense_and_blocking(away_box, home_box, roster_for(away_team.id, run_seed, roster_context), defense_rng)
     selected_score = int(selected_box["score"])
     opponent_score = int(opponent_box["score"])
     outcome = "T" if selected_score == opponent_score else ("W" if selected_score > opponent_score else "L")
@@ -392,7 +407,7 @@ def simulate_game(
 
 def simulate_league_week(season: int, week: int, run_seed: int = 0,
                          *, include_defense_and_blocking: bool = True,
-                         prior_standings: tuple[tuple[str, int], ...] = ()) -> list[dict[str, object]]:
+                         prior_standings: tuple[tuple[str, int], ...] = (), roster_context: tuple = ()) -> list[dict[str, object]]:
     if week < 1 or week > 17:
         raise ValueError("Week must be between 1 and 17")
     results: list[dict[str, object]] = []
@@ -409,27 +424,27 @@ def simulate_league_week(season: int, week: int, run_seed: int = 0,
             reason=league_game.reason,
         )
         result = simulate_game(league_game.home_id, game, season, run_seed=run_seed,
-                               include_defense_and_blocking=include_defense_and_blocking)
+                               include_defense_and_blocking=include_defense_and_blocking, roster_context=roster_context)
         results.append(result)
     return results
 
 
 @lru_cache(maxsize=128)
 def league_week_scores(season: int, week: int, run_seed: int = 0,
-                       prior_standings: tuple[tuple[str, int], ...] = ()) -> tuple[tuple[str, str, int, int], ...]:
+                       prior_standings: tuple[tuple[str, int], ...] = (), roster_context: tuple = ()) -> tuple[tuple[str, str, int, int], ...]:
     """Cache only immutable standings inputs, keyed by the complete run context."""
     return tuple((game["home"]["team"]["id"], game["away"]["team"]["id"],
                   game["home"]["score"], game["away"]["score"])
                  for game in simulate_league_week(season, week, run_seed, include_defense_and_blocking=False,
-                                              prior_standings=prior_standings))
+                                              prior_standings=prior_standings, roster_context=roster_context))
 
 
 def simulate_through_week(team_id: str, season: int, week: int, run_seed: int = 0,
-                          prior_standings: tuple[tuple[str, int], ...] = ()) -> dict[str, object]:
+                          prior_standings: tuple[tuple[str, int], ...] = (), roster_context: tuple = ()) -> dict[str, object]:
     schedule = generate_schedule(team_id=team_id, season=season, standings=dict(prior_standings) or None)
     if week < 1 or week > len(schedule):
         raise ValueError(f"Week must be between 1 and {len(schedule)}")
-    results = [simulate_game(team_id, game, season, run_seed=run_seed) for game in schedule[:week]]
+    results = [simulate_game(team_id, game, season, run_seed=run_seed, roster_context=roster_context) for game in schedule[:week]]
     wins = sum(result["outcome"] == "W" for result in results)
     losses = sum(result["outcome"] == "L" for result in results)
     ties = sum(result["outcome"] == "T" for result in results)
@@ -446,7 +461,7 @@ def simulate_through_week(team_id: str, season: int, week: int, run_seed: int = 
         })
     other_results = []
     for league_result in simulate_league_week(season, week, run_seed, include_defense_and_blocking=False,
-                                              prior_standings=prior_standings):
+                                              prior_standings=prior_standings, roster_context=roster_context):
         if team_id in (league_result["home"]["team"]["id"], league_result["away"]["team"]["id"]):
             continue
         other_results.append({
@@ -466,11 +481,11 @@ def simulate_through_week(team_id: str, season: int, week: int, run_seed: int = 
         "record": {"wins": wins, "losses": losses, "ties": ties},
         "result": current,
         "game_results": game_results,
-        "roster_stats": aggregate_player_stats(roster_for(team_id, run_seed).values(),
+        "roster_stats": aggregate_player_stats(roster_for(team_id, run_seed, roster_context).values(),
             (result["home"] if result["home"]["team"]["id"] == team_id else result["away"]
              for result in results)),
         "league_results": other_results,
-        "standings": standings_through_week(season, week, run_seed, prior_standings),
+        "standings": standings_through_week(season, week, run_seed, prior_standings, roster_context),
         "season_complete": week == len(schedule),
         "next_week": None if week == len(schedule) else week + 1,
     }
