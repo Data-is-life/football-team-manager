@@ -17,6 +17,12 @@ let activeSeason = 1;
 let activePriorStandings = {};
 let careerHistory = [];
 let regularSnapshot = null;
+let activeDraftChoices = null;
+let draftState = null;
+let draftBusy = false;
+let draftPendingChoice = null;
+const draftButton = document.querySelector("#draft-button");
+const draftDialog = document.querySelector("#draft-dialog");
 const nextSeasonButton = document.querySelector("#next-season");
 let currentWeek = 0;
 let latestResult = null;
@@ -42,9 +48,10 @@ let restoring = false;
 
 function saveProgress() {
   if (!activeTeamId || restoring) return;
-  const save = { version: 2, teamId: activeTeamId, runSeed: activeRunSeed,
+  const save = { version: 3, teamId: activeTeamId, runSeed: activeRunSeed,
     season: activeSeason, week: currentWeek,
     priorStandings: activePriorStandings, history: careerHistory,
+    draftChoices: activeDraftChoices,
     playoffRound: playoffState ? completedPlayoffRound : null };
   try {
     localStorage.setItem(SAVE_KEY, JSON.stringify(save));
@@ -60,7 +67,7 @@ function readSave() {
   if (!raw) return null;
   const save = JSON.parse(raw);
   const integer = (value, min, max) => Number.isInteger(value) && value >= min && value <= max;
-  if (!save || ![1, 2].includes(save.version) || typeof save.teamId !== "string"
+  if (!save || ![1, 2, 3].includes(save.version) || typeof save.teamId !== "string"
       || ![...select.options].some(option => option.value && option.value === save.teamId)
       || !integer(save.runSeed, 0, 4294967295) || !integer(save.season, 1, 999)
       || !integer(save.week, 0, 17)
@@ -73,6 +80,11 @@ function readSave() {
     save.priorStandings = {};
     save.history = [];
   }
+  if (save.version < 3) save.draftChoices = null;
+  if (!(save.draftChoices === null || (save.week === 17 && save.playoffRound === 4
+      && save.season < 999 && Array.isArray(save.draftChoices) && save.draftChoices.length <= 4
+      && save.draftChoices.every(id => typeof id === "string" && id.length < 100)
+      && new Set(save.draftChoices).size === save.draftChoices.length))) throw new Error("Invalid draft save");
   const allowedFinishes = ["Champions", "Missed playoffs", "Lost in Wild Card", "Lost in Quarterfinals", "Lost in Semifinals", "Lost in Championship"];
   const knownTeam = id => [...select.options].some(option => option.value && option.value === id);
   if (!Array.isArray(save.history) || save.history.length !== save.season - 1
@@ -139,6 +151,8 @@ async function resumeProgress() {
       if (!response.ok) throw new Error("Restore failed");
       return response.json();
     }));
+    // Fetch/replay a saved draft before committing any restored UI state.
+    const savedDraft = save.draftChoices === null ? null : await fetchDraft(save.draftChoices, save);
     const [schedule, profile, regular, postseason] = payloads;
     if (profile.team.id !== save.teamId || profile.run_seed !== save.runSeed
         || schedule.team.id !== save.teamId || schedule.season !== save.season
@@ -150,6 +164,7 @@ async function resumeProgress() {
     renderSchedule(schedule, save.runSeed, { priorStandings: save.priorStandings, history: save.history });
     if (regular) renderResult(regular);
     if (postseason) { renderPostseason(postseason); activateView("playoffs"); }
+    if (savedDraft) applyDraft(savedDraft);
     select.value = save.teamId;
     saveStatus.textContent = "Saved progress restored. Autosave is on in this browser.";
     resumeButton.hidden = true;
@@ -186,6 +201,11 @@ async function loadScoutingRoster(teamId, city) {
     const profile = await response.json();
     if (!isCurrent()) return;
     if (profile.team.id !== teamId || profile.run_seed !== runSeed) throw new Error("Roster could not be loaded. Please try again.");
+    if (draftState) {
+      const rookies = draftState.picks.filter(pick => pick.team.id === teamId).map(pick => pick.player);
+      profile.roster.push(...rookies);
+      for (const rule of profile.roster_rules) rule.count = profile.roster.filter(p => p.position === rule.position).length;
+    }
     document.querySelector("#scout-groups").replaceChildren(...createRosterGroups(profile, false));
     status.textContent = `${profile.team.group} · ${profile.roster.length} players · Offense ${profile.ratings.offense} · Defense ${profile.ratings.defense} · Ratings out of 99`;
   } catch (error) {
@@ -439,6 +459,21 @@ function renderSchedule(data, runSeed, { priorStandings = {}, history = [] } = {
   activePriorStandings = priorStandings;
   careerHistory = history;
   regularSnapshot = null;
+  activeDraftChoices = null;
+  draftState = null;
+  draftPendingChoice = null;
+  draftButton.hidden = true;
+  draftButton.textContent = "Start rookie draft";
+  document.querySelector("#draft-summary").hidden = true;
+  document.querySelector("#draft-error").hidden = true;
+  document.querySelector("#draft-retry").hidden = true;
+  document.querySelector("#draft-board").hidden = true;
+  document.querySelector("#draft-prospects").replaceChildren();
+  document.querySelector("#draft-picks").replaceChildren();
+  document.querySelector("#draft-title").textContent = "Rookie draft";
+  document.querySelector("#draft-status").textContent = "";
+  document.querySelector("#draft-position").value = "";
+  if (draftDialog.open) draftDialog.close();
   nextSeasonButton.hidden = true;
   renderSeasonHistory();
   document.querySelector("#season-display").textContent = activeSeason;
@@ -834,6 +869,7 @@ function renderPostseason(data) {
   const banner = document.querySelector("#champion-banner");
   banner.hidden = !champion;
   banner.textContent = champion ? `Season ${data.season} champions: ${champion.team.city} · Seed #${champion.seed}` : "";
+  draftButton.hidden = !data.postseason_complete || activeSeason >= 999;
   nextSeasonButton.hidden = !data.postseason_complete;
   nextSeasonButton.disabled = activeSeason >= 999;
   nextSeasonButton.textContent = activeSeason < 999 ? `Continue to Season ${activeSeason + 1}` : "Season limit reached";
@@ -883,8 +919,153 @@ playoffSimulate.addEventListener("click", () => {
   if (playoffState?.next_round && !playoffSimulate.disabled) loadPlayoffRound(completedPlayoffRound + 1);
 });
 
+async function fetchDraft(choices, context = null) {
+  const teamId = context?.teamId ?? activeTeamId;
+  const season = context?.season ?? activeSeason;
+  const seed = context?.runSeed ?? activeRunSeed;
+  const ranks = context?.priorStandings ?? activePriorStandings;
+  const response = await fetch(`/api/draft/${teamId}`, {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ season, run_seed: seed,
+      prior_standings: Object.keys(ranks).length ? ranks : null, manual_picks: choices }),
+  });
+  if (!response.ok) throw new Error("The draft could not be loaded. Please try again.");
+  const data = await response.json();
+  if (data.team.id !== teamId || data.season !== season || data.run_seed !== seed
+      || JSON.stringify(data.manual_picks) !== JSON.stringify(choices)) {
+    throw new Error("The draft could not be loaded. Please try again.");
+  }
+  return data;
+}
+
+function applyDraft(data) {
+  draftState = data;
+  activeDraftChoices = data.manual_picks;
+  // Extend the finished season's snapshots with zero-production rookies, without
+  // losing any existing player totals or attributing last season's stats to rookies.
+  const previous = rosterTotals;
+  const mode = rosterMode;
+  const competition = rosterCompetition.value;
+  const collapsed = [...document.querySelectorAll("#roster-groups .roster-group")]
+    .filter(group => !group.open).map(group => group.dataset.position);
+  renderTeamProfile(data.profile);
+  for (const type of ["regular", "playoffs"]) {
+    const old = new Map(previous[type].players.map(player => [player.player_id, player]));
+    rosterTotals[type] = { games: previous[type].games,
+      players: data.profile.roster_stats.players.map(player => old.get(player.player_id) ?? player) };
+  }
+  rosterMode = mode;
+  rosterCompetition.value = competition;
+  renderRosterStats();
+  for (const position of collapsed) document.querySelector(`#roster-groups [data-position="${position}"]`).open = false;
+  const count = data.profile.roster.length;
+  nextSeasonButton.disabled = true;
+  nextSeasonButton.textContent = data.complete ? "Roster limit: 38" : "Finish rookie draft";
+  draftButton.textContent = data.complete ? "Review draft" : "Resume draft";
+  const summary = document.querySelector("#draft-summary");
+  summary.hidden = false;
+  summary.textContent = data.complete
+    ? `Draft complete · ${count} players. Reduce your roster to 38 before the next season.`
+    : `Draft in progress · ${activeDraftChoices.length} of 4 picks made · ${count} players.`;
+  renderDraft();
+}
+
+function renderDraft() {
+  if (!draftState) return;
+  document.querySelector("#draft-title").textContent = `Season ${draftState.draft_season} rookie draft`;
+  document.querySelector("#draft-status").textContent = draftState.complete
+    ? "All 120 picks are complete. Your four rookies have joined your offseason roster."
+    : `Your turn · Round ${draftState.next_round} of 4 · Overall pick ${draftState.next_pick} of 120`;
+  const filter = document.querySelector("#draft-position").value;
+  const rows = [];
+  draftState.available.forEach((player, index) => {
+    if (filter && player.position !== filter) return;
+    const row = document.createElement("tr");
+    row.dataset.prospectId = player.id;
+    for (const value of [index + 1, player.name, player.position, player.age, player.rating]) {
+      const cell = document.createElement("td"); cell.textContent = value; row.append(cell);
+    }
+    const attributeCell = document.createElement("td");
+    const details = document.createElement("details");
+    const summary = document.createElement("summary"); summary.textContent = "Attributes";
+    const list = document.createElement("dl");
+    const rule = rosterProfile.roster_rules.find(rule => rule.position === player.position);
+    for (const attribute of rule.attributes) {
+      const term = document.createElement("dt"); term.textContent = attribute.label;
+      const value = document.createElement("dd"); value.textContent = player.attributes[attribute.key];
+      list.append(term, value);
+    }
+    details.append(summary, list); attributeCell.append(details); row.append(attributeCell);
+    const action = document.createElement("td");
+    const button = document.createElement("button"); button.type = "button";
+    button.textContent = "Draft"; button.dataset.draftId = player.id;
+    button.setAttribute("aria-label", `Draft ${player.name}, ${player.position}`);
+    button.disabled = draftBusy || draftState.complete;
+    action.append(button); row.append(action); rows.push(row);
+  });
+  document.querySelector("#draft-prospects").replaceChildren(...rows);
+  const picks = draftState.picks.map(pick => {
+    const item = document.createElement("li");
+    item.value = pick.overall;
+    item.textContent = `Round ${pick.round} · ${pick.team.city}: ${pick.player.name} · ${pick.player.position} · ${pick.player.rating}`;
+    if (pick.team.id === activeTeamId) item.className = "your-draft-pick";
+    return item;
+  });
+  document.querySelector("#draft-picks").replaceChildren(...picks);
+  document.querySelector("#draft-available").textContent = `${draftState.available.length} prospects available · Ratings out of 99`;
+  document.querySelector("#draft-board").hidden = draftState.complete;
+}
+
+async function loadDraft(choice = null) {
+  if (draftBusy || !playoffState?.postseason_complete || activeSeason >= 999) return;
+  draftBusy = true;
+  draftPendingChoice = choice;
+  draftButton.disabled = true;
+  document.querySelector("#change-team-button").disabled = true;
+  nextSeasonButton.disabled = true;
+  document.querySelector("#draft-error").hidden = true;
+  document.querySelector("#draft-retry").hidden = true;
+  if (!draftDialog.open) draftDialog.showModal();
+  if (draftState) renderDraft();
+  document.querySelector("#draft-status").textContent = choice ? "Recording your pick and simulating CPU picks…" : "Loading rookie draft…";
+  const teamId = activeTeamId, seed = activeRunSeed, season = activeSeason;
+  const choices = [...(activeDraftChoices ?? []), ...(choice ? [choice] : [])];
+  try {
+    const data = await fetchDraft(choices);
+    if (teamId !== activeTeamId || seed !== activeRunSeed || season !== activeSeason) return;
+    applyDraft(data);
+    saveProgress();
+    draftPendingChoice = null;
+  } catch (error) {
+    if (teamId !== activeTeamId || seed !== activeRunSeed || season !== activeSeason) return;
+    document.querySelector("#draft-error").textContent = error.message;
+    document.querySelector("#draft-error").hidden = false;
+    document.querySelector("#draft-retry").hidden = false;
+  } finally {
+    draftBusy = false;
+    draftButton.disabled = false;
+    document.querySelector("#change-team-button").disabled = false;
+    if (draftState) renderDraft();
+    else {
+      document.querySelector("#draft-status").textContent = "Draft not started. Your saved season is unchanged.";
+      nextSeasonButton.disabled = activeSeason >= 999;
+    }
+  }
+}
+draftButton.addEventListener("click", () => {
+  if (draftState) { renderDraft(); if (!draftDialog.open) draftDialog.showModal(); }
+  else loadDraft();
+});
+document.querySelector("#draft-close").addEventListener("click", () => draftDialog.close());
+document.querySelector("#draft-position").addEventListener("change", renderDraft);
+document.querySelector("#draft-retry").addEventListener("click", () => loadDraft(draftPendingChoice));
+document.querySelector("#draft-prospects").addEventListener("click", event => {
+  const button = event.target.closest("[data-draft-id]");
+  if (button && !button.disabled) loadDraft(button.dataset.draftId);
+});
+
 nextSeasonButton.addEventListener("click", async () => {
-  if (nextSeasonButton.disabled || !playoffState?.postseason_complete || !regularSnapshot || activeSeason >= 999) return;
+  if (nextSeasonButton.disabled || activeDraftChoices !== null || draftBusy || !playoffState?.postseason_complete || !regularSnapshot || activeSeason >= 999) return;
   nextSeasonButton.disabled = true;
   document.querySelector("#change-team-button").disabled = true;
   errorBox.hidden = true;
