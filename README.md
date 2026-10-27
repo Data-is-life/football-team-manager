@@ -166,7 +166,7 @@ npm ci
 npm run test:ui
 ```
 
-The UI suites start local FastAPI servers on ports 8767, 8769, and 8770 and checks tab/keyboard navigation, empty states, full seasons and playoffs, box-score values, roster collapse state, always-expanded league content, failed-request retry, team reset/cancel, save restoration, and multiple-season continuation using jsdom. Node dependencies are only for development checks; Render still runs the Python app directly. These DOM checks do not verify visual layout.
+The UI suites start local FastAPI servers on ports 8767, 8769, 8770, and 8771 and checks tab/keyboard navigation, empty states, full seasons and playoffs, box-score values, roster collapse state, always-expanded league content, failed-request retry, team reset/cancel, save restoration, and multiple-season continuation using jsdom. Node dependencies are only for development checks; Render still runs the Python app directly. These DOM checks do not verify visual layout.
 
 ## Randomized runs
 
@@ -245,4 +245,20 @@ Same-place opponents use the previous season's actual final group ranks. The bro
 
 **Franchise history** above the tabs lists completed prior seasons: your regular-season record, playoff finish, and league champion. It is a summary archive; individual past-season box scores and player/career totals are not retained. A failed season transition leaves the current game and saved checkpoint intact; retrying cannot append duplicate history. **Choose another team → Start new career** explicitly resets season, history, and seed instead of continuing the franchise.
 
-Save version 2 includes the active season's prior ranks and the history summaries. Version 1 saves from the saved-progress PR still restore with identical first-season results and upgrade on the next successful save. Refreshing in later seasons restores the correct schedule, standings, season totals, and postseason without mixing seasons.
+Save version 3 includes the active season’s prior ranks, history summaries, and optional draft choices. Version 2 career saves remain supported. Version 1 saves from the saved-progress PR still restore with identical first-season results and upgrade on the next successful save. Refreshing in later seasons restores the correct schedule, standings, season totals, and postseason without mixing seasons.
+
+## Four-round rookie draft
+
+After the league championship (including seasons where your team is eliminated or misses qualification), choose **Start rookie draft**. The draft is for the upcoming season and contains 200 rookies and four rounds of 30 picks: 120 total selections. Prospects have unique permanent player IDs, names, positions, ages 21–24, zero experience, scouting ratings 45–90, and the same position-specific attributes as existing players. Filter by position and expand Attributes to inspect each prospect.
+
+Non-playoff teams pick first, followed by teams eliminated in the Wild Card, Quarterfinals, Semifinals, and Championship. The champion picks last. Within each finish group, order is worst regular-season record, then lower point differential, fewer points scored, and a deterministic seeded draw. Every round uses the same order, without snaking or pick trades.
+
+CPU teams select automatically up to your next turn. Their score balances prospect quality against current position quality, with a penalty for repeatedly drafting the same position. Your four picks are manual. After your fourth pick the remaining CPU selections complete automatically; all 30 teams receive four rookies. Selections are shown in a scrollable log and your team's picks are highlighted.
+
+Each rookie is added without replacing a player: the offseason roster grows from 38 to 42. Your Roster includes the rookies, and scouting shows other teams' drafted players. Completed-season stats are preserved; rookies have zero production. Team ratings, depth leaders, and finished-season game outcomes do not change during the draft.
+
+**Scope of this PR:** the draft ends at the roster-cut stage. Once a draft is started, continuation is paused; after completing it, the UI explains that the 42-player roster must return to 38 before the next season. The following PR adds Drop player, position-minimum checks, CPU cuts, and carrying the finalized roster into the next season's simulation. Existing no-draft season continuation remains available if a draft has not been started. Salary caps, contracts, development, aging, and trades are later work.
+
+Draft choices autosave after each successful turn. Save version 3 stores up to four prospect IDs; the API deterministically replays CPU decisions and validates that each chosen prospect was available at the user's actual pick. Reloads preserve the class, selection history, permanent IDs, and enlarged roster. Failed loads/picks preserve the last checkpoint and offer Retry; duplicate clicks cannot select twice. Version 1 and 2 saves restore with no draft started and upgrade on the next save. Starting a new career clears the draft. Drafts are available through the Season 998 offseason because the next season must fit the API's Season 999 limit.
+
+`POST /api/draft/{team_id}` takes `season`, `run_seed`, optional `prior_standings`, and `manual_picks` (0–4 prospect IDs). It returns the selection order, completed picks, remaining prospects, the next user pick, completion state, and the updated managed-team profile. This endpoint is stateless and does not store server-side progress.

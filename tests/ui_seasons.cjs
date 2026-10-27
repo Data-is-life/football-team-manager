@@ -64,7 +64,7 @@ async function checks() {
  assert.equal(q(p,'#season-display').textContent,'2');
  assert.equal(q(p,'#roster-groups').textContent,roster,'Roster is retained');
  assert.equal(save(p).runSeed,1234);assert.deepEqual(save(p).priorStandings,ranks);
- assert.equal(save(p).version,2);assert.equal(save(p).week,0);assert.equal(save(p).playoffRound,null);
+ assert.equal(save(p).version,3);assert.equal(save(p).week,0);assert.equal(save(p).playoffRound,null);
  assert.equal(q(p,'#season-record').textContent,'0–0');assert.equal(q(p,'#next-season').hidden,true);
  assert.equal(q(p,'#postseason-section').hidden,true);
  assert.equal(q(p,'#season-history').hidden,false);

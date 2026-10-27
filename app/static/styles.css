@@ -264,3 +264,10 @@ tr.selected-team td { color: var(--cyan); background: rgba(72,230,210,0.07); }
   .season-actions button { flex: 1; }
   .view-tabs { max-width: 100%; }
 }
+
+.draft-prospect-scroll { max-height: 55vh; overflow: auto; }
+#draft-prospects dl { min-width: 130px; margin: 8px 0; }
+#draft-prospects dt { color: var(--muted); font-size: .8rem; }
+#draft-prospects dd { margin: 0 0 6px; }
+#draft-picks { max-height: 30vh; overflow: auto; padding-left: 32px; line-height: 1.8; }
+.your-draft-pick { color: var(--cyan); font-weight: 700; }

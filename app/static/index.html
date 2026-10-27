@@ -68,6 +68,7 @@
               <button id="simulate-button" type="button">Simulate Week 1</button>
               <button id="playoffs-start" type="button" hidden>View playoffs</button>
               <button id="playoff-simulate" type="button" hidden></button>
+              <button id="draft-button" type="button" hidden>Start rookie draft</button>
               <button id="next-season" type="button" hidden></button>
             </div>
           </div>
@@ -79,6 +80,7 @@
               <tbody id="season-history-rows"></tbody>
             </table></div>
           </details>
+          <p id="draft-summary" class="roster-note" role="status" hidden></p>
           <div class="view-tabs" role="tablist" aria-label="Team and league views">
             <button id="view-roster" class="view-tab" type="button" role="tab" aria-selected="false" aria-controls="panel-roster" tabindex="-1">Roster</button>
             <button id="view-game" class="view-tab" type="button" role="tab" aria-selected="false" aria-controls="panel-game" tabindex="-1">Game Stats</button>
@@ -122,7 +124,7 @@
               </div>
               <p id="roster-stats-status" class="roster-note" role="status" hidden></p>
               <p id="roster-stats-note" class="roster-note" hidden>Defense and line stats are aggregate estimates. Tackles include sacks; pass snaps include sacks.</p>
-              <p class="roster-note">38 players across ten position groups. Each group shows its minimum required count. Scouting ratings are out of 99; team ratings determine scoring, while QB/RB skill and QB experience shape passing volume. Player attributes use a 1–99 scale and are scouting information for now; they do not affect games yet.</p>
+              <p class="roster-note">Regular-season roster limit: 38 players across ten position groups. Offseason draft picks may temporarily increase this total. Each group shows its minimum required count. Scouting ratings are out of 99; team ratings determine scoring, while QB/RB skill and QB experience shape passing volume. Player attributes use a 1–99 scale and are scouting information for now; they do not affect games yet.</p>
               <details class="attribute-guide">
                 <summary>Attribute guide</summary>
                 <dl id="attribute-guide-list"></dl>
@@ -232,6 +234,29 @@
       <p id="scout-status" class="roster-note" role="status"></p>
       <button id="scout-retry" class="secondary-button" type="button" hidden>Retry</button>
       <div id="scout-groups" class="roster-groups"></div>
+    </dialog>
+    <dialog id="draft-dialog" class="team-roster-dialog" aria-labelledby="draft-title">
+      <div class="scout-heading"><div><p class="eyebrow">Offseason</p><h2 id="draft-title">Rookie draft</h2></div>
+        <button id="draft-close" class="secondary-button" type="button" autofocus>Close draft</button></div>
+      <p id="draft-status" class="roster-note" role="status"></p>
+      <p class="roster-note">Four rounds · Same order each round · CPU teams balance player quality and position needs. Rookies join your roster without replacing anyone. The regular-season limit is 38.</p>
+      <p id="draft-error" class="error" role="alert" hidden></p>
+      <button id="draft-retry" class="secondary-button" type="button" hidden>Retry</button>
+      <section id="draft-board" hidden>
+        <label for="draft-position">Position</label>
+        <select id="draft-position"><option value="">All positions</option>
+          <option>QB</option><option>WR</option><option>TE</option><option>RB</option><option>OL</option>
+          <option>K</option><option>DL</option><option>LB</option><option>CB</option><option>S</option></select>
+        <p id="draft-available" class="roster-note"></p>
+        <div class="table-wrap draft-prospect-scroll"><table class="roster-table">
+          <thead><tr><th>Available rank</th><th>Player</th><th>Position</th><th>Age</th><th>Rating</th><th>Attributes</th><th>Pick</th></tr></thead>
+          <tbody id="draft-prospects"></tbody>
+        </table></div>
+      </section>
+      <details class="attribute-guide"><summary>Draft order and tiebreakers</summary>
+        <p>Non-playoff teams pick first, followed by teams eliminated in each playoff round. The runner-up picks 29th and the champion 30th. Within each group: worst regular-season record, then lower point differential, fewer points scored, and a seeded draw.</p>
+      </details>
+      <details class="attribute-guide" open><summary>Selections</summary><ol id="draft-picks"></ol></details>
     </dialog>
     <script src="/static/app.js" defer></script>
   </body>

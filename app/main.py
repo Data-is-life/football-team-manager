@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Annotated
 
 from fastapi import FastAPI, HTTPException, Query
+from pydantic import BaseModel, Field, StrictInt
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -12,6 +13,7 @@ from .playoffs import playoffs_through_round
 from .player_stats import aggregate_player_stats
 from .simulation import ROSTER_RULES, roster_for, simulate_through_week, team_ratings
 from .attributes import ATTRIBUTE_INFO, attribute_keys
+from .draft import build_draft
 
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -36,6 +38,10 @@ def team_profile(team_id: str, run_seed: Annotated[int, Query(ge=0, le=429496729
     if team_id not in TEAM_BY_ID:
         raise HTTPException(status_code=404, detail="Team not found")
     players = list(roster_for(team_id, run_seed).values())
+    return profile_payload(team_id, players, run_seed)
+
+
+def profile_payload(team_id, players, run_seed):
     return {
         "team": asdict(TEAM_BY_ID[team_id]),
         "ratings": asdict(team_ratings(team_id, run_seed)),
@@ -119,3 +125,23 @@ def playoff_round(
         raise HTTPException(status_code=400, detail="Playoff round must be between 0 and 4")
     return playoffs_through_round(team_id, season, round_number, run_seed,
                                   parse_prior_standings(prior_standings))
+
+
+class DraftRequest(BaseModel):
+    season: int = Field(default=1, ge=1, le=998)
+    run_seed: int = Field(default=0, ge=0, le=4294967295)
+    prior_standings: dict[str, StrictInt] | None = None
+    manual_picks: list[str] = Field(default_factory=list, max_length=4)
+
+
+@app.post("/api/draft/{team_id}")
+def rookie_draft(team_id: str, request: DraftRequest) -> dict:
+    if team_id not in TEAM_BY_ID:
+        raise HTTPException(status_code=404, detail="Team not found")
+    prior = parse_prior_standings(json.dumps(request.prior_standings) if request.prior_standings is not None else None)
+    try:
+        draft, players = build_draft(team_id, request.season, request.run_seed,
+                                    tuple(request.manual_picks), prior)
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+    return {**draft, "profile": profile_payload(team_id, players, request.run_seed)}
