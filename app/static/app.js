@@ -26,7 +26,7 @@ let activeCareer = [];
 let cutBusy = false;
 let advancingSeason = false;
 let pendingCut = null;
-const cutDialog = document.querySelector("#cut-dialog");
+const rosterManagement = document.querySelector("#roster-management");
 const manageRoster = document.querySelector("#manage-roster");
 let draftBusy = false;
 let draftPendingChoice = null;
@@ -523,8 +523,11 @@ function renderSchedule(data, runSeed, { priorStandings = {}, history = [], care
   activeDropped = [];
   activeCareer = career;
   manageRoster.hidden = true;
-  if (cutDialog.open) cutDialog.close();
+  rosterManagement.hidden = true;
+  document.querySelector("#cut-confirmation").hidden = true;
+  document.querySelector("#cut-error").hidden = true;
   pendingCut = null;
+  renderCuts();
   draftPendingChoice = null;
   draftButton.hidden = true;
   draftButton.textContent = "Start rookie draft";
@@ -1156,45 +1159,60 @@ document.querySelector("#draft-prospects").addEventListener("click", event => {
 });
 
 function renderCuts() {
-  if (!rosterProfile) return;
+  const available = Boolean(draftState?.complete);
+  rosterManagement.hidden = !available;
+  // Reuse the rating rows so ages, trends, rookies, and starters stay together.
+  for (const cell of document.querySelectorAll("#roster-groups .roster-cut-action")) cell.remove();
+  if (!available || !rosterProfile) return;
   document.querySelector("#cut-count").textContent = `${rosterProfile.roster.length}/38 players · Keep each position at or above its minimum.`;
-  const rows = rosterProfile.roster.map(player => {
-    const count = rosterProfile.roster.filter(p => p.position === player.position).length;
-    const minimum = rosterProfile.roster_rules.find(rule => rule.position === player.position).minimum;
-    const row = document.createElement("tr"); row.dataset.cutPlayerId = player.id;
-    for (const value of [player.name, player.position, player.current_rating, player.potential_rating, `${count} / minimum ${minimum}`]) {
-      const cell = document.createElement("td"); cell.textContent = value; row.append(cell);
+  for (const group of document.querySelectorAll("#roster-groups .roster-group")) {
+    const rule = rosterProfile.roster_rules.find(rule => rule.position === group.dataset.position);
+    const count = rosterProfile.roster.filter(player => player.position === rule.position).length;
+    const heading = document.createElement("th");
+    heading.className = "roster-cut-action";
+    heading.scope = "col";
+    heading.textContent = "Action";
+    group.querySelector(".roster-rating-wrap thead tr").append(heading);
+    for (const row of group.querySelectorAll(".roster-rating-wrap .roster-player")) {
+      const player = rosterProfile.roster.find(player => player.id === row.dataset.playerId);
+      const cell = document.createElement("td");
+      cell.className = "roster-cut-action";
+      const button = document.createElement("button");
+      button.type = "button";
+      button.dataset.dropId = player.id;
+      button.textContent = count <= rule.minimum ? "Minimum reached" : "Drop";
+      button.disabled = cutBusy || advancingSeason || count <= rule.minimum;
+      button.setAttribute("aria-label", `Drop ${player.name}, ${player.position}`);
+      if (count <= rule.minimum) button.title = `Keep at least ${rule.minimum} ${player.position} players`;
+      cell.append(button);
+      row.append(cell);
     }
-    addRookieBadge(row.children[0], player);
-    const cell = document.createElement("td");
-    const button = document.createElement("button"); button.type = "button"; button.dataset.dropId = player.id;
-    button.textContent = count <= minimum ? "Minimum reached" : "Drop";
-    button.disabled = cutBusy || count <= minimum;
-    button.setAttribute("aria-label", `Drop ${player.name}, ${player.position}`);
-    if (count <= minimum) button.title = `Keep at least ${minimum} ${player.position} players`;
-    cell.append(button); row.append(cell); return row;
-  });
-  document.querySelector("#cut-players").replaceChildren(...rows);
+  }
 }
 function openCuts() {
   if (!draftState?.complete || cutBusy || advancingSeason) return;
   if (draftDialog.open) draftDialog.close();
+  activateView("roster", { focus: true });
+  rosterMode = "ratings";
+  renderRosterStats();
   renderCuts();
-  if (!cutDialog.open) cutDialog.showModal();
 }
 manageRoster.addEventListener("click", openCuts);
-cutDialog.addEventListener("close", () => {
-  if (!cutBusy) { pendingCut = null; document.querySelector("#cut-confirmation").hidden = true; }
-});
-document.querySelector("#cut-close").addEventListener("click", () => cutDialog.close());
-document.querySelector("#cut-cancel").addEventListener("click", () => {
-  pendingCut = null; document.querySelector("#cut-confirmation").hidden = true;
-});
-document.querySelector("#cut-players").addEventListener("click", event => {
+function cancelCut() {
+  const id = pendingCut;
+  pendingCut = null;
+  document.querySelector("#cut-confirmation").hidden = true;
+  document.querySelector("#cut-error").hidden = true;
+  const button = [...document.querySelectorAll("#roster-groups [data-drop-id]")].find(button => button.dataset.dropId === id);
+  button?.focus();
+}
+document.querySelector("#cut-cancel").addEventListener("click", cancelCut);
+document.querySelector("#roster-groups").addEventListener("click", event => {
   const button = event.target.closest("[data-drop-id]");
-  if (!button || button.disabled || cutBusy) return;
+  if (!button || button.disabled || cutBusy || advancingSeason || !draftState?.complete) return;
   pendingCut = button.dataset.dropId;
   const player = rosterProfile.roster.find(p => p.id === pendingCut);
+  document.querySelector("#cut-error").hidden = true;
   document.querySelector("#cut-confirm-text").textContent = `Drop ${player.name} (${player.position})? This removes the player from your next-season roster.`;
   document.querySelector("#cut-confirmation").hidden = false;
   document.querySelector("#cut-confirm").focus();
@@ -1214,6 +1232,7 @@ document.querySelector("#cut-confirm").addEventListener("click", async () => {
     saveProgress();
     pendingCut = null;
     document.querySelector("#cut-confirmation").hidden = true;
+    document.querySelector("#roster-title").focus();
   } catch (error) {
     document.querySelector("#cut-error").textContent = error.message;
     document.querySelector("#cut-error").hidden = false;
@@ -1232,6 +1251,7 @@ nextSeasonButton.addEventListener("click", async () => {
   advancingSeason = true;
   nextSeasonButton.disabled = true;
   manageRoster.disabled = true;
+  renderCuts();
   draftButton.disabled = true;
   document.querySelector("#change-team-button").disabled = true;
   errorBox.hidden = true;
@@ -1276,6 +1296,7 @@ nextSeasonButton.addEventListener("click", async () => {
   } finally {
     advancingSeason = false;
     manageRoster.disabled = false;
+    renderCuts();
     draftButton.disabled = false;
     document.querySelector("#change-team-button").disabled = false;
   }
