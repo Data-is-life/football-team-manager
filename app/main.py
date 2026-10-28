@@ -13,6 +13,7 @@ from .playoffs import playoffs_through_round
 from .player_stats import aggregate_player_stats
 from .simulation import ROSTER_RULES, roster_for, simulate_through_week, team_ratings
 from .attributes import ATTRIBUTE_INFO, attribute_keys
+from .ratings import rating_payload
 from .draft import build_draft
 from .career import ROSTER_MAX, offseason, replay_career
 
@@ -47,7 +48,7 @@ def profile_payload(team_id, players, run_seed, roster_context=()):
         "team": asdict(TEAM_BY_ID[team_id]),
         "ratings": asdict(team_ratings(team_id, run_seed, roster_context)),
         "run_seed": run_seed,
-        "roster": [{**asdict(player), "attributes": {
+        "roster": [{**asdict(player), **rating_payload(player), "attributes": {
             key: getattr(player.attributes, key) for key in attribute_keys(player.position)
         }} for player in players],
         "roster_stats": aggregate_player_stats(players, []),

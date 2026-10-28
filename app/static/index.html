@@ -125,11 +125,8 @@
               </div>
               <p id="roster-stats-status" class="roster-note" role="status" hidden></p>
               <p id="roster-stats-note" class="roster-note" hidden>Defense and line stats are aggregate estimates. Tackles include sacks; pass snaps include sacks.</p>
-              <p class="roster-note">Regular-season roster limit: 38 players across ten position groups. Offseason draft picks may temporarily increase this total. Each group shows its minimum required count. Scouting ratings are out of 99; team ratings determine scoring, while QB/RB skill and QB experience shape passing volume. Player attributes use a 1–99 scale and are scouting information for now; they do not affect games yet.</p>
-              <details class="attribute-guide">
-                <summary>Attribute guide</summary>
-                <dl id="attribute-guide-list"></dl>
-              </details>
+              <p class="roster-note">Current is ability today. Potential is a possible ceiling, not guaranteed growth. Both are out of 99. Younger players have more room to develop; from age 30, potential equals current. Aging and development are not active yet.</p>
+              <p class="roster-note">Regular-season maximum: 38 players. Offseason draft picks may temporarily increase the roster. Position minimums appear above each group.</p>
               <div id="roster-groups" class="roster-groups"></div>
             </section>
           </div>
@@ -250,7 +247,7 @@
           <option>K</option><option>DL</option><option>LB</option><option>CB</option><option>S</option></select>
         <p id="draft-available" class="roster-note"></p>
         <div class="table-wrap draft-prospect-scroll"><table class="roster-table">
-          <thead><tr><th>Available rank</th><th>Player</th><th>Position</th><th>Age</th><th>Rating</th><th>Attributes</th><th>Pick</th></tr></thead>
+          <thead><tr><th>Available rank</th><th>Player</th><th>Position</th><th>Age</th><th>Current</th><th>Potential</th><th>Pick</th></tr></thead>
           <tbody id="draft-prospects"></tbody>
         </table></div>
       </section>
@@ -266,7 +263,7 @@
       <p id="cut-error" class="error" role="alert" hidden></p>
       <section id="cut-confirmation" class="empty-state" hidden><p id="cut-confirm-text"></p>
         <button id="cut-confirm" type="button">Confirm drop</button><button id="cut-cancel" class="secondary-button" type="button">Cancel</button></section>
-      <div class="table-wrap"><table class="roster-table"><thead><tr><th>Player</th><th>Position</th><th>Rating</th><th>Position count</th><th>Action</th></tr></thead><tbody id="cut-players"></tbody></table></div>
+      <div class="table-wrap"><table class="roster-table"><thead><tr><th>Player</th><th>Position</th><th>Current</th><th>Potential</th><th>Position count</th><th>Action</th></tr></thead><tbody id="cut-players"></tbody></table></div>
     </dialog>
     <script src="/static/app.js" defer></script>
   </body>

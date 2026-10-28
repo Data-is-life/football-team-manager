@@ -41,7 +41,7 @@ Python owns the league rules and schedule generation. The browser layer only ren
 - first-round byes for seeds 1 and 2
 - tiebreakers in order: head-to-head, common-opponent record, point differential, points scored, deterministic random draw
 
-Player scouting ratings are deterministic estimates out of 99. Team offense and defense determine scoring; QB/RB scouting ratings and QB experience shape passing volume.
+Player current ratings are deterministic ability estimates out of 99. Team offense and defense determine scoring; QB/RB scouting ratings and QB experience shape passing volume.
 
 Overtime is a lightweight game mechanic rather than a play-by-play NFL rules implementation. In 5% of regulation ties, overtime also ends tied; otherwise a weighted draw using team ratings and a small home advantage chooses the winning field goal. The field goal is included in the score and kicking statistics. Yardage and possession describe regulation play.
 
@@ -53,9 +53,9 @@ Tabs support Left/Right arrows (including wraparound), Home, and End. The tab ba
 
 ## Roster
 
-Click any team name in Group Standings to open its scouting roster in a separate dialog. Inspect all 38 players by position, including age, experience, scouting rating, and position attributes, plus the team's offense and defense ratings. Close the dialog or press Escape to return to Standings. Browsing preserves your managed team, season progress, and roster settings. A failed load can be retried inside the dialog; browsing does not simulate games.
+Click any team name in Group Standings to open its scouting roster in a separate dialog. Inspect all 38 players by position, including age, current rating, and potential rating, plus the team's offense and defense ratings. Close the dialog or press Escape to return to Standings. Browsing preserves your managed team, season progress, and roster settings. A failed load can be retried inside the dialog; browsing does not simulate games.
 
-Each team starts with 38 fictional players. Expand or collapse each position group to inspect its players, depth order, and scouting ratings.
+Each team starts with 38 fictional players. Expand or collapse each position group to inspect its players, depth order, and current/potential ratings.
 
 Both Ratings and Season Stats show each player's age in years. Initial ages are 21–36: a deterministic entry age of 21–24 plus the player's existing 0–12 years of experience. Ages stay fixed during a season and are regenerated for each new run. They are informational for now; aging, development, retirement, and age-based ability changes remain future offseason features. Ages and experience currently stay fixed across continued seasons.
 
@@ -65,9 +65,9 @@ Choose **Season Stats** inside Roster to inspect cumulative production, then sel
 
 Defensive and line production is aggregate detail derived after the game result. Tackles assume one credit per non-scoring completion/rush plus each sack; sacks are included in tackles, and defensive interceptions exactly match the opponent's passing interceptions. This does not yet model assists, pressures, forced fumbles, missed tackles, or individual blocking grades.
 
-Defense rotates through a 4-DL, 3-LB, 2-CB, 2-S unit. Snaps are shared using depth and scouting ratings, capped at one full game's snaps per player. Tackles/interceptions cannot exceed participation. Five starting linemen (OL depths 1–5) receive pass attempts plus sacks as pass-blocking snaps and rush attempts as run-blocking snaps; OL reserves remain at zero until substitutions exist. Each sack allowed is charged to one starter, favoring lower-rated blockers. Defensive and line snaps include sacks, exclude kicking plays, and describe regulation-equivalent offensive activity, like the existing usage model.
+Defense rotates through a 4-DL, 3-LB, 2-CB, 2-S unit. Snaps are shared using depth and current ratings, capped at one full game's snaps per player. Tackles/interceptions cannot exceed participation. Five starting linemen (OL depths 1–5) receive pass attempts plus sacks as pass-blocking snaps and rush attempts as run-blocking snaps; OL reserves remain at zero until substitutions exist. Each sack allowed is charged to one starter, favoring lower-rated blockers. Defensive and line snaps include sacks, exclude kicking plays, and describe regulation-equivalent offensive activity, like the existing usage model.
 
-New `defense` and `blocking` box-score rows include player IDs and feed the same season aggregation as offensive stats. An independent random stream generates the detail, preserving scores, offensive/kicking production, and playoff outcomes. Attributes remain scouting information for the future engine.
+New `defense` and `blocking` box-score rows include player IDs and feed the same season aggregation as offensive stats. An independent random stream generates the detail, preserving scores, offensive/kicking production, and playoff outcomes. Detailed attributes are retained internally for compatibility and do not affect the current engine.
 
 Only completed games for the selected team count. Byes add no games; playoff totals stop changing after elimination, and teams that miss qualification keep zero playoff totals. The two competitions stay separate. Rates and passer rating are recalculated from cumulative counts, and longest FG is the maximum made distance. Switching roster views, competitions, or top tabs preserves collapsed position groups. Starting another team resets to Ratings and Regular season.
 
@@ -89,30 +89,23 @@ Team profiles return an empty `roster_stats` snapshot; weekly and playoff respon
 
 Offense has 18 players (QB, WR, TE, RB, OL), defense has 18 (DL, LB, CB, S), and two kickers complete the roster.
 
-The roster validator enforces these per-position minimums. The team profile API returns the rules and current counts alongside all players. Player IDs identify city/position/depth slots. Names and ratings are stable within a run; defensive player scouting ratings use the team defense rating as their baseline.
+The roster validator enforces these per-position minimums. The team profile API returns the rules and current counts alongside all players. Player IDs identify city/position/depth slots. Names and ratings are stable within a run; defensive player current ratings use the team defense rating as their baseline.
 
-This PR provides roster depth and inspection. Releases, signings, and lineup selection are not yet available. QB1 receives all passing stats and K1 receives kicking stats. RB1/RB2 split rushing production, and receiving production is shared across every WR, both TEs, and both RBs. Team offense and defense still determine scoring; QB/RB skill and QB experience now affect pass volume.
+QB1 receives all passing stats and K1 receives kicking stats. RB1/RB2 split rushing production (a lone RB receives all carries), and receiving production is shared across eligible WRs, TEs, and backs. Team offense/defense determine scoring; current QB/RB ability and QB experience affect passing volume.
 
-### Player attributes
+### Basic player ratings
 
-Every player has **Football IQ, Speed, and Durability**, plus the specialties below. All attributes are integer scouting values from **1 to 99**, with higher values representing stronger ability. The Ratings view shows the applicable columns for each position and an attribute guide. Position groups use the full roster width; wide tables scroll horizontally on small screens.
+The Ratings view uses five columns: **Depth, Player, Age, Current, Potential**. Depth includes the position, such as QB1. Detailed attribute columns, the attribute guide, and the experience column are removed from the UI. Draft prospects and roster-cut management use the same Current/Potential pair.
 
-| Position | Additional attributes |
-| --- | --- |
-| QB | Accuracy, Arm Strength, Clutch Factor |
-| WR / TE | Catching, Route Running, Strength |
-| RB | Strength, Agility, Ball Security |
-| OL | Strength, Pass Blocking, Run Blocking |
-| DL | Strength, Pass Rush, Tackling |
-| LB | Strength, Tackling, Coverage |
-| CB / S | Agility, Coverage, Tackling |
-| K | Kick Accuracy, Kick Power |
+Current is the existing ability rating used by roster decisions and the simulation. Potential is a possible ceiling, not a promise of improvement. Both use a 1–99 scale. The first version uses shared, deliberately simple game rules rather than position-specific aging curves:
 
-Football IQ describes reads, positioning, and decision-making. Durability describes resistance to injury. Clutch Factor describes composure in high-pressure situations. These are currently scouting information for the future engine: they do not affect scoring, passing volume, injuries, or kicking outcomes in this PR. Existing scouting ratings and QB experience retain their current roles.
+- Age 24 and under: 6–18 points of potential headroom, capped at 99.
+- Ages 25–29: 0 through `2 × (30 − age)` points of headroom, capped at 99.
+- Age 30 and above: potential equals current.
 
-Attributes are generated independently per run seed, stable player ID, and attribute key, with a deterministic offset of −18 to +18 around the existing scouting rating, clamped to 1–99. Players with the same overall rating can have different attribute profiles. These are initial fictional scouting values; the existing overall rating is not recalculated from them.
+Headroom is deterministically derived from permanent player ID and age band, so reloads, draft replay, and depth changes do not reroll it. Aging, development, and decline are not active yet; there are no decline arrows without actual recorded rating changes. Potential does not change scoring, CPU draft decisions, cut eligibility, or team ratings in this slice.
 
-The team API includes an `attributes` object on each roster player, containing only applicable integer values. Each `roster_rules` entry includes the ordered attribute keys, labels, and descriptions for its position. Cached player attributes are immutable; API responses expose independent dictionaries.
+Player API payloads add `current_rating` and `potential_rating`. The existing `rating`, experience, and generated attribute data remain available for API/save compatibility and existing usage logic; attributes are no longer displayed and still do not affect gameplay. Saves need no version change because the API reconstructs the new display fields from the same saved players.
 
 ## Run locally
 
@@ -249,7 +242,7 @@ Save version 4 includes prior ranks, history summaries, optional draft choices, 
 
 ## Four-round rookie draft
 
-After the league championship (including seasons where your team is eliminated or misses qualification), choose **Start rookie draft**. The draft is for the upcoming season and contains 200 rookies and four rounds of 30 picks: 120 total selections. Prospects have unique permanent player IDs, names, positions, ages 21–24, zero experience, scouting ratings 45–90, and the same position-specific attributes as existing players. Filter by position and expand Attributes to inspect each prospect.
+After the league championship (including seasons where your team is eliminated or misses qualification), choose **Start rookie draft**. The draft is for the upcoming season and contains 200 rookies and four rounds of 30 picks: 120 total selections. Prospects have unique permanent player IDs, names, positions, ages 21–24, zero experience, current ratings 45–90, and potential ratings. Filter by position to compare prospects.
 
 Non-playoff teams pick first, followed by teams eliminated in the Wild Card, Quarterfinals, Semifinals, and Championship. The champion picks last. Within each finish group, order is worst regular-season record, then lower point differential, fewer points scored, and a deterministic seeded draw. Every round uses the same order, without snaking or pick trades.
 
@@ -269,7 +262,7 @@ Complete the four-round draft, close it, then choose **Manage roster**. The tabl
 
 Successful cuts autosave. Failed cuts leave the previous roster/checkpoint intact and can be retried. Once the roster is at most 38, Continue to next season unlocks. CPU teams also cut to 38, removing the lowest-rated eligible player while protecting every minimum. Cuts are available in the post-draft offseason only; released players are not yet part of free agency and cannot be re-signed in this version.
 
-All retained players are ordered by descending scouting rating within their position for the next season's depth chart (ties preserve prior depth, then permanent ID). IDs never change when depth changes. QB1 handles passing; the first two RBs share rushing, or the lone RB receives all carries when only the minimum is retained. WR/TE participation and line/defensive stats use the actual retained roster. Cut players disappear from the next season's profiles and production; finished-game box scores remain historical records. Roster Season Stats shows only currently retained players, so after cuts it is not a complete archive of the finished team's player totals.
+All retained players are ordered by descending current rating within their position for the next season's depth chart (ties preserve prior depth, then permanent ID). IDs never change when depth changes. QB1 handles passing; the first two RBs share rushing, or the lone RB receives all carries when only the minimum is retained. WR/TE participation and line/defensive stats use the actual retained roster. Cut players disappear from the next season's profiles and production; finished-game box scores remain historical records. Roster Season Stats shows only currently retained players, so after cuts it is not a complete archive of the finished team's player totals.
 
 Team offense/defense ratings respond to finalized starters. Each starts from the original seeded team rating and adds the difference between current and original average starter ratings, rounded and clamped to 1–99. Starter counts use the position minimums; offense includes QB/RB/WR/TE/OL and defense DL/LB/CB/S. This keeps existing undrafted games unchanged while making roster decisions affect the next season's scoring, usage, overtime, standings ratings, and postseason. Attributes still await the drive engine.
 
