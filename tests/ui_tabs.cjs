@@ -5,6 +5,12 @@ const {spawn} = require('node:child_process');
 const root = path.resolve(__dirname, '..');
 const {JSDOM} = require('jsdom');
 const base = 'http://127.0.0.1:8767';
+// Fresh careers use the new rules; explicit legacy queries remain untouched.
+const fetch=(input,init)=>{
+ const url=new URL(input,base);
+ if(/^\/api\/(team|season|playoffs)\//.test(url.pathname)&&!url.searchParams.has('lineup_rules'))url.searchParams.set('lineup_rules','2');
+ return globalThis.fetch(url,init);
+};
 async function until(check) {
   for (let i=0;i<300;i++) { if(check()) return; await new Promise(r=>setTimeout(r,10)); }
   throw new Error('Expected UI state did not arrive');
@@ -62,6 +68,7 @@ async function checkUI() {
     for(const player of profile.roster.filter(player=>player.position===rule.position)) {
      const cells=group.querySelector(`.roster-player[data-player-id="${player.id}"]`).children;
      assert.deepEqual([...cells].map(cell=>cell.textContent),[`${player.position}${player.depth}`,player.name,String(player.age),String(player.current_rating),String(player.potential_rating)]);
+     assert.equal(group.querySelector(`.roster-player[data-player-id="${player.id}"]`).dataset.starter,String(player.depth<=rule.minimum));
      assert.equal(player.current_rating,player.rating);
      assert.ok(player.potential_rating>=player.current_rating);
      if(player.age>=30)assert.equal(player.potential_rating,player.current_rating);
@@ -236,7 +243,7 @@ async function checkUI() {
     assert.equal(d.querySelector('#scout-groups').children.length,0);
     // Failed inspection can retry without disturbing the managed team.
     const realFetch=w.fetch;
-    w.fetch=url=>url===`/api/team/${target.dataset.teamId}?run_seed=${fixtureSeed}`?Promise.resolve({ok:false}):realFetch(url);
+    w.fetch=url=>url===`/api/team/${target.dataset.teamId}?run_seed=${fixtureSeed}&lineup_rules=2`?Promise.resolve({ok:false}):realFetch(url);
     target.click();await until(()=>!d.querySelector('#scout-retry').hidden);
     assert.equal(dialog.open,true);
     w.fetch=realFetch;d.querySelector('#scout-retry').click();
@@ -244,7 +251,7 @@ async function checkUI() {
     d.querySelector('#scout-close').click();
     // A late response from a closed inspection must not replace the next roster.
     let release;
-    w.fetch=url=>url===`/api/team/${target.dataset.teamId}?run_seed=${fixtureSeed}`?Promise.resolve({ok:true,json:()=>new Promise(resolve=>{release=()=>resolve(profile);})}):realFetch(url);
+    w.fetch=url=>url===`/api/team/${target.dataset.teamId}?run_seed=${fixtureSeed}&lineup_rules=2`?Promise.resolve({ok:true,json:()=>new Promise(resolve=>{release=()=>resolve(profile);})}):realFetch(url);
     target.click();await until(()=>Boolean(release));d.querySelector('#scout-close').click();
     const ownLink=links.find(button=>button.dataset.teamId===id);
     ownLink.click();await until(()=>d.querySelectorAll('#scout-groups .roster-player').length===38);

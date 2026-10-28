@@ -268,3 +268,6 @@ tr.selected-team td { color: var(--cyan); background: rgba(72,230,210,0.07); }
 .draft-prospect-scroll { max-height: 55vh; overflow: auto; }
 #draft-picks { max-height: 30vh; overflow: auto; padding-left: 32px; line-height: 1.8; }
 .your-draft-pick { color: var(--cyan); font-weight: 700; }
+
+.roster-player.is-starter td:first-child { border-left: 3px solid var(--cyan); }
+.roster-player.is-starter td:nth-child(4) { font-weight: 800; color: var(--cyan); }

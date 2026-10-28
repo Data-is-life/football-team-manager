@@ -1,10 +1,10 @@
 """Immutable roster decisions shared by every career API and simulation cache."""
 from collections import Counter
-from dataclasses import replace
 from functools import lru_cache
 
 from .draft import build_draft
-from .simulation import ROSTER_RULES, validate_roster
+from .simulation import ROSTER_RULES, validate_roster, ranked_players
+from .lineups import LineupContext, lineup_context
 
 ROSTER_MAX = 38
 
@@ -28,11 +28,7 @@ def drop_players(players, dropped):
 
 def arrange_depth(players):
     """The strongest retained players start; IDs remain permanent as depth changes."""
-    result = []
-    for position in ROSTER_RULES:
-        ordered = sorted((p for p in players if p.position == position), key=lambda p: (-p.rating, p.depth, p.id))
-        result.extend(replace(p, depth=depth) for depth, p in enumerate(ordered, 1))
-    return tuple(result)
+    return ranked_players(players)
 
 
 def cpu_cuts(players):
@@ -56,18 +52,23 @@ def offseason(team_id, season, run_seed, choices, dropped, prior=(), roster_cont
         if other != team_id:
             rosters[other] = cpu_cuts(rosters[other])
     context = tuple((owner, tuple(rosters[owner])) for owner in sorted(rosters))
+    if getattr(roster_context, 'lineup_rules', 1) == 2:
+        context = LineupContext(context)
     return draft, context
 
 
 @lru_cache(maxsize=32)
-def replay_career(team_id: str, run_seed: int, steps: tuple) -> tuple:
+def replay_career(team_id: str, run_seed: int, steps: tuple, lineup_rules: int = 1) -> tuple:
     context = ()
     previous = 0
-    for season, prior, choices, dropped in steps:
+    for step in steps:
+        season, prior, choices, dropped = step[:4]
+        rules = step[4] if len(step) > 4 else 1
+        context = lineup_context(context, run_seed, rules)
         if season <= previous:
             raise ValueError('Career offseason years must be in increasing order')
         _, context = offseason(team_id, season, run_seed, choices, dropped, prior, context)
         if len(dict(context)[team_id]) > ROSTER_MAX:
             raise ValueError('Finalize each past roster at 38 players or fewer')
         previous = season
-    return context
+    return lineup_context(context, run_seed, lineup_rules)
