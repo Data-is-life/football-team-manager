@@ -14,6 +14,7 @@ const cancelTeamChange = document.querySelector("#cancel-team-change");
 let activeTeamId = null;
 let activeRunSeed = 0;
 let activeSeason = 1;
+let activeLineupRules = 2;
 let activePriorStandings = {};
 let careerHistory = [];
 let regularSnapshot = null;
@@ -55,8 +56,8 @@ let restoring = false;
 
 function saveProgress() {
   if (!activeTeamId || restoring) return;
-  const save = { version: 4, teamId: activeTeamId, runSeed: activeRunSeed,
-    season: activeSeason, week: currentWeek,
+  const save = { version: 5, teamId: activeTeamId, runSeed: activeRunSeed,
+    season: activeSeason, week: currentWeek, lineupRules: activeLineupRules,
     priorStandings: activePriorStandings, history: careerHistory,
     draftChoices: activeDraftChoices,
     dropped: activeDropped, career: activeCareer,
@@ -75,7 +76,7 @@ function readSave() {
   if (!raw) return null;
   const save = JSON.parse(raw);
   const integer = (value, min, max) => Number.isInteger(value) && value >= min && value <= max;
-  if (!save || ![1, 2, 3, 4].includes(save.version) || typeof save.teamId !== "string"
+  if (!save || ![1, 2, 3, 4, 5].includes(save.version) || typeof save.teamId !== "string"
       || ![...select.options].some(option => option.value && option.value === save.teamId)
       || !integer(save.runSeed, 0, 4294967295) || !integer(save.season, 1, 999)
       || !integer(save.week, 0, 17)
@@ -103,6 +104,8 @@ function readSave() {
         && (!index || step.season > save.career[index - 1].season)
         && ids(step.manual_picks) && step.manual_picks.length === 4 && ids(step.dropped)
         && validPriorStandings(step.prior_standings ?? {}, step.season))) throw new Error("Invalid roster save");
+  if (save.version < 5) save.lineupRules = 1;
+  if (![1, 2].includes(save.lineupRules)) throw new Error("Invalid lineup rules");
   const allowedFinishes = ["Champions", "Missed playoffs", "Lost in Wild Card", "Lost in Quarterfinals", "Lost in Semifinals", "Lost in Championship"];
   const knownTeam = id => [...select.options].some(option => option.value && option.value === id);
   if (!Array.isArray(save.history) || save.history.length !== save.season - 1
@@ -160,10 +163,10 @@ async function resumeProgress() {
   try {
     const requests = [
       `/api/schedule/${save.teamId}?season=${save.season}${priorStandingsQuery(save.priorStandings)}`,
-      `/api/team/${save.teamId}?run_seed=${save.runSeed}`,
+      `/api/team/${save.teamId}?run_seed=${save.runSeed}&lineup_rules=${save.lineupRules}`,
     ];
-    if (save.week) requests.push(`/api/season/${save.teamId}/week/${save.week}?season=${save.season}&run_seed=${save.runSeed}${priorStandingsQuery(save.priorStandings)}`);
-    if (save.playoffRound !== null) requests.push(`/api/playoffs/${save.teamId}/round/${save.playoffRound}?season=${save.season}&run_seed=${save.runSeed}${priorStandingsQuery(save.priorStandings)}`);
+    if (save.week) requests.push(`/api/season/${save.teamId}/week/${save.week}?season=${save.season}&run_seed=${save.runSeed}${priorStandingsQuery(save.priorStandings)}&lineup_rules=${save.lineupRules}`);
+    if (save.playoffRound !== null) requests.push(`/api/playoffs/${save.teamId}/round/${save.playoffRound}?season=${save.season}&run_seed=${save.runSeed}${priorStandingsQuery(save.priorStandings)}&lineup_rules=${save.lineupRules}`);
     const payloads = await Promise.all(requests.map(async url => {
       if (save.career.length) {
         if (url.startsWith("/api/team/")) return careerRequest("profile", {}, save);
@@ -184,7 +187,7 @@ async function resumeProgress() {
       throw new Error("Restore failed");
     }
     renderTeamProfile(profile);
-    renderSchedule(schedule, save.runSeed, { priorStandings: save.priorStandings, history: save.history, career: save.career });
+    renderSchedule(schedule, save.runSeed, { priorStandings: save.priorStandings, history: save.history, career: save.career, lineupRules: save.lineupRules });
     if (regular) renderResult(regular);
     if (postseason) { renderPostseason(postseason); activateView("playoffs"); }
     if (savedDraft) applyDraft(savedDraft);
@@ -225,7 +228,7 @@ async function loadScoutingRoster(teamId, city) {
       profile = (await careerRequest("cuts", { view_team: teamId, manual_picks: activeDraftChoices, dropped: activeDropped })).profile;
     } else if (activeCareer.length) profile = await careerRequest("profile", { view_team: teamId });
     else {
-      const response = await fetch(`/api/team/${teamId}?run_seed=${runSeed}`);
+      const response = await fetch(`/api/team/${teamId}?run_seed=${runSeed}&lineup_rules=${activeLineupRules}`);
       if (!response.ok) throw new Error("Roster could not be loaded. Please try again.");
       profile = await response.json();
     }
@@ -234,6 +237,15 @@ async function loadScoutingRoster(teamId, city) {
     if (draftState && !activeDropped.length) {
       const rookies = draftState.picks.filter(pick => pick.team.id === teamId).map(pick => pick.player);
       profile.roster.push(...rookies);
+      if (activeLineupRules === 2) {
+        const players = [];
+        for (const rule of profile.roster_rules) {
+          profile.roster.filter(p => p.position === rule.position)
+            .sort((a, b) => b.current_rating - a.current_rating || a.depth - b.depth || a.id.localeCompare(b.id))
+            .forEach((p, index) => { p.depth = index + 1; players.push(p); });
+        }
+        profile.roster = players;
+      }
       for (const rule of profile.roster_rules) rule.count = profile.roster.filter(p => p.position === rule.position).length;
     }
     document.querySelector("#scout-groups").replaceChildren(...createRosterGroups(profile, false));
@@ -331,6 +343,8 @@ function createRosterGroups(profile, includeStats = true) {
     for (const player of players) {
       const row = document.createElement("tr");
       row.className = "roster-player";
+      row.classList.toggle("is-starter", player.depth <= rule.minimum);
+      row.dataset.starter = String(player.depth <= rule.minimum);
       row.dataset.playerId = player.id;
       for (const value of [`${player.position}${player.depth}`, player.name, player.age, player.current_rating, player.potential_rating]) {
         const cell = document.createElement("td");
@@ -462,11 +476,15 @@ function createRunSeed() {
   return candidate === activeRunSeed ? (candidate % 4294967295) + 1 : candidate;
 }
 
-function renderSchedule(data, runSeed, { priorStandings = {}, history = [], career = [] } = {}) {
+function renderSchedule(data, runSeed, { priorStandings = {}, history = [], career = [], lineupRules = 2 } = {}) {
   if (rosterDialog.open) rosterDialog.close();
   activeTeamId = data.team.id;
   activeRunSeed = runSeed;
   activeSeason = data.season;
+  activeLineupRules = lineupRules;
+  document.querySelector("#rating-method").textContent = lineupRules === 2
+    ? "Team ratings: 80% starters + 20% bench, using current ability. Kickers are separate. Highlighted players are starters."
+    : "This saved season keeps its original lineups and ratings. Highest-rated starters and 80%/20% team ratings apply next season.";
   activePriorStandings = priorStandings;
   careerHistory = history;
   regularSnapshot = null;
@@ -755,7 +773,7 @@ form.addEventListener("submit", async (event) => {
     const runSeed = createRunSeed();
     const [scheduleResponse, profileResponse] = await Promise.all([
       fetch(`/api/schedule/${teamId}?season=1`),
-      fetch(`/api/team/${teamId}?run_seed=${runSeed}`),
+      fetch(`/api/team/${teamId}?run_seed=${runSeed}&lineup_rules=2`),
     ]);
     if (!scheduleResponse.ok || !profileResponse.ok) {
       throw new Error("Your team could not be loaded. Please try again.");
@@ -763,7 +781,7 @@ form.addEventListener("submit", async (event) => {
     const [schedule, profile] = await Promise.all([
       scheduleResponse.json(), profileResponse.json(),
     ]);
-    if (profile.run_seed !== runSeed || profile.team.id !== teamId) {
+    if (profile.run_seed !== runSeed || profile.team.id !== teamId || profile.lineup_rules !== 2) {
       throw new Error("Your team could not be loaded. Please try again.");
     }
     renderTeamProfile(profile);
@@ -793,7 +811,7 @@ simulateButton.addEventListener("click", async () => {
     let data;
     if (activeCareer.length) data = await careerRequest("week", { week: nextWeek });
     else {
-      const response = await fetch(`/api/season/${teamId}/week/${nextWeek}?season=${activeSeason}&run_seed=${runSeed}${priorStandingsQuery()}`);
+      const response = await fetch(`/api/season/${teamId}/week/${nextWeek}?season=${activeSeason}&run_seed=${runSeed}${priorStandingsQuery()}&lineup_rules=${activeLineupRules}`);
       if (!response.ok) throw new Error("The week could not be simulated.");
       data = await response.json();
     }
@@ -921,7 +939,7 @@ async function loadPlayoffRound(number) {
     let data;
     if (activeCareer.length) data = await careerRequest("playoffs", { round_number: number });
     else {
-      const response = await fetch(`/api/playoffs/${activeTeamId}/round/${number}?season=${activeSeason}&run_seed=${activeRunSeed}${priorStandingsQuery()}`);
+      const response = await fetch(`/api/playoffs/${activeTeamId}/round/${number}?season=${activeSeason}&run_seed=${activeRunSeed}${priorStandingsQuery()}&lineup_rules=${activeLineupRules}`);
       if (!response.ok) throw new Error("The playoff round could not be loaded. Please try again.");
       data = await response.json();
     }
@@ -953,7 +971,7 @@ async function careerRequest(action, extra = {}, context = null) {
     body: JSON.stringify({ action, season: context?.season ?? activeSeason,
       run_seed: context?.runSeed ?? activeRunSeed,
       prior_standings: Object.keys(ranks).length ? ranks : null,
-      career: context?.career ?? activeCareer, ...extra }),
+      career: context?.career ?? activeCareer, lineup_rules: context?.lineupRules ?? activeLineupRules, ...extra }),
   });
   if (!response.ok) {
     let detail;
@@ -977,7 +995,7 @@ async function fetchDraft(choices, context = null) {
   }
   const response = await fetch(`/api/draft/${teamId}`, {
     method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ season, run_seed: seed,
+    body: JSON.stringify({ season, run_seed: seed, lineup_rules: context?.lineupRules ?? activeLineupRules,
       prior_standings: Object.keys(ranks).length ? ranks : null, manual_picks: choices }),
   });
   if (!response.ok) throw new Error("The draft could not be loaded. Please try again.");
@@ -1198,7 +1216,7 @@ nextSeasonButton.addEventListener("click", async () => {
   try {
     const career = activeDraftChoices === null ? activeCareer : [...activeCareer, {
       season: activeSeason, prior_standings: Object.keys(activePriorStandings).length ? activePriorStandings : null,
-      manual_picks: activeDraftChoices, dropped: activeDropped,
+      manual_picks: activeDraftChoices, dropped: activeDropped, lineup_rules: activeLineupRules,
     }];
     const response = await fetch(`/api/schedule/${activeTeamId}?season=${nextSeason}${priorStandingsQuery(ranks)}`);
     if (!response.ok) throw new Error("The next season could not be loaded. Please try again.");
@@ -1207,9 +1225,18 @@ nextSeasonButton.addEventListener("click", async () => {
       throw new Error("The next season could not be loaded. Please try again.");
     }
     const history = [...careerHistory, summary];
-    const profile = career.length ? await careerRequest("profile", { season: nextSeason, career }) : rosterProfile;
+    let profile;
+    if (career.length) profile = await careerRequest("profile", { season: nextSeason, career, lineup_rules: 2 });
+    else {
+      const response = await fetch(`/api/team/${activeTeamId}?run_seed=${activeRunSeed}&lineup_rules=2`);
+      if (!response.ok) throw new Error("The next season could not be loaded. Please try again.");
+      profile = await response.json();
+    }
+    if (profile.team?.id !== activeTeamId || profile.run_seed !== activeRunSeed || profile.lineup_rules !== 2) {
+      throw new Error("The next season could not be loaded. Please try again.");
+    }
     renderTeamProfile(profile);
-    renderSchedule(schedule, activeRunSeed, { priorStandings: ranks, history, career });
+    renderSchedule(schedule, activeRunSeed, { priorStandings: ranks, history, career, lineupRules: 2 });
     saveProgress();
   } catch (error) {
     showError(error.message);

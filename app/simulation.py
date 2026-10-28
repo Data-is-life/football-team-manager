@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections import Counter
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from functools import lru_cache
 import hashlib
 import random
@@ -54,9 +54,30 @@ def _run_number(value: str, run_seed: int) -> int:
     return _stable_number(value if run_seed == 0 else f"run:{run_seed}:{value}")
 
 
+def ranked_players(players):
+    """Rank by current ability within position; keep IDs stable and ties deterministic."""
+    result = []
+    for position in ROSTER_RULES:
+        ordered = sorted((p for p in players if p.position == position), key=lambda p: (-p.rating, p.depth, p.id))
+        result.extend(replace(player, depth=depth) for depth, player in enumerate(ordered, 1))
+    return tuple(result)
+
+
+def lineup_unit_rating(players, positions):
+    starters = [p.rating for p in players if p.position in positions and p.depth <= ROSTER_RULES[p.position][1]]
+    bench = [p.rating for p in players if p.position in positions and p.depth > ROSTER_RULES[p.position][1]]
+    starter_average = sum(starters) / len(starters)
+    bench_average = sum(bench) / len(bench) if bench else starter_average
+    return max(1, min(99, round(.8 * starter_average + .2 * bench_average)))
+
+
 def team_ratings(team_id: str, run_seed: int = 0, roster_context: tuple = ()) -> TeamRatings:
     if team_id not in TEAM_BY_ID:
         raise KeyError(f"Unknown team: {team_id}")
+    if getattr(roster_context, 'lineup_rules', 1) == 2:
+        players = dict(roster_context)[team_id]
+        return TeamRatings(lineup_unit_rating(players, {"QB", "RB", "WR", "TE", "OL"}),
+                           lineup_unit_rating(players, {"DL", "LB", "CB", "S"}))
     if roster_context:
         current = dict(roster_context)[team_id]
         original = _roster_players(team_id, run_seed)
