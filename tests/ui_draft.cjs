@@ -66,6 +66,9 @@ async function checks(){
   assert.equal(q(p,'#roster-groups [data-position="QB"]').open,false);
   assert.deepEqual(oldStats(p),before,'Drafting preserves the completed season stats');
   const signed=[...p.d.querySelectorAll('#roster-groups .roster-player')].filter(row=>row.dataset.playerId.startsWith('rookie-'));
+  assert.equal(p.d.querySelectorAll('#roster-groups .roster-rating-wrap .rookie-badge').length,turn);
+  assert.equal(p.d.querySelectorAll('#roster-groups .roster-stats-wrap .rookie-badge').length,turn);
+  for(const row of signed)assert.equal(row.querySelector('.rookie-badge').getAttribute('aria-label'),'Rookie');
   assert.equal(signed.length,turn);assert.deepEqual(signed.map(r=>r.dataset.playerId).sort(),[...selectedIds].sort());
   // Reload after every turn. Replay must preserve CPU picks, rookie IDs, roster counts, and stats.
   const checkpoint=raw(p),picks=JSON.stringify(previousPicks);p.dom.window.close();p=await restore(checkpoint);
@@ -81,11 +84,11 @@ async function checks(){
  const complete=raw(p);q(p,'#draft-close').click();
  const other=p.state.last.picks.find(pick=>pick.team.id!==owner).team.id;
  q(p,`.team-roster-link[data-team-id="${other}"]`).click();await until(()=>q(p,'#scout-status').textContent.includes('42 players'));
- assert.equal(p.d.querySelectorAll('#scout-groups .roster-player').length,42);
+ assert.equal(p.d.querySelectorAll('#scout-groups .roster-player').length,42);assert.equal(p.d.querySelectorAll('#scout-groups .rookie-badge').length,4);
  q(p,'#scout-close').click();
  q(p,'#change-team-button').click();q(p,'#team-select').value='seattle';
  q(p,'#team-form').dispatchEvent(new p.w.Event('submit',{cancelable:true}));await until(()=>save(p).runSeed===5678);
- assert.equal(save(p).draftChoices,null);assert.equal(q(p,'#draft-button').hidden,true);assert.equal(q(p,'#draft-button').textContent,'Start rookie draft');assert.equal(q(p,'#draft-picks').children.length,0);
+ assert.equal(save(p).draftChoices,null);assert.equal(p.d.querySelectorAll('#roster-groups .rookie-badge').length,0);assert.equal(q(p,'#draft-button').hidden,true);assert.equal(q(p,'#draft-button').textContent,'Start rookie draft');assert.equal(q(p,'#draft-picks').children.length,0);
  assert.equal(p.d.querySelectorAll('#roster-groups .roster-player').length,38);p.dom.window.close();
  const damaged=JSON.parse(complete);damaged.draftChoices[0]='missing-prospect';
  const invalid=JSON.stringify(damaged);p=await restore(invalid);

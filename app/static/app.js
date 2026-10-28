@@ -43,6 +43,7 @@ const postseasonSection = document.querySelector('#postseason-section');
 const viewTabs = [...document.querySelectorAll(".view-tab")];
 const rosterCompetition = document.querySelector("#roster-competition");
 let rosterProfile = null;
+let rookieSeason = 1;
 let rosterMode = "ratings";
 let rosterTotals = null;
 const rosterDialog = document.querySelector("#team-roster-dialog");
@@ -189,7 +190,7 @@ async function resumeProgress() {
         || (postseason && (postseason.team.id !== save.teamId || postseason.completed_round !== save.playoffRound || postseason.season !== save.season))) {
       throw new Error("Restore failed");
     }
-    renderTeamProfile(profile);
+    renderTeamProfile(profile, save.season);
     renderSchedule(schedule, save.runSeed, { priorStandings: save.priorStandings, history: save.history, career: save.career, lineupRules: save.lineupRules, developmentStart: save.developmentStart });
     if (regular) renderResult(regular);
     if (postseason) { renderPostseason(postseason); activateView("playoffs"); }
@@ -320,6 +321,17 @@ function renderTeamOptions(teams) {
   }
 }
 
+function addRookieBadge(cell, player) {
+  const match = /^rookie-\d+-(\d+)-\d+$/.exec(player.id);
+  if (!match || Number(match[1]) !== rookieSeason) return;
+  const badge = document.createElement("span");
+  badge.className = "rookie-badge";
+  badge.textContent = "R";
+  badge.title = "Rookie · most recent draft class";
+  badge.setAttribute("aria-label", "Rookie");
+  cell.append(document.createTextNode(" "), badge);
+}
+
 function createRosterGroups(profile, includeStats = true) {
   return profile.roster_rules.map((rule) => {
     const players = profile.roster.filter(player => player.position === rule.position);
@@ -354,6 +366,7 @@ function createRosterGroups(profile, includeStats = true) {
         cell.textContent = value;
         row.append(cell);
       }
+      addRookieBadge(row.children[1], player);
       const delta = player.rating_change ?? 0;
       if (delta) {
         const trend = document.createElement("span");
@@ -377,7 +390,8 @@ function createRosterGroups(profile, includeStats = true) {
   });
 }
 
-function renderTeamProfile(profile) {
+function renderTeamProfile(profile, latestDraftSeason = activeSeason) {
+  rookieSeason = latestDraftSeason;
   rosterProfile = profile;
   rosterMode = "ratings";
   rosterCompetition.value = "regular";
@@ -468,6 +482,7 @@ function renderRosterStats() {
         cell.textContent = value;
         row.append(cell);
       }
+      addRookieBadge(row.children[1], player);
       body.append(row);
     }
     table.append(caption, head, body);
@@ -799,7 +814,7 @@ form.addEventListener("submit", async (event) => {
     if (profile.run_seed !== runSeed || profile.team.id !== teamId || profile.lineup_rules !== 3) {
       throw new Error("Your team could not be loaded. Please try again.");
     }
-    renderTeamProfile(profile);
+    renderTeamProfile(profile, 1);
     renderSchedule(schedule, runSeed);
     saveProgress();
   } catch (error) {
@@ -1033,7 +1048,7 @@ function applyDraft(data) {
   const competition = rosterCompetition.value;
   const collapsed = [...document.querySelectorAll("#roster-groups .roster-group")]
     .filter(group => !group.open).map(group => group.dataset.position);
-  renderTeamProfile(data.profile);
+  renderTeamProfile(data.profile, data.draft_season);
   for (const type of ["regular", "playoffs"]) {
     const old = new Map(previous[type].players.map(player => [player.player_id, player]));
     rosterTotals[type] = { games: previous[type].games,
@@ -1150,6 +1165,7 @@ function renderCuts() {
     for (const value of [player.name, player.position, player.current_rating, player.potential_rating, `${count} / minimum ${minimum}`]) {
       const cell = document.createElement("td"); cell.textContent = value; row.append(cell);
     }
+    addRookieBadge(row.children[0], player);
     const cell = document.createElement("td");
     const button = document.createElement("button"); button.type = "button"; button.dataset.dropId = player.id;
     button.textContent = count <= minimum ? "Minimum reached" : "Drop";
@@ -1251,7 +1267,7 @@ nextSeasonButton.addEventListener("click", async () => {
     if (profile.team?.id !== activeTeamId || profile.run_seed !== activeRunSeed || profile.lineup_rules !== 3) {
       throw new Error("The next season could not be loaded. Please try again.");
     }
-    renderTeamProfile(profile);
+    renderTeamProfile(profile, nextSeason);
     renderSchedule(schedule, activeRunSeed, { priorStandings: ranks, history, career, lineupRules: 3, developmentStart });
     saveProgress();
   } catch (error) {

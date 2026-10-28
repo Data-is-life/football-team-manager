@@ -58,6 +58,7 @@ async function checks(){
  assert.equal(q(p,'#manage-roster').disabled,true);assert.equal(q(p,'#draft-button').disabled,true);
  await until(()=>!q(p,'#error').hidden);assert.equal(raw(p),beforeAdvance);assert.equal(q(p,'#season-display').textContent,'1');
  p.state.failProfile=false;q(p,'#next-season').click();await until(()=>save(p).season===2);
+ assert.equal(p.d.querySelectorAll('#roster-groups .roster-rating-wrap .rookie-badge').length,4,'All retained rookies keep R in their first season');
  assert.equal(save(p).career.length,1);assert.deepEqual(save(p).career[0].dropped,cuts);assert.equal(save(p).draftChoices,null);assert.deepEqual(save(p).dropped,[]);
  assert.deepEqual([...p.d.querySelectorAll('#roster-groups .roster-player')].map(row=>row.dataset.playerId).sort(),[...retained].sort());
  let saved=raw(p);p.dom.window.close();p=await restore(saved);assert.equal(q(p,'#season-display').textContent,'2');assert.deepEqual([...p.d.querySelectorAll('#roster-groups .roster-player')].map(row=>row.dataset.playerId).sort(),[...retained].sort());
@@ -73,7 +74,9 @@ async function checks(){
  q(p,'#draft-close').click();q(p,'#manage-roster').click();
  for(let count=1;count<=4;count++){q(p,'#cut-players button:not([disabled])').click();q(p,'#cut-confirm').click();await until(()=>save(p).dropped.length===count)}
  q(p,'#cut-close').click();q(p,'#next-season').click();await until(()=>save(p).season===3);
- assert.equal(save(p).career.length,2);saved=raw(p);p.dom.window.close();p=await restore(saved);assert.equal(p.d.querySelectorAll('#roster-groups .roster-player').length,38);assert.equal(save(p).career.length,2);p.dom.window.close();
+ assert.equal(save(p).career.length,2);saved=raw(p);p.dom.window.close();p=await restore(saved);assert.equal(p.d.querySelectorAll('#roster-groups .roster-player').length,38);assert.equal(save(p).career.length,2);
+ for(const row of p.d.querySelectorAll('#roster-groups .roster-player')){const entry=Number(row.dataset.playerId.split('-').at(-2));assert.equal(Boolean(row.querySelector('.rookie-badge')),row.dataset.playerId.startsWith('rookie-')&&entry===3);}
+ p.dom.window.close();
  console.log('Roster-cut UI checks passed: confirmation/cancel/retry, server and UI minimum protection, duplicate clicks, saved cuts, 42 to 38, retained rookie QB/RB in game stats, full next season/playoffs, second draft/cuts, and Season 3 restore.');
 }
 (async()=>{const server=spawn(process.env.PYTHON||'python',['-m','uvicorn','app.main:app','--host','127.0.0.1','--port','8772'],{cwd:root,stdio:['ignore','pipe','pipe']});let logs='';server.stdout.on('data',d=>logs+=d);server.stderr.on('data',d=>logs+=d);try{for(let i=0;;i++){if(server.exitCode!==null)throw new Error(logs);try{if((await fetch(base+'/api/teams')).ok)break}catch{}if(i===100)throw new Error(logs);await new Promise(r=>setTimeout(r,100))}await checks()}finally{server.kill()}})().catch(e=>{console.error(e);process.exitCode=1});
