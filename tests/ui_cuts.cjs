@@ -59,8 +59,8 @@ async function checks(){
  await until(()=>!q(p,'#error').hidden);assert.equal(raw(p),beforeAdvance);assert.equal(q(p,'#season-display').textContent,'1');
  p.state.failProfile=false;q(p,'#next-season').click();await until(()=>save(p).season===2);
  assert.equal(save(p).career.length,1);assert.deepEqual(save(p).career[0].dropped,cuts);assert.equal(save(p).draftChoices,null);assert.deepEqual(save(p).dropped,[]);
- assert.deepEqual([...p.d.querySelectorAll('#roster-groups .roster-player')].map(row=>row.dataset.playerId),retained);
- let saved=raw(p);p.dom.window.close();p=await restore(saved);assert.equal(q(p,'#season-display').textContent,'2');assert.deepEqual([...p.d.querySelectorAll('#roster-groups .roster-player')].map(row=>row.dataset.playerId),retained);
+ assert.deepEqual([...p.d.querySelectorAll('#roster-groups .roster-player')].map(row=>row.dataset.playerId).sort(),[...retained].sort());
+ let saved=raw(p);p.dom.window.close();p=await restore(saved);assert.equal(q(p,'#season-display').textContent,'2');assert.deepEqual([...p.d.querySelectorAll('#roster-groups .roster-player')].map(row=>row.dataset.playerId).sort(),[...retained].sort());
  for(let week=1;week<=17;week++){
   q(p,'#simulate-button').click();await until(()=>save(p).week===week);
   if(week===1){assert.match(q(p,'#player-stats').textContent,/Passing/);const body={action:'week',season:2,run_seed:1234,week:1,prior_standings:save(p).priorStandings,career:save(p).career};const data=await json('/api/career/'+owner,body);const box=data.result.home.team.id===owner?data.result.home:data.result.away;assert.equal(box.passing[0].player_id,choices[0]);assert.equal(box.rushing.length,1);assert.equal(box.rushing[0].player_id,choices[2]);for(const category of ['passing','rushing','receiving','kicking','blocking','defense'])for(const row of box[category])assert.ok(retained.includes(row.player_id));}

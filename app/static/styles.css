@@ -271,3 +271,7 @@ tr.selected-team td { color: var(--cyan); background: rgba(72,230,210,0.07); }
 
 .roster-player.is-starter td:first-child { border-left: 3px solid var(--cyan); }
 .roster-player.is-starter td:nth-child(4) { font-weight: 800; color: var(--cyan); }
+
+.rating-change { font-size: .75em; white-space: nowrap; }
+.rating-change.improved { color: #6ee7a0; }
+.rating-change.declined { color: var(--danger); }

@@ -15,8 +15,8 @@ ROUNDS = 4
 CLASS_SIZE = 200
 
 
-def player_payload(player: Player) -> dict:
-    result = {**asdict(player), **rating_payload(player)}
+def player_payload(player: Player, roster_context=()) -> dict:
+    result = {**asdict(player), **rating_payload(player,roster_context)}
     result['attributes'] = {key: value for key, value in result['attributes'].items() if value is not None}
     return result
 
@@ -109,12 +109,12 @@ def build_draft(team_id: str, season: int, run_seed: int, choices: tuple[str, ..
         rosters[owner].append(signed)
         additions[owner][signed.position] = additions[owner].get(signed.position, 0) + 1
         picks.append({'overall': overall, 'round': (overall - 1) // len(order) + 1,
-                      'team': asdict(TEAM_BY_ID[owner]), 'player': player_payload(signed)})
+                      'team': asdict(TEAM_BY_ID[owner]), 'player': player_payload(signed,roster_context)})
     complete = len(picks) == ROUNDS * len(order)
     return ({'season': season, 'draft_season': season + 1, 'run_seed': run_seed,
              'team': asdict(TEAM_BY_ID[team_id]), 'rounds': ROUNDS, 'total_picks': ROUNDS * len(order),
              'class_size': CLASS_SIZE, 'order': order, 'picks': picks,
-             'available': [player_payload(player) for player in prospects if player.id in available],
+             'available': [player_payload(player,roster_context) for player in prospects if player.id in available],
              'manual_picks': list(choices), 'complete': complete,
              'next_pick': None if complete else len(picks) + 1,
              'next_round': None if complete else len(choices) + 1}, rosters if return_league else rosters[team_id])

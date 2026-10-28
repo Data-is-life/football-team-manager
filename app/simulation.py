@@ -74,7 +74,7 @@ def lineup_unit_rating(players, positions):
 def team_ratings(team_id: str, run_seed: int = 0, roster_context: tuple = ()) -> TeamRatings:
     if team_id not in TEAM_BY_ID:
         raise KeyError(f"Unknown team: {team_id}")
-    if getattr(roster_context, 'lineup_rules', 1) == 2:
+    if getattr(roster_context, 'lineup_rules', 1) >= 2:
         players = dict(roster_context)[team_id]
         return TeamRatings(lineup_unit_rating(players, {"QB", "RB", "WR", "TE", "OL"}),
                            lineup_unit_rating(players, {"DL", "LB", "CB", "S"}))

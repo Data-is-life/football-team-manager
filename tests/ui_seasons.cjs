@@ -49,7 +49,7 @@ async function checks() {
  assert.equal(q(p,'#next-season').hidden,true,'Cannot skip an unfinished postseason');p.dom.window.close();
  p=await restore(legacy(id));
  assert.equal(q(p,'#next-season').hidden,false);
- const roster=[...p.d.querySelectorAll('.roster-player')].map(row=>[row.dataset.playerId,...[...row.children].slice(1).map(c=>c.textContent)]).sort();
+ const roster=[...p.d.querySelectorAll('.roster-player')].map(row=>[row.dataset.playerId,row.children[1].textContent]).sort();
  const regular=await api(`/api/season/${id}/week/17?season=1&run_seed=1234`);
  const ranks=ranksOf(regular),old=rawSave(p);
  // Failed and duplicate transition requests cannot partially advance or overwrite the save.
@@ -62,9 +62,9 @@ async function checks() {
  assert.equal(p.state.urls.length,count+1);assert.equal(q(p,'#change-team-button').disabled,true);
  release();await until(()=>save(p).season===2);
  assert.equal(q(p,'#season-display').textContent,'2');
- assert.deepEqual([...p.d.querySelectorAll('.roster-player')].map(row=>[row.dataset.playerId,...[...row.children].slice(1).map(c=>c.textContent)]).sort(),roster,'Player identity and ability are retained while depth is reranked');
+ assert.deepEqual([...p.d.querySelectorAll('.roster-player')].map(row=>[row.dataset.playerId,row.children[1].textContent]).sort(),roster,'Player IDs and names survive offseason aging');
  assert.equal(save(p).runSeed,1234);assert.deepEqual(save(p).priorStandings,ranks);
- assert.equal(save(p).version,5);assert.equal(save(p).week,0);assert.equal(save(p).playoffRound,null);
+ assert.equal(save(p).version,6);assert.equal(save(p).week,0);assert.equal(save(p).playoffRound,null);
  assert.equal(q(p,'#season-record').textContent,'0–0');assert.equal(q(p,'#next-season').hidden,true);
  assert.equal(q(p,'#postseason-section').hidden,true);
  assert.equal(q(p,'#season-history').hidden,false);
@@ -89,7 +89,7 @@ async function checks() {
   }
  }
  assert.equal(q(p,'#next-season').hidden,true);
- const expected=await api(`/api/season/${id}/week/17?season=2&run_seed=1234&lineup_rules=2&prior_standings=${encodeURIComponent(JSON.stringify(ranks))}`);
+ const expected=await api(`/api/season/${id}/week/17?season=2&run_seed=1234&lineup_rules=3&development_start=2&prior_standings=${encodeURIComponent(JSON.stringify(ranks))}`);
  const rec=expected.record;assert.equal(q(p,'#season-record').textContent,`${rec.wins}–${rec.losses}${rec.ties?`–${rec.ties}`:''}`);
  q(p,'#playoffs-start').click();await until(()=>save(p).playoffRound===0);
  for(let round=1;round<=4;round++) {
