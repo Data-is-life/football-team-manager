@@ -54,26 +54,23 @@ async function checkUI() {
   }
   const api=await (await fetch(base+`/api/team/${id}?run_seed=${fixtureSeed}`)).json();
   assert.deepEqual([...d.querySelectorAll('.roster-player')].map(row=>row.dataset.playerId),api.roster.map(player=>player.id));
-  assert.equal(d.querySelector('.roster-player').children[3].textContent,`${api.roster[0].experience} yr`);
-  const specialties={QB:['Accuracy','Arm Strength','Clutch Factor'],WR:['Catching','Route Running','Strength'],TE:['Catching','Route Running','Strength'],RB:['Strength','Agility','Ball Security'],OL:['Strength','Pass Blocking','Run Blocking'],DL:['Strength','Pass Rush','Tackling'],LB:['Strength','Tackling','Coverage'],CB:['Agility','Coverage','Tackling'],S:['Agility','Coverage','Tackling'],K:['Kick Accuracy','Kick Power']};
-  function checkAttributes(profile) {
+  function checkRatings(profile) {
    for (const rule of profile.roster_rules) {
-    const group=d.querySelector(`.roster-group[data-position="${rule.position}"]`);
+    const group=d.querySelector(`#roster-groups .roster-group[data-position="${rule.position}"]`);
     const headings=[...group.querySelectorAll('.roster-rating-wrap th')].map(cell=>cell.textContent);
-    assert.deepEqual(headings,['Depth','Player','Age','Experience','Scouting rating','Football IQ','Speed','Durability',...specialties[rule.position]]);
+    assert.deepEqual(headings,['Depth','Player','Age','Current','Potential']);
     for(const player of profile.roster.filter(player=>player.position===rule.position)) {
      const cells=group.querySelector(`.roster-player[data-player-id="${player.id}"]`).children;
-     assert.equal(cells.length,5+rule.attributes.length);
-     assert.equal(cells[2].textContent,String(player.age));
-     assert.equal(cells[3].textContent,`${player.experience} yr`);
-     rule.attributes.forEach((attribute,i)=>assert.equal(cells[i+5].textContent,String(player.attributes[attribute.key])));
+     assert.deepEqual([...cells].map(cell=>cell.textContent),[`${player.position}${player.depth}`,player.name,String(player.age),String(player.current_rating),String(player.potential_rating)]);
+     assert.equal(player.current_rating,player.rating);
+     assert.ok(player.potential_rating>=player.current_rating);
+     if(player.age>=30)assert.equal(player.potential_rating,player.current_rating);
     }
    }
-   const guide=d.querySelector('#attribute-guide-list');
-   assert.equal(guide.querySelectorAll('dt').length,18);
-   assert.match(guide.textContent,/Clutch Factor/);
+   assert.equal(d.querySelector('#attribute-guide-list'),null);
+   assert.doesNotMatch(d.querySelector('#roster-groups').textContent,/Scouting rating|Football IQ|Clutch Factor/);
   }
-  checkAttributes(api);
+  checkRatings(api);
   const views=['roster','game','schedule','standings','league','race','playoffs'];
   assert.deepEqual([...d.querySelectorAll('.view-tab')].map(tab=>tab.id),views.map(view=>`view-${view}`));
   let requests=0;
@@ -232,7 +229,7 @@ async function checkUI() {
      const row=d.querySelector(`#scout-groups [data-player-id="${player.id}"]`);
      assert.ok(row);
      const rule=profile.roster_rules.find(rule=>rule.position===player.position);
-     assert.deepEqual([...row.children].map(cell=>cell.textContent),[String(player.depth),player.name,String(player.age),`${player.experience} yr`,String(player.rating),...rule.attributes.map(attribute=>String(player.attributes[attribute.key]))]);
+     assert.deepEqual([...row.children].map(cell=>cell.textContent),[`${player.position}${player.depth}`,player.name,String(player.age),String(player.current_rating),String(player.potential_rating)]);
     }
     d.querySelector('#scout-close').click();
     assert.equal(dialog.open,false);
@@ -297,7 +294,7 @@ async function checkUI() {
     checkKicking(d.querySelector('#player-stats'),result[side]);
     assert.equal(d.querySelector(`#${side}-tab`).getAttribute('aria-pressed'),'true');
    }
-   checkAttributes(api);
+   checkRatings(api);
    const tables=d.querySelectorAll('#player-stats tbody');
    assert.equal(tables[1].children.length,2);
    assert.equal(tables[2].children.length,8);
@@ -438,7 +435,7 @@ async function checkUI() {
   assert.equal(d.querySelector('#roster-competition').value,'regular');
   const freshProfile=await (await fetch(base+`/api/team/seattle?run_seed=${fixtureSeed+2}`)).json();
   const oldSeattle=await (await fetch(base+`/api/team/seattle?run_seed=${fixtureSeed}`)).json();
-  checkAttributes(freshProfile);
+  checkRatings(freshProfile);
   assert.notDeepEqual(freshProfile.roster.map(player=>player.name),oldSeattle.roster.map(player=>player.name));
   assert.deepEqual([...d.querySelectorAll('#roster-groups .roster-player')].map(row=>row.children[1].textContent),freshProfile.roster.map(player=>player.name));
   assert.equal(d.querySelector('#offense-rating').textContent,String(freshProfile.ratings.offense));

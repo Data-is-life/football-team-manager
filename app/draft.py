@@ -6,6 +6,7 @@ import random
 from .attributes import generate_attributes
 from .league import TEAMS, TEAM_BY_ID
 from .names import FIRST_NAMES, LAST_NAMES
+from .ratings import rating_payload
 from .playoffs import postseason_snapshot
 from .simulation import Player, ROSTER_RULES, ROSTER_SLOTS, _run_number, roster_for
 from .standings import standings_through_week
@@ -15,7 +16,7 @@ CLASS_SIZE = 200
 
 
 def player_payload(player: Player) -> dict:
-    result = asdict(player)
+    result = {**asdict(player), **rating_payload(player)}
     result['attributes'] = {key: value for key, value in result['attributes'].items() if value is not None}
     return result
 

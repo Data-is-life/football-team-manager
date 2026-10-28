@@ -50,7 +50,9 @@ async function checks(){
   filter.value='';filter.dispatchEvent(new p.w.Event('change'));
   const buttons=[...p.d.querySelectorAll('[data-draft-id]')];assert.ok(buttons.length>0);
   const id=buttons[0].dataset.draftId;
-  assert.equal(q(p,'#draft-prospects tr').querySelectorAll('dt').length,p.state.last.profile.roster_rules.find(r=>r.position===p.state.last.available[0].position).attributes.length);
+  const prospect=p.state.last.available[0],cells=q(p,'#draft-prospects tr').children;
+  assert.equal(cells.length,7);assert.equal(cells[4].textContent,String(prospect.current_rating));assert.equal(cells[5].textContent,String(prospect.potential_rating));
+  assert.equal(q(p,'#draft-prospects tr').querySelectorAll('details').length,0);
   if(turn===1){
    const prior=raw(p);p.state.fail=true;buttons[0].click();await until(()=>!q(p,'#draft-error').hidden);
    assert.equal(raw(p),prior,'Failed pick preserves the checkpoint');p.state.fail=false;q(p,'#draft-retry').click();
@@ -94,7 +96,7 @@ async function checks(){
   const response=await fetch(base+`/api/draft/${owner}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({season:1,run_seed:1234,...body})});
   assert.equal(response.status,422);
  }
- console.log('Draft UI checks passed: all four user turns and 120 picks, CPU replay, permanent IDs, filters/attributes, failed request/retry, duplicate clicks, reload every round, 42-player own/scouting rosters, preserved stats, regular-season gate, legacy save, new-career reset, and invalid API/save data.');
+ console.log('Draft UI checks passed: all four user turns and 120 picks, CPU replay, permanent IDs, filters/current/potential, failed request/retry, duplicate clicks, reload every round, 42-player own/scouting rosters, preserved stats, regular-season gate, legacy save, new-career reset, and invalid API/save data.');
 }
 (async()=>{
  const server=spawn(process.env.PYTHON||'python',['-m','uvicorn','app.main:app','--host','127.0.0.1','--port','8771'],{cwd:root,stdio:['ignore','pipe','pipe']});

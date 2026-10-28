@@ -320,17 +320,10 @@ function createRosterGroups(profile, includeStats = true) {
     table.className = "roster-table";
     const head = document.createElement("thead");
     const headings = document.createElement("tr");
-    for (const label of ["Depth", "Player", "Age", "Experience", "Scouting rating"]) {
+    for (const label of ["Depth", "Player", "Age", "Current", "Potential"]) {
       const cell = document.createElement("th");
       cell.scope = "col";
       cell.textContent = label;
-      headings.append(cell);
-    }
-    for (const attribute of rule.attributes) {
-      const cell = document.createElement("th");
-      cell.scope = "col";
-      cell.textContent = attribute.label;
-      cell.title = attribute.description;
       headings.append(cell);
     }
     head.append(headings);
@@ -339,8 +332,7 @@ function createRosterGroups(profile, includeStats = true) {
       const row = document.createElement("tr");
       row.className = "roster-player";
       row.dataset.playerId = player.id;
-      for (const value of [player.depth, player.name, player.age, `${player.experience} yr`, player.rating,
-        ...rule.attributes.map(attribute => player.attributes[attribute.key])]) {
+      for (const value of [`${player.position}${player.depth}`, player.name, player.age, player.current_rating, player.potential_rating]) {
         const cell = document.createElement("td");
         cell.textContent = value;
         row.append(cell);
@@ -369,17 +361,6 @@ function renderTeamProfile(profile) {
   document.querySelector("#defense-rating").textContent = profile.ratings.defense;
   const groups = createRosterGroups(profile);
   document.querySelector("#roster-groups").replaceChildren(...groups);
-  const guide = document.querySelector("#attribute-guide-list");
-  const definitions = new Map(profile.roster_rules.flatMap(rule => rule.attributes).map(attribute => [attribute.key, attribute]));
-  const entries = [];
-  for (const attribute of definitions.values()) {
-    const term = document.createElement("dt");
-    term.textContent = attribute.label;
-    const definition = document.createElement("dd");
-    definition.textContent = attribute.description;
-    entries.push(term, definition);
-  }
-  guide.replaceChildren(...entries);
   document.querySelector("#roster-title").textContent = `Roster · ${profile.roster.length} players`;
   rosterSection.hidden = false;
   renderRosterStats();
@@ -1055,20 +1036,9 @@ function renderDraft() {
     if (filter && player.position !== filter) return;
     const row = document.createElement("tr");
     row.dataset.prospectId = player.id;
-    for (const value of [index + 1, player.name, player.position, player.age, player.rating]) {
+    for (const value of [index + 1, player.name, player.position, player.age, player.current_rating, player.potential_rating]) {
       const cell = document.createElement("td"); cell.textContent = value; row.append(cell);
     }
-    const attributeCell = document.createElement("td");
-    const details = document.createElement("details");
-    const summary = document.createElement("summary"); summary.textContent = "Attributes";
-    const list = document.createElement("dl");
-    const rule = rosterProfile.roster_rules.find(rule => rule.position === player.position);
-    for (const attribute of rule.attributes) {
-      const term = document.createElement("dt"); term.textContent = attribute.label;
-      const value = document.createElement("dd"); value.textContent = player.attributes[attribute.key];
-      list.append(term, value);
-    }
-    details.append(summary, list); attributeCell.append(details); row.append(attributeCell);
     const action = document.createElement("td");
     const button = document.createElement("button"); button.type = "button";
     button.textContent = "Draft"; button.dataset.draftId = player.id;
@@ -1080,7 +1050,7 @@ function renderDraft() {
   const picks = draftState.picks.map(pick => {
     const item = document.createElement("li");
     item.value = pick.overall;
-    item.textContent = `Round ${pick.round} · ${pick.team.city}: ${pick.player.name} · ${pick.player.position} · ${pick.player.rating}`;
+    item.textContent = `Round ${pick.round} · ${pick.team.city}: ${pick.player.name} · ${pick.player.position} · Current ${pick.player.current_rating} · Potential ${pick.player.potential_rating}`;
     if (pick.team.id === activeTeamId) item.className = "your-draft-pick";
     return item;
   });
@@ -1144,7 +1114,7 @@ function renderCuts() {
     const count = rosterProfile.roster.filter(p => p.position === player.position).length;
     const minimum = rosterProfile.roster_rules.find(rule => rule.position === player.position).minimum;
     const row = document.createElement("tr"); row.dataset.cutPlayerId = player.id;
-    for (const value of [player.name, player.position, player.rating, `${count} / minimum ${minimum}`]) {
+    for (const value of [player.name, player.position, player.current_rating, player.potential_rating, `${count} / minimum ${minimum}`]) {
       const cell = document.createElement("td"); cell.textContent = value; row.append(cell);
     }
     const cell = document.createElement("td");
