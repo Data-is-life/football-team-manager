@@ -57,7 +57,7 @@ Click any team name in Group Standings to open its scouting roster in a separate
 
 Each team starts with 38 fictional players. Expand or collapse each position group to inspect its players, depth order, and current/potential ratings.
 
-Both Ratings and Season Stats show each player's age in years. Initial ages are 21–36: a deterministic entry age of 21–24 plus the player's existing 0–12 years of experience. Ages stay fixed during a season and are regenerated for each new run. They are informational for now; aging, development, retirement, and age-based ability changes remain future offseason features. Ages and experience currently stay fixed across continued seasons.
+Both Ratings and Season Stats show each player's age in years. Initial ages are 21–36: a deterministic entry age of 21–24 plus the player's existing 0–12 years of experience. Ages stay fixed during a season and are regenerated for each new run. Under current career rules, age and experience increase once per offseason. Development and decline follow the positional curves below; retirement remains future work. Existing saved seasons keep their original rules until their next season transition.
 
 Player names are loaded from `app/data/first_names.txt` and `app/data/last_names.txt`, with one name per line. The downloaded Census lists contain 1,219 first names and 5,000 surnames (6,095,000 combinations). See [name data sources and editing instructions](app/data/README.md). The files are bundled locally; no runtime internet access is needed. Names are reproducible within a run and unique within each team's roster; editing the lists can change display names, while stable player IDs, ratings, experience, and production remain unchanged.
 
@@ -97,15 +97,11 @@ QB1 receives all passing stats and K1 receives kicking stats. RB1/RB2 split rush
 
 The Ratings view uses five columns: **Depth, Player, Age, Current, Potential**. Depth includes the position, such as QB1. Detailed attribute columns, the attribute guide, and the experience column are removed from the UI. Draft prospects and roster-cut management use the same Current/Potential pair.
 
-Current is the existing ability rating used by roster decisions and the simulation. Potential is a possible ceiling, not a promise of improvement. Both use a 1–99 scale. The first version uses shared, deliberately simple game rules rather than position-specific aging curves:
+Current is the ability rating used by roster decisions and simulation. Potential is a possible ceiling rather than a promise of improvement. Current career rules use position-specific growth/decline and hidden, ability-independent longevity, described below. The ceiling is initialized once, held fixed during development, and equals current after the player enters decline. Kickers use separate seasonal form. Small arrows beside Current show the actual last-offseason change without adding another column.
 
-- Age 24 and under: 6–18 points of potential headroom, capped at 99.
-- Ages 25–29: 0 through `2 × (30 − age)` points of headroom, capped at 99.
-- Age 30 and above: potential equals current.
+Legacy career rules retain the earlier age-band display until upgrading at a season boundary. New careers use development rules immediately.
 
-Headroom is deterministically derived from permanent player ID and age band, so reloads, draft replay, and depth changes do not reroll it. Aging, development, and decline are not active yet; there are no decline arrows without actual recorded rating changes. Potential does not change scoring, CPU draft decisions, cut eligibility, or team ratings in this slice.
-
-Player API payloads add `current_rating` and `potential_rating`. The existing `rating`, experience, and generated attribute data remain available for API/save compatibility and existing usage logic; attributes are no longer displayed and still do not affect gameplay. Saves need no version change because the API reconstructs the new display fields from the same saved players.
+Player API payloads add `current_rating` and `potential_rating`. The existing `rating`, experience, and generated attribute data remain available for API/save compatibility and existing usage logic; attributes are no longer displayed and still do not affect gameplay. Save version 6 reconstructs the displayed ratings from seeded player state and offseason history.
 
 ## Run locally
 
@@ -159,7 +155,7 @@ npm ci
 npm run test:ui
 ```
 
-The UI suites start local FastAPI servers on ports 8767, 8769, 8770, 8771, and 8772 and checks tab/keyboard navigation, empty states, full seasons and playoffs, box-score values, roster collapse state, always-expanded league content, failed-request retry, team reset/cancel, save restoration, and multiple-season continuation using jsdom. Node dependencies are only for development checks; Render still runs the Python app directly. These DOM checks do not verify visual layout.
+The UI suites start local FastAPI servers on ports 8767, 8769, 8770, 8771, 8772, and 8773 and checks tab/keyboard navigation, empty states, full seasons and playoffs, box-score values, roster collapse state, always-expanded league content, failed-request retry, team reset/cancel, save restoration, and multiple-season continuation using jsdom. Node dependencies are only for development checks; Render still runs the Python app directly. These DOM checks do not verify visual layout.
 
 ## Randomized runs
 
@@ -232,13 +228,13 @@ Saves store a versioned team/season/run-seed/progress checkpoint; the API recons
 
 After completing the league championship, choose **Continue to Season 2** (then Season 3, and so on). This is available whether your team wins, loses, or misses qualification, once all four playoff rounds are complete. The API currently supports seasons 1–999; continuation stops at that limit.
 
-Continuing retains your franchise, run seed, and finalized rosters for all 30 teams, including retained rookies and player cuts. Ages, experience, and attributes remain unchanged; development, aging, retirements, free agency, and trades are separate future features. The new season has a fresh 17-game schedule, a new group rotation, a 0–0 record, and zero regular-season/playoff stats. Game results use the new season number, so they are not a replay of Season 1.
+Continuing retains your franchise, run seed, and finalized rosters for all 30 teams, including retained rookies and player cuts. Veterans age and gain experience once each offseason; current ability develops or declines by position and age. Attributes remain unchanged; retirements, free agency, and trades are separate future features. The new season has a fresh 17-game schedule, a new group rotation, a 0–0 record, and zero regular-season/playoff stats. Game results use the new season number, so they are not a replay of Season 1.
 
 Same-place opponents use the previous season's actual final group ranks. The browser carries all 30 ranks into schedule, simulation, standings, and postseason requests as the optional JSON `prior_standings` query parameter. The API validates one rank from 1–5 per team/group and canonicalizes the mapping for bounded cache keys. Existing API callers that omit the mapping keep the original placeholder ranks; Season 1 also uses those placeholders. This avoids replaying every past season when restoring a later save.
 
 **Franchise history** above the tabs lists completed prior seasons: your regular-season record, playoff finish, and league champion. It is a summary archive; individual past-season box scores and player/career totals are not retained. A failed season transition leaves the current game and saved checkpoint intact; retrying cannot append duplicate history. **Choose another team → Start new career** explicitly resets season, history, and seed instead of continuing the franchise.
 
-Save version 5 includes prior ranks, history summaries, optional draft choices, current drops, past offseason decisions, and lineup/rating rules. Version 2 and 3 career/draft saves remain supported. Version 1 saves from the saved-progress PR still restore with identical first-season results and upgrade on the next successful save. Refreshing in later seasons restores the correct schedule, standings, season totals, and postseason without mixing seasons.
+Save version 6 includes prior ranks, history summaries, draft choices, drops, past offseason decisions, lineup/rating rules, and the season development was enabled. Version 2 and 3 career/draft saves remain supported. Version 1 saves from the saved-progress PR still restore with identical first-season results and upgrade on the next successful save. Refreshing in later seasons restores the correct schedule, standings, season totals, and postseason without mixing seasons.
 
 ## Four-round rookie draft
 
@@ -250,7 +246,7 @@ CPU teams select automatically up to your next turn. Their score balances prospe
 
 Each rookie is added without replacing a player: the offseason roster grows from 38 to 42. Your Roster includes the rookies, and scouting shows other teams' drafted players. Completed-season stats are preserved; rookies have zero production. Team ratings, depth leaders, and finished-season game outcomes do not change during the draft.
 
-After the draft, use **Manage roster** to drop players. Next-season continuation unlocks when the roster is at most 38 and every position minimum is satisfied. Existing no-draft season continuation remains available if a draft has not been started. Salary caps, contracts, development, aging, and trades are later work.
+After the draft, use **Manage roster** to drop players. Next-season continuation unlocks when the roster is at most 38 and every position minimum is satisfied. Existing no-draft season continuation remains available if a draft has not been started. Salary caps, contracts, retirement, and trades are later work.
 
 Draft choices autosave after each successful turn. Save version 4 stores up to four prospect IDs for the current draft plus cut and past offseason decisions; the API deterministically replays CPU decisions and validates that each chosen prospect was available at the user's actual pick. Reloads preserve the class, selection history, permanent IDs, and enlarged roster. Failed loads/picks preserve the last checkpoint and offer Retry; duplicate clicks cannot select twice. Versions 1 and 2 restore without a draft, and version 3 restores its saved draft; all upgrade on the next save. Starting a new career clears the draft. Drafts are available through the Season 998 offseason because the next season must fit the API's Season 999 limit.
 
@@ -266,7 +262,7 @@ All retained players are ordered by descending current rating within their posit
 
 Under the current lineup rules, each position starts its highest-current-rated players. Offense/defense ratings are 80% average starter rating plus 20% average bench rating, rounded to the nearest integer. If a unit has no bench, its starter average is used for the full rating. Kickers are excluded from both units and K1 is the highest-rated kicker. This affects scoring, usage, overtime, standings ratings, and postseason; potential is not used. Older saved seasons keep their original rating formula until the next season so completed results and draft availability cannot be rerolled.
 
-Save version 4 stores the managed team's completed draft choices, cuts, and each offseason's schedule context. The server replays those decisions to reconstruct all 30 rosters, rather than accepting arbitrary player attributes from the browser. Bounded caches include the immutable roster context so distinct rosters cannot share scores or standings accidentally. Later drafts start from the modified league; surviving rookies retain their IDs across further seasons and reloads. A failed next-season load preserves the completed offseason save.
+Save version 6 stores the managed team's completed draft choices, cuts, and each offseason's schedule context. The server replays those decisions to reconstruct all 30 rosters, rather than accepting arbitrary player attributes from the browser. Bounded caches include the immutable roster context so distinct rosters cannot share scores or standings accidentally. Later drafts start from the modified league; surviving rookies retain their IDs across further seasons and reloads. A failed next-season load preserves the completed offseason save.
 
 `POST /api/career/{team_id}` supports profile, week, playoffs, draft, and cuts actions with the run seed, current season/prior ranks, and completed offseason decisions. Each past offseason must be in increasing year order, precede the current season, include four valid picks and legal drops, and finish at 38 players or fewer. Existing seed-only GET APIs remain available for their original deterministic worlds; the UI uses career requests after roster changes.
 
@@ -276,4 +272,32 @@ New careers automatically rank every position by current ability from the first 
 
 Offense includes QB/WR/TE/RB/OL, defense includes DL/LB/CB/S. Each team's unit rating is `round(0.8 × starter average + 0.2 × bench average)` on current ratings only. An empty bench uses the starter average instead. Ratings, profiles, standings, games, scouting, and postseason share one immutable, versioned lineup context. The old seeded strength values remain only as initial player-generation inputs and for legacy seasons.
 
-Save version 5 records the lineup rules for the active season and for each past offseason. Versions 1–4 restore under their exact old season rules, including in-progress drafts. Continuing into the next season activates highest-rated starters and the 80/20 formula, while past drafts replay under the rules they actually used. New careers use the updated rules immediately. The team header explains the active formula or the pending next-season upgrade. Legacy seed-only APIs default to lineup rules 1; `lineup_rules=2` selects current rules in team/week/playoff endpoints and draft/career requests.
+Save version 5 records the lineup rules for the active season and for each past offseason. Versions 1–4 restore under their exact old season rules, including in-progress drafts. Continuing into the next season activates highest-rated starters and the 80/20 formula, while past drafts replay under the rules they actually used. New careers use the updated rules immediately. The team header explains the active formula or the pending next-season upgrade. Legacy seed-only APIs default to lineup rules 1; `lineup_rules=2` selects automatic lineups without development; `lineup_rules=3` selects current rules in team/week/playoff endpoints and draft/career requests.
+
+## Position-specific development and hidden longevity
+
+Under career rules 3, development happens once when entering a new season, across all 30 rosters. The upcoming season's age chooses the phase. Veterans gain one year of age and experience. Newly drafted players retain their listed rookie-season age and zero experience on entering their first season; they begin aging at the following transition.
+
+These are deliberately simple game-design curves, not fitted estimates of NFL rating changes:
+
+| Position | Develop through age | Decline from age | Steep decline from age | Annual decline | Annual steep decline |
+| --- | ---: | ---: | ---: | --- | --- |
+| QB | 27 | 34 | 37 | −2 to −4 | −4 to −6 |
+| RB | 23 | 27 | 30 | −2 to −4 | −4 to −6 |
+| WR | 25 | 30 | 33 | −1 to −2 | −4 to −6 |
+| TE | 26 | 31 | 34 | −1 to −2 | −3 to −5 |
+| OL | 26 | 32 | 35 | −1 to −2 | −3 to −5 |
+| DL | 24 | 29 | 32 | −1 to −3 | −3 to −5 |
+| LB | 24 | 28 | 31 | −1 to −3 | −3 to −5 |
+| CB | 24 | 28 | 31 | −1 to −3 | −3 to −5 |
+| S | 25 | 30 | 33 | −1 to −2 | −3 to −5 |
+
+Development draws +1 to +4, limited by fixed potential. The prime plateau between development and decline draws −1 to +1, also limited by that ceiling. All current ratings stay within 1–99. Potential is initialized from current ability, position, age, and a seeded player-specific ceiling; it does not increase simply because another offseason occurs. Entering the decline phase sets potential to current, and both fall together afterward.
+
+Longevity is hidden in both the UI and player API payloads, reproducibly determined from run seed, permanent player ID, and position. It is independent of ability and potential: a mediocre journeyman can age well, and an elite player can age normally. Some players get a 1–2 year delay; rarer exceptional agers get a 3–4 year delay and initially gentler losses. That protection expires after four years beyond their delayed steep-decline threshold. QBs have more long-career outcomes. No rating bonus or GOAT label is granted by longevity.
+
+Kickers have a seeded seasonal form draw of −4 through +4 around a stable underlying baseline, rather than a cumulative random walk. Their potential display equals the current seasonal rating; form is separate from development. Changes between consecutive form draws can therefore exceed four points. Kicker age/experience still advance. Retirement is not modeled in this PR, and no players are automatically removed.
+
+After each transition, depth charts and 80% starter/20% bench team ratings are recalculated. Profile, scouting, stats, CPU draft/cut logic, standings, and games use the resulting current abilities. Green/red inline arrows report actual rating gains/losses since the last offseason. Reloading, retrying a request, or simulating another week cannot age a player or reroll development.
+
+Save version 6 records `developmentStart`. Older save versions preserve their current season and any pending draft, then adopt development at the next season: existing veterans age exactly once, without retroactively aging years previously played under frozen rules. Past offseasons replay under their original lineup rules. GET player/week/playoff APIs and POST draft/career requests accept rules 3 with season/development-start context; older rules 1 and 2 remain reproducible. The hidden state is reconstructed server-side and is not serialized into browser saves or exposed as player fields.
