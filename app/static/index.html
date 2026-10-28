@@ -110,7 +110,7 @@
           <div id="panel-roster" class="view-panel" role="tabpanel" aria-labelledby="view-roster" tabindex="0" hidden>
             <section id="roster-section" class="roster-section" aria-labelledby="roster-title">
               <p class="eyebrow">Your players</p>
-              <h2 id="roster-title">Roster</h2>
+              <h2 id="roster-title" tabindex="-1">Roster</h2>
               <div class="roster-controls">
                 <div class="roster-view-buttons" role="group" aria-label="Roster view">
                   <button id="roster-ratings-button" class="secondary-button" type="button" aria-pressed="true" aria-controls="roster-groups">Ratings</button>
@@ -129,6 +129,13 @@
               <p class="roster-note">Current is ability today; potential is a possible ceiling. Both are out of 99. Growth and decline follow position-specific age curves. Kickers have seasonal form changes.</p>
               <p id="development-note" class="roster-note"></p>
               <p class="roster-note">Regular-season maximum: 38 players. Offseason draft picks may temporarily increase the roster. Position minimums appear above each group.</p>
+              <section id="roster-management" aria-label="Offseason roster management" hidden>
+                <p id="cut-count" class="roster-note" role="status"></p>
+                <p class="roster-note">Use Drop beside a player in Ratings, then confirm. Keep players by leaving them on the roster. Position minimums are protected.</p>
+                <p id="cut-error" class="error" role="alert" hidden></p>
+                <section id="cut-confirmation" class="empty-state" hidden><p id="cut-confirm-text"></p>
+                  <button id="cut-confirm" type="button">Confirm drop</button><button id="cut-cancel" class="secondary-button" type="button">Cancel</button></section>
+              </section>
               <div id="roster-groups" class="roster-groups"></div>
             </section>
           </div>
@@ -257,15 +264,6 @@
         <p>Non-playoff teams pick first, followed by teams eliminated in each playoff round. The runner-up picks 29th and the champion 30th. Within each group: worst regular-season record, then lower point differential, fewer points scored, and a seeded draw.</p>
       </details>
       <details class="attribute-guide" open><summary>Selections</summary><ol id="draft-picks"></ol></details>
-    </dialog>
-    <dialog id="cut-dialog" class="team-roster-dialog" aria-labelledby="cut-title">
-      <div class="scout-heading"><h2 id="cut-title">Manage offseason roster</h2><button id="cut-close" class="secondary-button" type="button" autofocus>Close roster management</button></div>
-      <p id="cut-count" class="roster-note" role="status"></p>
-      <p class="roster-note">The regular-season maximum is 38. You may drop to a position's minimum; further cuts at that position are blocked. Retained players are ordered by rating for next season's depth chart.</p>
-      <p id="cut-error" class="error" role="alert" hidden></p>
-      <section id="cut-confirmation" class="empty-state" hidden><p id="cut-confirm-text"></p>
-        <button id="cut-confirm" type="button">Confirm drop</button><button id="cut-cancel" class="secondary-button" type="button">Cancel</button></section>
-      <div class="table-wrap"><table class="roster-table"><thead><tr><th>Player</th><th>Position</th><th>Current</th><th>Potential</th><th>Position count</th><th>Action</th></tr></thead><tbody id="cut-players"></tbody></table></div>
     </dialog>
     <script src="/static/app.js" defer></script>
   </body>
