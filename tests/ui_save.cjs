@@ -47,7 +47,7 @@ function snapshot(p) {
  const q=sel=>p.d.querySelector(sel).textContent;
  return {roster:q('#roster-groups'),schedule:q('#schedule'),record:q('#season-record'),
   standings:q('#group-standings'),race:q('#playoff-race'),bracket:q('#playoff-bracket'),
-  outcome:q('#postseason-status'),game:q('#result-panel')};
+  outcome:q('#postseason-status'),qualification:q('#qualification-status'),game:q('#result-panel')};
 }
 async function checks() {
  const final=await api('/api/playoffs/seattle/round/4?season=1&run_seed=1234');
@@ -70,7 +70,7 @@ async function checks() {
   p=await restored(raw);
   assert.match(status(p),/restored/);
   assert.equal(saved(p),raw,'Restore must not overwrite the checkpoint');
-  assert.equal(p.d.querySelectorAll('#schedule .completed').length,week);
+  assert.equal(p.d.querySelectorAll('#schedule .completed').length,week);assert.equal(p.d.querySelector('#qualification-status').hidden,week<17);
   const before=snapshot(p);
   const again=await restored(saved(p));
   assert.deepEqual(snapshot(again),before,'Reload preserves all rendered results and stats');

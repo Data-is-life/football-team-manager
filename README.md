@@ -354,3 +354,10 @@ Open **Start rookie draft** (or **Resume draft**) and choose **Auto-draft remain
 The completed draft still adds four rookies without releasing anyone. Review the roster and make cuts to reach the 38-player maximum before continuing. Auto-draft does not automatically cut players or advance the season.
 
 Draft/career POST requests accept a strict boolean `auto_draft` flag. The response's existing `manual_picks` field contains all resolved user selections, including auto-picks; the browser saves those IDs normally. Reloading uses ordinary replay without another automated selection, so no save-format change is needed. Failed requests retain the previous checkpoint and Retry preserves whether the failed action was auto-drafting. Repeated identical requests produce identical picks, and duplicate UI clicks are blocked. Career auto-draft uses the actual retained rosters and original season/rules context; it cannot be requested as a cut, profile, week, or playoff action.
+
+
+## Regular-season playoff qualification message
+
+As soon as Week 17 finishes, a message above the tabs announces the selected team's final playoff qualification. Qualifiers receive a green congratulations message with their final seed, group-winner/wildcard route, final W–L–T record, and first-round bye when applicable. Teams outside the final field receive a red missed-playoffs message and their final record. The final standings determine the message using the same tiebreakers as the playoff field; earlier weeks do not announce qualification.
+
+The regular-season message remains available while following the playoffs, independently of individual playoff win/loss messages. Reloads reconstruct it from the saved regular-season snapshot. Advancing to the next season or starting another career clears it. This UI change works with existing saves and makes no extra API requests or simulation changes.
