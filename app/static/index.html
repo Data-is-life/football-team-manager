@@ -77,13 +77,6 @@
           </div>
           <p id="season-status" class="season-status" role="status">Ready for Week 1.</p>
           <p id="qualification-status" role="status" aria-atomic="true" data-outcome="neutral" hidden></p>
-          <details id="season-history" class="attribute-guide" hidden>
-            <summary>Franchise history</summary>
-            <div class="table-wrap"><table>
-              <thead><tr><th>Season</th><th>Your record</th><th>Playoff finish</th><th>League champion</th></tr></thead>
-              <tbody id="season-history-rows"></tbody>
-            </table></div>
-          </details>
           <p id="draft-summary" class="roster-note" role="status" hidden></p>
           <div class="view-tabs" role="tablist" aria-label="Team and league views">
             <button id="view-roster" class="view-tab" type="button" role="tab" aria-selected="false" aria-controls="panel-roster" tabindex="-1">Roster</button>
@@ -93,6 +86,27 @@
             <button id="view-league" class="view-tab" type="button" role="tab" aria-selected="false" aria-controls="panel-league" tabindex="-1">League Results</button>
             <button id="view-race" class="view-tab" type="button" role="tab" aria-selected="false" aria-controls="panel-race" tabindex="-1">Playoff Race</button>
             <button id="view-playoffs" class="view-tab" type="button" role="tab" aria-selected="false" aria-controls="panel-playoffs" tabindex="-1">Playoffs</button>
+            <button id="view-gm" class="view-tab" type="button" role="tab" aria-selected="false" aria-controls="panel-gm" tabindex="-1">GM Records</button>
+          </div>
+          <div id="panel-gm" class="view-panel" role="tabpanel" aria-labelledby="view-gm" tabindex="0" hidden>
+            <section aria-labelledby="gm-title">
+              <p class="eyebrow" id="gm-team"></p><h2 id="gm-title">GM Records</h2>
+              <p class="roster-note">Career totals include the current season. Playoff appearances count when the final field is set; byes do not count as wins.</p>
+              <dl class="gm-records-grid">
+                <div><dt>Regular season W–L–T</dt><dd id="gm-regular">0–0–0</dd></div>
+                <div><dt>Playoff appearances</dt><dd id="gm-appearances">0</dd></div>
+                <div><dt>Playoff record (W–L)</dt><dd id="gm-playoffs">0–0</dd></div>
+                <div><dt>Championships</dt><dd id="gm-championships">0</dd></div>
+              </dl>
+              <p id="gm-legacy-note" class="roster-note" hidden>Some older season summaries lack bye information, so their playoff win totals are shown as a range.</p>
+          <details id="season-history" class="attribute-guide" open hidden>
+            <summary>Franchise history</summary>
+            <div class="table-wrap"><table>
+              <thead><tr><th>Season</th><th>Your record</th><th>Playoff finish</th><th>Playoff record</th><th>League champion</th></tr></thead>
+              <tbody id="season-history-rows"></tbody>
+            </table></div>
+          </details>
+            </section>
           </div>
           <div id="panel-schedule" class="view-panel" role="tabpanel" aria-labelledby="view-schedule" tabindex="0">
             <div class="schedule-heading schedule-formula">
