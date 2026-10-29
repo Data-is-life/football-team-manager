@@ -65,7 +65,7 @@ Choose **Season Stats** inside Roster to inspect cumulative production, then sel
 
 Defensive and line production is aggregate detail derived after the game result. Tackles assume one credit per non-scoring completion/rush plus each sack; sacks are included in tackles, and defensive interceptions exactly match the opponent's passing interceptions. This does not yet model assists, pressures, forced fumbles, missed tackles, or individual blocking grades.
 
-Defense rotates through a 4-DL, 3-LB, 2-CB, 2-S unit. Snaps are shared using depth and current ratings, capped at one full game's snaps per player. Tackles/interceptions cannot exceed participation. Five starting linemen (OL depths 1–5) receive pass attempts plus sacks as pass-blocking snaps and rush attempts as run-blocking snaps; OL reserves remain at zero until substitutions exist. Each sack allowed is charged to one starter, favoring lower-rated blockers. Defensive and line snaps include sacks, exclude kicking plays, and describe regulation-equivalent offensive activity, like the existing usage model.
+Defense rotates through a 4-DL, 3-LB, 2-CB, 2-S unit. Snaps are shared using depth and current ratings, capped at one full game's snaps per player. Tackles/interceptions cannot exceed participation. Under legacy rules 1–4, five starting linemen (OL depths 1–5) receive all pass/run blocking snaps and sacks allowed; reserves remain at zero. Rules 5 use the OL rotation described below and charge sacks within allocated pass-blocking snaps, favoring lower-rated blockers. Defensive and line snaps include sacks, exclude kicking plays, and describe regulation-equivalent offensive activity, like the existing usage model.
 
 New `defense` and `blocking` box-score rows include player IDs and feed the same season aggregation as offensive stats. An independent random stream generates the detail, preserving scores, offensive/kicking production, and playoff outcomes. Detailed attributes are retained internally for compatibility and do not affect the current engine.
 
@@ -91,7 +91,7 @@ Offense has 18 players (QB, WR, TE, RB, OL), defense has 18 (DL, LB, CB, S), and
 
 The roster validator enforces these per-position minimums. The team profile API returns the rules and current counts alongside all players. Player IDs identify city/position/depth slots. Names and ratings are stable within a run; defensive player current ratings use the team defense rating as their baseline.
 
-QB1 receives all passing stats and K1 receives kicking stats. RB1/RB2 split rushing production (a lone RB receives all carries), and receiving production is shared across eligible WRs, TEs, and backs. Team offense/defense determine scoring; current QB/RB ability and QB experience affect passing volume.
+QB1 receives all passing stats and K1 receives kicking stats. RBs split rushing production according to the active playing-time rules (a lone RB receives all carries), and receiving production is shared across eligible WRs, TEs, and backs. Team offense/defense determine scoring; current QB/RB ability and QB experience affect passing volume.
 
 ### Basic player ratings
 
@@ -101,7 +101,7 @@ Current is the ability rating used by roster decisions and simulation. Potential
 
 Legacy career rules retain the earlier age-band display until upgrading at a season boundary. New careers use development rules immediately.
 
-Player API payloads add `current_rating` and `potential_rating`. The existing `rating`, experience, and generated attribute data remain available for API/save compatibility and existing usage logic; attributes are no longer displayed and still do not affect gameplay. Save version 8 reconstructs the displayed ratings from seeded player state and offseason history.
+Player API payloads add `current_rating` and `potential_rating`. The existing `rating`, experience, and generated attribute data remain available for API/save compatibility and existing usage logic; attributes are no longer displayed and still do not affect gameplay. Save version 9 reconstructs the displayed ratings from seeded player state and offseason history.
 
 ## Run locally
 
@@ -185,7 +185,7 @@ Scores and team yardage are generated first using the existing model. These fina
 - Pass share starts at 55%. It changes by 0.5 percentage points per QB-minus-weighted-RB skill point, up to 15 percentage points for score margin, and 0.4 percentage points per QB experience year relative to six years. It is bounded to 30–75%.
 - More experienced QBs get a modest trust-based increase in passing volume. Experience is deterministic, from 0–12 years, and appears in the roster. It does not change completion efficiency or turnover probability yet.
 - Rush attempts equal total plays minus pass attempts. The existing completion-rate and yardage models remain.
-- RB1 receives a random 50–90% share; RB2 receives the rest. Attempts, rushing yards, and rushing TDs use the same underlying share, rounded to whole counts while preserving team totals.
+- Under legacy rules 1–4, RB1 receives a random 50–90% share; RB2 receives the rest. Attempts, rushing yards, and rushing TDs use the same underlying share, rounded to whole counts while preserving team totals.
 - WRs share 60% of receiving opportunities, TEs 22%, and RBs 18%. Random weights divide each WR/TE group's share across all its players. Both RBs use their rushing share within the RB receiving group.
 - Possession uses relative clock weights of 35 per rush, 28 per completion, and 8 per incompletion, then normalizes both sides to 60 minutes. This remains regulation-equivalent possession even in overtime games.
 - Total plays here means pass attempts plus rush attempts; sacks are displayed separately rather than added as another play category.
@@ -258,11 +258,11 @@ Complete the four-round draft, then open **Roster → Ratings** (or choose **Man
 
 Successful cuts autosave. Failed cuts leave the previous roster/checkpoint intact and can be retried. Once the roster is at most 38, Continue to next season unlocks. CPU teams also cut to 38, removing the lowest-rated eligible player while protecting every minimum. Cuts are available in the post-draft offseason only; released players are not yet part of free agency and cannot be re-signed in this version.
 
-All retained players are ordered by descending current rating within their position for the next season's depth chart (ties preserve prior depth, then permanent ID). IDs never change when depth changes. QB1 handles passing; the first two RBs share rushing, or the lone RB receives all carries when only the minimum is retained. WR/TE participation and line/defensive stats use the actual retained roster. Cut players disappear from the next season's profiles and production; finished-game box scores remain historical records. Roster Season Stats shows only currently retained players, so after cuts it is not a complete archive of the finished team's player totals.
+All retained players are ordered by descending current rating within their position for the next season's depth chart (ties preserve prior depth, then permanent ID). IDs never change when depth changes. QB1 handles passing; RBs share rushing according to the active playing-time rules, or the lone RB receives all carries when only the minimum is retained. WR/TE participation and line/defensive stats use the actual retained roster. Cut players disappear from the next season's profiles and production; finished-game box scores remain historical records. Roster Season Stats shows only currently retained players, so after cuts it is not a complete archive of the finished team's player totals.
 
 Under the current lineup rules, each position starts its highest-current-rated players. Offense/defense ratings are 80% average starter rating plus 20% average bench rating, rounded to the nearest integer. If a unit has no bench, its starter average is used for the full rating. Kickers are excluded from both units and K1 is the highest-rated kicker. This affects scoring, usage, overtime, standings ratings, and postseason; potential is not used. Older saved seasons keep their original rating formula until the next season so completed results and draft availability cannot be rerolled.
 
-Save version 8 stores the managed team's completed draft choices, cuts, and each offseason's schedule context. The server replays those decisions to reconstruct all 30 rosters, rather than accepting arbitrary player attributes from the browser. Bounded caches include the immutable roster context so distinct rosters cannot share scores or standings accidentally. Later drafts start from the modified league; surviving rookies retain their IDs across further seasons and reloads. A failed next-season load preserves the completed offseason save.
+Save version 9 stores the managed team's completed draft choices, cuts, and each offseason's schedule context. The server replays those decisions to reconstruct all 30 rosters, rather than accepting arbitrary player attributes from the browser. Bounded caches include the immutable roster context so distinct rosters cannot share scores or standings accidentally. Later drafts start from the modified league; surviving rookies retain their IDs across further seasons and reloads. A failed next-season load preserves the completed offseason save.
 
 `POST /api/career/{team_id}` supports profile, week, playoffs, draft, and cuts actions with the run seed, current season/prior ranks, and completed offseason decisions. Each past offseason must be in increasing year order, precede the current season, include four valid picks and legal drops, and finish at 38 players or fewer. Existing seed-only GET APIs remain available for their original deterministic worlds; the UI uses career requests after roster changes.
 
@@ -276,7 +276,7 @@ Save version 5 records the lineup rules for the active season and for each past 
 
 ## Position-specific development and hidden longevity
 
-Under career rules 3 and 4, development happens once when entering a new season, across all 30 rosters. The upcoming season's age chooses the phase. Veterans gain one year of age and experience. Newly drafted players retain their listed rookie-season age and zero experience on entering their first season; they begin aging at the following transition.
+Under career rules 3, 4, and 5, development happens once when entering a new season, across all 30 rosters. The upcoming season's age chooses the phase. Veterans gain one year of age and experience. Newly drafted players retain their listed rookie-season age and zero experience on entering their first season; they begin aging at the following transition.
 
 These are deliberately simple game-design curves, not fitted estimates of NFL rating changes:
 
@@ -307,7 +307,7 @@ Players from the most recent draft have an **R** badge beside their names in ros
 
 ## Initial starter and backup hierarchy
 
-New careers use lineup rules 4 (save version 8). Every team's initial roster is ranked by current ability, then backups are lowered relative to the weakest starter at that position. Starter counts remain QB 1, WR 2, TE 1, RB 1, OL 5, K 1, DL 4, LB 3, CB 2, and S 2.
+New careers use lineup rules 5 (save version 9). Every team's initial roster is ranked by current ability, then backups are lowered relative to the weakest starter at that position. Starter counts remain QB 1, WR 2, TE 1, RB 1, OL 5, K 1, DL 4, LB 3, CB 2, and S 2.
 
 If the weakest starter is rated 70 or higher, each backup has a seeded ceiling 8–14 points below that starter. If the weakest starter is below 70, the ceiling is only 1–4 points lower, allowing closer competition on weak units. These are minimum separations: an already weaker backup stays weaker. Initial QB and K backups are also capped at 74. The adjustment never improves or lowers the selected starters, and preserves player identities, names, ages, experience, roster sizes, and position minimums. Backup attributes and potential are initialized from their adjusted ability.
 
@@ -321,3 +321,18 @@ New careers start the selected city with a struggling roster. Only that team is 
 This is a one-time starting condition. Potential is initialized from the rebuilt abilities and existing age/position rules; young players can develop, and draft picks retain their normal ratings. The team is never weakened again during a season transition. Better rosters can earn wins and championships through the normal simulation; losses are not scripted.
 
 Save version 8 stores `rebuildTeam`, the managed city at career creation. Team/week/playoff GET requests and draft/career POST requests carry the matching `rebuild_team` so profiles, scouting, ratings, standings, scores, CPU draft choices, cuts, and future seasons all use the same league. Immutable contexts and cache keys include this origin. Scouting another team never changes the managed team or starts another rebuild. Existing versions 1–7 restore with no rebuild origin and retain their original rosters and outcomes. Starting a new career intentionally creates a new rebuild.
+
+
+## Rating-based rotations and youth development
+
+New careers use lineup rules 5 and save version 9. Existing saves keep their current-season playing-time model and remain on their existing rules in later seasons (the earlier rules 1/2 development migration is unchanged). Start a new career for the new rotations.
+
+QB1 handles all passing and K1 all kicking; youth development does not force their backups into games. Starting OL receive nearly all pass/run blocking snaps, with a small reserve role. RB carries favor the stronger starter while keeping a rotation. WR/TE targets combine their current ability with their assigned role; the existing 60% WR / 22% TE / 18% RB receiving mix remains. DL rotate most, LB next, with lighter CB/S rotations. Depth is automatically ranked by current rating as before. Potential does not influence playing time.
+
+These are aggregate estimates rather than play-by-play substitutions. Position snap allocations conserve the configured on-field slots and never give a player more than a full game's snaps. Receiving targets sum to pass attempts, including intercepted throws; catches cannot exceed targets and receiving TDs cannot exceed catches. Rush yards and TDs require a carry. Line and defensive production is assigned within actual allocated participation, including sacks allowed within pass-blocking snaps.
+
+Under-25 reserves outside QB/K normally receive a role floor of 5% of their unit's game snaps. Overstaffed positions share a bounded youth budget (at most 25% of their position's total participation is reserved as floors); integer rounding may reduce tiny roles. Ratings and starter status determine the rest of the allocation. A regular assigned role of at least 5% earns an eligible under-25 player +1 to their next offseason development draw, within their fixed potential and before position-specific decline. This is based on the season's modeled role, not accumulated snap counts, yards, or playoff appearances. QB/K receive no role bonus.
+
+The season's role is captured when entering it and preserved through draft/cut replay. Drafting a replacement cannot remove an incumbent's already assigned development credit. New rookies get no credit for a season before joining the team; they first earn role credit after their rookie season. The next season captures fresh roles after aging and depth-chart changes. Repeat requests, reloads, and playoff games never award extra development. Hidden role state is reconstructed server-side, not trusted from browser saves.
+
+Rules 5 boxes include participation, and Season Stats adds Snaps for all positions. Receiving adds Targets in game and season stats. Older rules retain their original payloads and table layouts. Scores remain outcome-first; this change allocates production after scoring rather than implementing the future drive engine.

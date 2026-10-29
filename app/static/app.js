@@ -14,7 +14,7 @@ const cancelTeamChange = document.querySelector("#cancel-team-change");
 let activeTeamId = null;
 let activeRunSeed = 0;
 let activeSeason = 1;
-let activeLineupRules = 4;
+let activeLineupRules = 5;
 let activeDevelopmentStart = 1;
 let activeRebuildTeam = null;
 let activePriorStandings = {};
@@ -66,7 +66,7 @@ function rebuildOrigin(context) {
 
 function saveProgress() {
   if (!activeTeamId || restoring) return;
-  const save = { version: 8, teamId: activeTeamId, runSeed: activeRunSeed,
+  const save = { version: 9, teamId: activeTeamId, runSeed: activeRunSeed,
     season: activeSeason, week: currentWeek, lineupRules: activeLineupRules, developmentStart: activeDevelopmentStart, rebuildTeam: activeRebuildTeam,
     priorStandings: activePriorStandings, history: careerHistory,
     draftChoices: activeDraftChoices,
@@ -86,7 +86,7 @@ function readSave() {
   if (!raw) return null;
   const save = JSON.parse(raw);
   const integer = (value, min, max) => Number.isInteger(value) && value >= min && value <= max;
-  if (!save || ![1, 2, 3, 4, 5, 6, 7, 8].includes(save.version) || typeof save.teamId !== "string"
+  if (!save || ![1, 2, 3, 4, 5, 6, 7, 8, 9].includes(save.version) || typeof save.teamId !== "string"
       || ![...select.options].some(option => option.value && option.value === save.teamId)
       || !integer(save.runSeed, 0, 4294967295) || !integer(save.season, 1, 999)
       || !integer(save.week, 0, 17)
@@ -115,11 +115,11 @@ function readSave() {
         && ids(step.manual_picks) && step.manual_picks.length === 4 && ids(step.dropped)
         && validPriorStandings(step.prior_standings ?? {}, step.season))) throw new Error("Invalid roster save");
   if (save.version < 5) save.lineupRules = 1;
-  if (![1, 2, 3, 4].includes(save.lineupRules)) throw new Error("Invalid lineup rules");
+  if (![1, 2, 3, 4, 5].includes(save.lineupRules)) throw new Error("Invalid lineup rules");
   if (save.lineupRules < 3) save.developmentStart = null;
   if (save.lineupRules >= 3 && !integer(save.developmentStart, 1, save.season)) throw new Error("Invalid development start");
   if (save.version < 8) save.rebuildTeam = null;
-  if (!(save.rebuildTeam === null || (save.rebuildTeam === save.teamId && save.lineupRules === 4 && save.developmentStart === 1))) throw new Error("Invalid rebuild origin");
+  if (!(save.rebuildTeam === null || (save.rebuildTeam === save.teamId && save.lineupRules >= 4 && save.developmentStart === 1))) throw new Error("Invalid rebuild origin");
   const allowedFinishes = ["Champions", "Missed playoffs", "Lost in Wild Card", "Lost in Quarterfinals", "Lost in Semifinals", "Lost in Championship"];
   const knownTeam = id => [...select.options].some(option => option.value && option.value === id);
   if (!Array.isArray(save.history) || save.history.length !== save.season - 1
@@ -414,6 +414,7 @@ function renderTeamProfile(profile, latestDraftSeason = activeSeason) {
     ? "Ratings change once each offseason by position and age. Potential is a possible ceiling; arrows show last offseason’s actual change. Longevity varies by player."
     : "This saved season keeps its original ratings. Position-specific development and aging begin next season.";
   document.querySelector("#roster-title").textContent = `Roster · ${profile.roster.length} players`;
+  if (profile.lineup_rules >= 5) document.querySelector("#development-note").textContent += " Under-25 players outside QB/K can earn +1 from a regular rotation role, within potential.";
   rosterSection.hidden = false;
   renderRosterStats();
 }
@@ -435,7 +436,11 @@ function renderRosterStats() {
   const decimal = value => value == null ? "—" : value.toFixed(1);
   const percentage = value => value == null ? "—" : `${value.toFixed(1)}%`;
   const column = (category, key, label, format) => ({ category, key, label, format });
-  const receiving = [column("receiving", "receptions", "Rec"), column("receiving", "yards", "Rec Yds"),
+  const modern = rosterProfile.lineup_rules >= 5;
+  document.querySelector("#roster-stats-note").textContent = modern
+    ? "Snaps and defense/line stats are aggregate estimates. Under-25 reserves outside QB/K get development roles. Tackles include sacks; pass snaps include sacks."
+    : "Defense and line stats are aggregate estimates. Tackles include sacks; pass snaps include sacks.";
+  const receiving = [...(modern ? [column("receiving", "targets", "Targets")] : []), column("receiving", "receptions", "Rec"), column("receiving", "yards", "Rec Yds"),
     column("receiving", "yards_per_reception", "Y/Rec", decimal), column("receiving", "touchdowns", "Rec TD")];
   const defense = [column("defense", "snaps", "Snaps"), column("defense", "tackles", "Tackles"),
     column("defense", "sacks", "Sacks"), column("defense", "interceptions", "INT")];
@@ -470,7 +475,7 @@ function renderRosterStats() {
     caption.textContent = `${position} · ${competition}`;
     const head = document.createElement("thead");
     const headings = document.createElement("tr");
-    for (const label of ["Depth", "Player", "Age", ...columns[position].map(item => item.label)]) {
+    for (const label of ["Depth", "Player", "Age", ...(modern ? ["Snaps"] : []), ...columns[position].map(item => item.label)]) {
       const cell = document.createElement("th");
       cell.scope = "col";
       cell.textContent = label;
@@ -483,8 +488,8 @@ function renderRosterStats() {
       row.className = "roster-season-player";
       row.dataset.playerId = player.id;
       const entry = totals.get(player.id);
-      const values = [player.depth, player.name, player.age, ...columns[position].map(item => {
-        const value = entry[item.category][item.key];
+      const values = [player.depth, player.name, player.age, ...(modern ? [entry.snaps ?? 0] : []), ...columns[position].map(item => {
+        const value = entry[item.category][item.key] ?? (item.key === "targets" ? 0 : null);
         return item.format ? item.format(value) : value;
       })];
       for (const value of values) {
@@ -515,7 +520,7 @@ function createRunSeed() {
   return candidate === activeRunSeed ? (candidate % 4294967295) + 1 : candidate;
 }
 
-function renderSchedule(data, runSeed, { priorStandings = {}, history = [], career = [], lineupRules = 4, developmentStart = 1, rebuildTeam = null } = {}) {
+function renderSchedule(data, runSeed, { priorStandings = {}, history = [], career = [], lineupRules = 5, developmentStart = 1, rebuildTeam = null } = {}) {
   if (rosterDialog.open) rosterDialog.close();
   activeTeamId = data.team.id;
   activeRunSeed = runSeed;
@@ -624,7 +629,7 @@ function playerStatsMarkup(box) {
   return [
     statTable("Passing", box.passing, [playerColumn, { key: "completions", label: "Cmp" }, { key: "attempts", label: "Att" }, { key: "completion_percentage", label: "Cmp%", format: percentage }, { key: "yards", label: "Yds" }, { key: "yards_per_attempt", label: "Y/A", format: decimal }, { key: "touchdowns", label: "TD" }, { key: "interceptions", label: "INT" }, { key: "passer_rating", label: "Passer rating", format: decimal }]),
     statTable("Rushing", box.rushing, [playerColumn, { key: "attempts", label: "Att" }, { key: "yards", label: "Yds" }, { key: "yards_per_carry", label: "Y/Carry", format: decimal }, { key: "touchdowns", label: "TD" }]),
-    statTable("Receiving", box.receiving, [playerColumn, { key: "receptions", label: "Rec" }, { key: "yards", label: "Yds" }, { key: "yards_per_reception", label: "Y/Rec", format: decimal }, { key: "touchdowns", label: "TD" }]),
+    statTable("Receiving", box.receiving, [playerColumn, ...(box.participation ? [{ key: "targets", label: "Targets" }] : []), { key: "receptions", label: "Rec" }, { key: "yards", label: "Yds" }, { key: "yards_per_reception", label: "Y/Rec", format: decimal }, { key: "touchdowns", label: "TD" }]),
     statTable("Kicking", box.kicking, [playerColumn, { key: "field_goals_made", label: "FGM" }, { key: "field_goals_attempted", label: "FGA" }, { key: "field_goal_percentage", label: "FG%", format: percentage }, { key: "longest_field_goal", label: "Long FG", format: value => value == null ? "—" : `${value} yd` }, { key: "extra_points_made", label: "XPM" }, { key: "extra_points_attempted", label: "XPA" }, { key: "kicking_points", label: "Pts" }]),
   ].join("");
 }
@@ -818,7 +823,7 @@ form.addEventListener("submit", async (event) => {
     const runSeed = createRunSeed();
     const [scheduleResponse, profileResponse] = await Promise.all([
       fetch(`/api/schedule/${teamId}?season=1`),
-      fetch(`/api/team/${teamId}?run_seed=${runSeed}&lineup_rules=4&season=1&development_start=1${rebuildQuery(teamId)}`),
+      fetch(`/api/team/${teamId}?run_seed=${runSeed}&lineup_rules=5&season=1&development_start=1${rebuildQuery(teamId)}`),
     ]);
     if (!scheduleResponse.ok || !profileResponse.ok) {
       throw new Error("Your team could not be loaded. Please try again.");
@@ -826,7 +831,7 @@ form.addEventListener("submit", async (event) => {
     const [schedule, profile] = await Promise.all([
       scheduleResponse.json(), profileResponse.json(),
     ]);
-    if (profile.run_seed !== runSeed || profile.team.id !== teamId || profile.lineup_rules !== 4 || profile.rebuild_team !== teamId) {
+    if (profile.run_seed !== runSeed || profile.team.id !== teamId || profile.lineup_rules !== 5 || profile.rebuild_team !== teamId) {
       throw new Error("Your team could not be loaded. Please try again.");
     }
     renderTeamProfile(profile, 1);
