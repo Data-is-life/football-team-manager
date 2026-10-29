@@ -38,21 +38,30 @@ def _identity(player):
 def add_defense_and_blocking(box, opponent, roster, rng):
     """Allocate existing sacks/INTs and estimated tackles; never change scores.
 
-    Five starting linemen receive offensive snaps. Defenders rotate through a
+    Legacy rules use five starting linemen; modern rules use allocated OL roles.
+    Defenders rotate through a
     4-DL/3-LB/2-CB/2-S unit. Tackles assume one credit for each non-scoring
     completion/rush and each sack; sacks are included in tackles. All sacks
-    allowed are assigned to a starting lineman. These are aggregate estimates,
+    allowed are assigned within linemen’s pass-blocking participation. These are aggregate estimates,
     not observed plays, pressures, assists, or pass-protection grades.
     """
     players = list(roster.values())
     linemen = sorted((p for p in players if p.position == "OL"), key=lambda p: p.depth)
     pass_snaps = box["team_stats"]["pass_attempts"] + box["team_stats"]["sacks_allowed"]
     run_snaps = box["team_stats"]["rush_attempts"]
+    modern = 'participation' in box
+    if modern:
+        from .rotation import position_snaps
+        pass_work = position_snaps(players,'OL',pass_snaps)
+        run_work = position_snaps(players,'OL',run_snaps)
+    else:
+        pass_work = {p.id:pass_snaps if p.depth<=5 else 0 for p in linemen}
+        run_work = {p.id:run_snaps if p.depth<=5 else 0 for p in linemen}
     sacks_allowed = _allocate(box["team_stats"]["sacks_allowed"],
-        [(100 - p.rating) * rng.uniform(.75, 1.25) for p in linemen],
-        [pass_snaps if p.depth <= 5 else 0 for p in linemen])
-    box["blocking"] = [{**_identity(p), "pass_block_snaps": pass_snaps if p.depth <= 5 else 0,
-        "run_block_snaps": run_snaps if p.depth <= 5 else 0, "sacks_allowed": sacks_allowed[i]}
+        [(100 - p.rating) * rng.uniform(.75, 1.25) * (pass_work[p.id] if modern else 1) for p in linemen],
+        [pass_work[p.id] for p in linemen])
+    box["blocking"] = [{**_identity(p), "pass_block_snaps": pass_work[p.id],
+        "run_block_snaps": run_work[p.id], "sacks_allowed": sacks_allowed[i]}
         for i, p in enumerate(linemen)]
 
     defenders = [p for p in players if p.position in DEFENSIVE_UNIT]
@@ -65,7 +74,11 @@ def add_defense_and_blocking(box, opponent, roster, rng):
         indexes = [i for i, p in enumerate(defenders) if p.position == position]
         weights = [defenders[i].rating * (1 if defenders[i].depth <= count else .35)
                    * rng.uniform(.8, 1.2) for i in indexes]
-        allocated = _allocate(snaps * count, weights, [snaps] * len(indexes))
+        if modern:
+            participation = {row['player_id']:row['snaps'] for row in box['participation']}
+            allocated = [participation[defenders[i].id] for i in indexes]
+        else:
+            allocated = _allocate(snaps * count, weights, [snaps] * len(indexes))
         for i, value in zip(indexes, allocated):
             rows[i]["snaps"] = value
 

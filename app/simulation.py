@@ -310,8 +310,16 @@ def apply_usage(box: dict, opponent_box: dict, rng: random.Random, run_seed: int
     roster = roster_for(box["team"]["id"], run_seed, roster_context)
     qb = roster["QB1"]
     backs = [player for player in roster.values() if player.position == "RB"][:2]
-    rb1_share = rng.uniform(0.50, 0.90) if len(backs) > 1 else 1.0
-    back_weights = [rb1_share, 1 - rb1_share] if len(backs) > 1 else [1.0]
+    modern = getattr(roster_context, 'lineup_rules', 1) >= 5
+    if modern:
+        from .rotation import position_roles
+        backs = [player for player in roster.values() if player.position == 'RB']
+        roles = position_roles(list(roster.values()), 'RB')
+        total = sum(roles.values())
+        back_weights = [roles[player.id]/total for player in backs]
+    else:
+        rb1_share = rng.uniform(0.50, 0.90) if len(backs) > 1 else 1.0
+        back_weights = [rb1_share, 1 - rb1_share] if len(backs) > 1 else [1.0]
     rb_skill = sum(player.rating * weight for player, weight in zip(backs, back_weights))
     ratings = team_ratings(box["team"]["id"], run_seed, roster_context)
     opponent_ratings = team_ratings(opponent_box["team"]["id"], run_seed, roster_context)
@@ -326,8 +334,14 @@ def apply_usage(box: dict, opponent_box: dict, rng: random.Random, run_seed: int
     stats = box["team_stats"]
     stats.update({"total_plays": plays, "pass_attempts": attempts, "rush_attempts": carries})
     rush_attempts = _split_total(carries, back_weights)
-    rush_yards = _split_total(stats["rushing_yards"], back_weights)
-    rush_tds = _split_total(sum(row["touchdowns"] for row in box["rushing"]), back_weights)
+    rush_yards = _split_total(stats["rushing_yards"],
+        [weight if count else 0 for weight,count in zip(back_weights,rush_attempts)] if modern else back_weights)
+    rushing_tds = sum(row["touchdowns"] for row in box["rushing"])
+    if modern:
+        from .defense import _allocate
+        rush_tds = _allocate(rushing_tds,back_weights,rush_attempts)
+    else:
+        rush_tds = _split_total(rushing_tds,back_weights)
     box["rushing"] = [
         {"player": player.name, "player_id": player.id, "position": "RB", "attempts": rush_attempts[index],
          "yards": rush_yards[index], "touchdowns": rush_tds[index]}
@@ -339,9 +353,14 @@ def apply_usage(box: dict, opponent_box: dict, rng: random.Random, run_seed: int
     # Share the team's receiving opportunities across every WR, both TEs and RBs.
     for position, group_share in (("WR", 0.60), ("TE", 0.22)):
         group = [player for player in roster.values() if player.position == position]
-        raw = [rng.uniform(0.5, 1.5) for _ in group]
+        if modern:
+            from .rotation import receiving_weights
+            group, group_weights = receiving_weights(list(roster.values()),position,group_share)
+        else:
+            raw = [rng.uniform(0.5, 1.5) for _ in group]
+            group_weights = [group_share * weight / sum(raw) for weight in raw]
         receivers.extend(group)
-        weights.extend(group_share * weight / sum(raw) for weight in raw)
+        weights.extend(group_weights)
     receivers.extend(backs)
     weights.extend(0.18 * weight for weight in back_weights)
     receptions = _split_total(completions, weights)
@@ -354,8 +373,11 @@ def apply_usage(box: dict, opponent_box: dict, rng: random.Random, run_seed: int
                      for index, weight in enumerate(weights)]
         recipient = rng.choices(range(len(receivers)), weights=available)[0]
         touchdowns[recipient] += 1
+    # Completed targets are receptions; distribute incompletions separately so
+    # no receiver can catch more than their targets. Includes intercepted throws.
+    targets = [caught+missed for caught,missed in zip(receptions,_split_total(attempts-completions,weights))] if modern else None
     box["receiving"] = [
-        {"player": player.name, "player_id": player.id, "position": player.position, "yards": yards[index],
+        {**({'targets':targets[index]} if modern else {}), "player": player.name, "player_id": player.id, "position": player.position, "yards": yards[index],
          "receptions": receptions[index], "touchdowns": touchdowns[index]}
         for index, player in enumerate(receivers)
     ]
@@ -408,6 +430,10 @@ def simulate_game(
                       overtime_winner=overtime and home_box["score"] > away_box["score"])
     add_kicking_stats(away_box, kicking_rng,
                       overtime_winner=overtime and away_box["score"] > home_box["score"])
+    if getattr(roster_context, 'lineup_rules', 1) >= 5:
+        from .rotation import add_participation
+        add_participation(home_box,away_box,roster_for(home_team.id,run_seed,roster_context))
+        add_participation(away_box,home_box,roster_for(away_team.id,run_seed,roster_context))
     if include_defense_and_blocking:
         defense_rng = random.Random(_stable_number(f"defense:{seed}"))
         add_defense_and_blocking(home_box, away_box, roster_for(home_team.id, run_seed, roster_context), defense_rng)

@@ -31,12 +31,22 @@ def aggregate_player_stats(players, boxes) -> dict:
                 entry[category]["longest_field_goal"] = None
         totals[player.id] = entry
 
+    boxes = tuple(boxes)
+    modern = any('participation' in box for box in boxes)
+    if modern:
+        for entry in totals.values():
+            entry['snaps'] = 0
+            if 'receiving' in entry:entry['receiving']['targets'] = 0
     games = 0
     for box in boxes:
         games += 1
+        for row in box.get('participation',[]):
+            totals[row['player_id']]['snaps'] += row['snaps']
         for category, fields in COUNT_FIELDS.items():
             for row in box.get(category, []):
                 target = totals[row["player_id"]][category]
+                if category == 'receiving' and 'targets' in row:
+                    target['targets'] += row['targets']
                 for field in fields:
                     target[field] += row[field]
                 if category == "kicking" and row["longest_field_goal"] is not None:

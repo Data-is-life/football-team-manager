@@ -35,6 +35,7 @@ class DevelopmentState:
     potential: int
     baseline: int
     change: int = 0
+    rotation_share: float = 0
 
 
 @dataclass(frozen=True)
@@ -71,7 +72,7 @@ def rating_view(player, context):
     return {'current_rating': player.rating, 'potential_rating': state.potential, 'rating_change': state.change}
 
 
-def next_player(player, state, seed, season):
+def next_player(player, state, seed, season, rotation_growth=False):
     # A drafted rookie's listed age is their age in the upcoming rookie season.
     entry = int(player.id.split('-')[-2]) if player.id.startswith('rookie-') else 1
     if season <= entry:
@@ -95,6 +96,10 @@ def next_player(player, state, seed, season):
         delta = -(lo + draw % (hi-lo+1))
         if exceptional and age < cliff + 4:
             delta = int(delta / 2)
+    # The role is captured before the offseason draft/cuts, never inferred from
+    # a newly promoted depth chart. This is a role-based estimate, not a snap tally.
+    if rotation_growth and player.position not in ('QB','K') and player.age < 25 and state.rotation_share >= .05-1e-9 and age < decline:
+        delta += 1
     current = max(1, min(99, min(potential, player.rating + delta)))
     if age >= decline:
         potential = current
@@ -108,16 +113,17 @@ def advance_context(context, run_seed, season, development_start=1, lineup_rules
     if rebuild_team is None and current_rules >= 3:
         rebuild_team = context.rebuild_team
     lineup_rules = lineup_rules if lineup_rules is not None else max(3, current_rules)
-    if lineup_rules not in (3, 4) or current_rules > lineup_rules:
+    if lineup_rules not in (3, 4, 5) or current_rules > lineup_rules:
         raise ValueError('Invalid development rules')
     if not 1 <= development_start <= season <= 999:
         raise ValueError('Invalid development season')
     if current_rules >= 3 and context.rebuild_team != rebuild_team:
         raise ValueError('Rebuild team cannot change during a career')
-    if rebuild_team is not None and (lineup_rules != 4 or development_start != 1):
+    if rebuild_team is not None and (lineup_rules < 4 or development_start != 1):
         raise ValueError('Rebuild careers must begin with initial development rules')
+    rotation_growth = current_rules >= 5
     if current_rules < 3:
-        if not context and lineup_rules == 4:
+        if not context and lineup_rules >= 4:
             from .lineups import initial_hierarchy, rebuild_lineups
             rosters = rebuild_lineups(run_seed,rebuild_team) if rebuild_team is not None else initial_hierarchy(run_seed)
         else:
@@ -125,6 +131,9 @@ def advance_context(context, run_seed, season, development_start=1, lineup_rules
         rosters = tuple((owner,ranked_players(players)) for owner,players in rosters)
         states = tuple(sorted((p.id,initial_state(p,run_seed)) for _,players in rosters for p in players))
         context = DevelopmentContext(rosters,max(1,development_start-1),run_seed,states,lineup_rules,rebuild_team)
+        if lineup_rules >= 5 and development_start == 1:
+            context = capture_rotation(context)
+            rotation_growth = True
     # Changing a rules label never reshapes an existing roster.
     if context.lineup_rules != lineup_rules:
         context = replace(context, lineup_rules=lineup_rules)
@@ -138,9 +147,19 @@ def advance_context(context, run_seed, season, development_start=1, lineup_rules
         for owner, players in context:
             updated = []
             for player in players:
-                player, state = next_player(player,states[player.id],run_seed,year)
+                player, state = next_player(player,states[player.id],run_seed,year,rotation_growth and player.position not in ('QB','K'))
                 updated.append(player)
                 updated_states.append((player.id,state))
             rosters.append((owner,ranked_players(updated)))
         context = DevelopmentContext(tuple(rosters),year,run_seed,tuple(sorted(updated_states)),lineup_rules,rebuild_team)
+        if lineup_rules >= 5:
+            context = capture_rotation(context)
+            rotation_growth = True
     return context
+
+
+def capture_rotation(context):
+    from .rotation import season_roles
+    shares = {identity:share for _,players in context for identity,share in season_roles(players).items()}
+    return replace(context, development=tuple((identity,replace(state,rotation_share=shares[identity]))
+                                              for identity,state in context.development))
