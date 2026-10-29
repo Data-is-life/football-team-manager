@@ -25,10 +25,10 @@ async function restore(raw){const p=page(raw);await until(()=>/restored|could no
 async function checks(){
  const owner='seattle',choices=[];
  for(const position of ['QB','WR','RB','OL']){
-  const draft=await json('/api/draft/'+owner,{season:1,run_seed:1234,manual_picks:choices});
+  const draft=await json('/api/draft/'+owner,{season:1,run_seed:1234,lineup_rules:4,manual_picks:choices});
   const prospect=draft.available.find(p=>p.position===position);assert.ok(prospect,position);choices.push(prospect.id);
  }
- const checkpoint=JSON.stringify({version:3,teamId:owner,runSeed:1234,season:1,week:17,playoffRound:4,priorStandings:{},history:[],draftChoices:choices});
+ const checkpoint=JSON.stringify({version:7,teamId:owner,runSeed:1234,lineupRules:4,developmentStart:1,season:1,week:17,playoffRound:4,priorStandings:{},history:[],draftChoices:choices,dropped:[],career:[]});
  let p=await restore(checkpoint);assert.equal(q(p,'#manage-roster').hidden,false);assert.equal(p.d.querySelectorAll('#roster-groups .roster-player').length,42);
  q(p,'#view-roster').click();assert.equal(q(p,'#panel-roster').hidden,false);assert.equal(q(p,'#roster-management').hidden,false);assert.equal(q(p,'#cut-dialog'),null);assert.equal(p.d.querySelectorAll('#roster-groups [data-drop-id]').length,42);assert.match(q(p,'#cut-count').textContent,/42\/38/);
  q(p,`[data-drop-id="${owner}-qb1"]`).click();q(p,'#cut-cancel').click();assert.equal(raw(p),checkpoint);assert.equal(p.d.activeElement.dataset.dropId,`${owner}-qb1`);
@@ -46,7 +46,7 @@ async function checks(){
   assert.equal(q(p,'#next-season').disabled,index<3);
   if(index===1){
    const qb=p.d.querySelectorAll('#roster-groups [data-position="QB"] .roster-player');assert.equal(qb.length,1);assert.equal(qb[0].querySelector('button').disabled,true);assert.equal(qb[0].querySelector('button').textContent,'Minimum reached');
-   const blocked=await fetch(base+'/api/career/'+owner,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'cuts',season:1,run_seed:1234,manual_picks:choices,dropped:[...save(p).dropped,choices[0]]})});assert.equal(blocked.status,422);
+   const blocked=await fetch(base+'/api/career/'+owner,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'cuts',season:1,run_seed:1234,lineup_rules:4,manual_picks:choices,dropped:[...save(p).dropped,choices[0]]})});assert.equal(blocked.status,422);
   }
   const saved=raw(p);p.dom.window.close();p=await restore(saved);q(p,'#manage-roster').click();assert.equal(p.d.querySelectorAll('#roster-groups [data-drop-id]').length,41-index);
  }
@@ -61,12 +61,12 @@ async function checks(){
  await until(()=>!q(p,'#error').hidden);assert.equal(raw(p),beforeAdvance);assert.equal(q(p,'#season-display').textContent,'1');
  p.state.failProfile=false;q(p,'#next-season').click();await until(()=>save(p).season===2);
  assert.equal(p.d.querySelectorAll('#roster-groups .roster-rating-wrap .rookie-badge').length,4,'All retained rookies keep R in their first season');
- assert.equal(q(p,'#roster-management').hidden,true);assert.equal(p.d.querySelectorAll('#roster-groups [data-drop-id]').length,0,'No cuts during regular season');assert.equal(save(p).career.length,1);assert.deepEqual(save(p).career[0].dropped,cuts);assert.equal(save(p).draftChoices,null);assert.deepEqual(save(p).dropped,[]);
+ assert.equal(q(p,'#roster-management').hidden,true);assert.equal(p.d.querySelectorAll('#roster-groups [data-drop-id]').length,0,'No cuts during regular season');assert.equal(save(p).lineupRules,4);assert.equal(save(p).career[0].lineup_rules,4);assert.equal(save(p).career.length,1);assert.deepEqual(save(p).career[0].dropped,cuts);assert.equal(save(p).draftChoices,null);assert.deepEqual(save(p).dropped,[]);
  assert.deepEqual([...p.d.querySelectorAll('#roster-groups .roster-player')].map(row=>row.dataset.playerId).sort(),[...retained].sort());
  let saved=raw(p);p.dom.window.close();p=await restore(saved);assert.equal(q(p,'#season-display').textContent,'2');assert.deepEqual([...p.d.querySelectorAll('#roster-groups .roster-player')].map(row=>row.dataset.playerId).sort(),[...retained].sort());
  for(let week=1;week<=17;week++){
   q(p,'#simulate-button').click();await until(()=>save(p).week===week);
-  if(week===1){assert.match(q(p,'#player-stats').textContent,/Passing/);const body={action:'week',season:2,run_seed:1234,week:1,prior_standings:save(p).priorStandings,career:save(p).career};const data=await json('/api/career/'+owner,body);const box=data.result.home.team.id===owner?data.result.home:data.result.away;assert.equal(box.passing[0].player_id,choices[0]);assert.equal(box.rushing.length,1);assert.equal(box.rushing[0].player_id,choices[2]);for(const category of ['passing','rushing','receiving','kicking','blocking','defense'])for(const row of box[category])assert.ok(retained.includes(row.player_id));}
+  if(week===1){assert.match(q(p,'#player-stats').textContent,/Passing/);const body={action:'week',season:2,run_seed:1234,lineup_rules:4,development_start:1,week:1,prior_standings:save(p).priorStandings,career:save(p).career};const data=await json('/api/career/'+owner,body);const box=data.result.home.team.id===owner?data.result.home:data.result.away;assert.equal(box.passing[0].player_id,choices[0]);assert.equal(box.rushing.length,1);assert.equal(box.rushing[0].player_id,choices[2]);for(const category of ['passing','rushing','receiving','kicking','blocking','defense'])for(const row of box[category])assert.ok(retained.includes(row.player_id));}
   if(week===8){saved=raw(p);p.dom.window.close();p=await restore(saved);assert.equal(q(p,'#simulate-button').textContent,'Simulate Week 9');}
  }
  q(p,'#playoffs-start').click();await until(()=>save(p).playoffRound===0);for(let round=1;round<=4;round++){q(p,'#playoff-simulate').click();await until(()=>save(p).playoffRound===round)}
@@ -76,7 +76,7 @@ async function checks(){
  q(p,'#draft-close').click();q(p,'#manage-roster').click();
  for(let count=1;count<=4;count++){q(p,'#roster-groups [data-drop-id]:not([disabled])').click();q(p,'#cut-confirm').click();await until(()=>save(p).dropped.length===count)}
  q(p,'#next-season').click();await until(()=>save(p).season===3);
- assert.equal(save(p).career.length,2);saved=raw(p);p.dom.window.close();p=await restore(saved);assert.equal(p.d.querySelectorAll('#roster-groups .roster-player').length,38);assert.equal(save(p).career.length,2);
+ assert.equal(save(p).lineupRules,4);assert.equal(save(p).career.length,2);saved=raw(p);p.dom.window.close();p=await restore(saved);assert.equal(p.d.querySelectorAll('#roster-groups .roster-player').length,38);assert.equal(save(p).career.length,2);
  for(const row of p.d.querySelectorAll('#roster-groups .roster-player')){const entry=Number(row.dataset.playerId.split('-').at(-2));assert.equal(Boolean(row.querySelector('.rookie-badge')),row.dataset.playerId.startsWith('rookie-')&&entry===3);}
  p.dom.window.close();
  console.log('Inline roster-cut UI checks passed: direct Roster controls, Manage roster navigation, no dialog, collapsed groups, in-season cut controls removed, confirmation/cancel/retry, server and UI minimum protection, duplicate clicks, saved cuts, 42 to 38, retained rookie QB/RB in game stats, full next season/playoffs, second draft/cuts, and Season 3 restore.');

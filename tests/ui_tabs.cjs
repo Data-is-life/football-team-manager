@@ -8,7 +8,7 @@ const base = 'http://127.0.0.1:8767';
 // Fresh careers use the new rules; explicit legacy queries remain untouched.
 const fetch=(input,init)=>{
  const url=new URL(input,base);
- if(/^\/api\/(team|season|playoffs)\//.test(url.pathname)&&!url.searchParams.has('lineup_rules'))url.searchParams.set('lineup_rules','3');
+ if(/^\/api\/(team|season|playoffs)\//.test(url.pathname)&&!url.searchParams.has('lineup_rules'))url.searchParams.set('lineup_rules','4');
  return globalThis.fetch(url,init);
 };
 async function until(check) {

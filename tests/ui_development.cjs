@@ -13,7 +13,7 @@ async function checks(){
  const before=await api('/api/team/seattle?run_seed=1234&lineup_rules=2');
  assert.equal(p.d.querySelectorAll('.rating-change').length,0);
  q(p,'#next-season').click();await until(()=>save(p).season===2);
- assert.equal(save(p).version,6);assert.equal(save(p).lineupRules,3);assert.equal(save(p).developmentStart,2);
+ assert.equal(save(p).version,7);assert.equal(save(p).lineupRules,3);assert.equal(save(p).developmentStart,2);
  const current=await api('/api/team/seattle?run_seed=1234&lineup_rules=3&season=2&development_start=2');
  const previous=new Map(before.roster.map(p=>[p.id,p]));
  let changed=0;
@@ -35,6 +35,15 @@ async function checks(){
  const after=await api('/api/team/seattle?run_seed=1234&lineup_rules=3&season=2&development_start=2');assert.deepEqual(current,after,'Playing/retrying a week cannot age players again');
  p.dom.window.close();
  const invalid=await fetch(base+'/api/team/seattle?lineup_rules=3&season=2&development_start=3');assert.equal(invalid.status,422);
+ // Version-6 development careers retain their exact old abilities when re-saved.
+ const v6={...old,version:6,lineupRules:3,developmentStart:1,week:0,playoffRound:null};
+ p=await restore(JSON.stringify(v6));
+ const v3=await api('/api/team/seattle?run_seed=1234&lineup_rules=3');
+ assert.deepEqual([...p.d.querySelectorAll('#roster-groups .roster-player')].map(row=>row.dataset.playerId),v3.roster.map(player=>player.id));
+ for(const player of v3.roster)assert.equal(q(p,`#roster-groups [data-player-id="${player.id}"]`).children[3].textContent,String(player.current_rating));
+ q(p,'#simulate-button').click();await until(()=>save(p).week===1);
+ assert.equal(save(p).version,7);assert.equal(save(p).lineupRules,3,'Saving an existing career must not adopt initial hierarchy');
+ p.dom.window.close();
  console.log('Development UI checks passed: legacy season unchanged, migration ages once, actual rating arrows, private longevity, seeded profile equality after reload/week, and invalid development start.');
 }
 (async()=>{const server=spawn(process.env.PYTHON||'python',['-m','uvicorn','app.main:app','--host','127.0.0.1','--port','8773'],{cwd:root,stdio:['ignore','pipe','pipe']});let logs='';server.stdout.on('data',d=>logs+=d);server.stderr.on('data',d=>logs+=d);try{for(let i=0;;i++){if(server.exitCode!==null)throw new Error(logs);try{if((await fetch(base+'/api/teams')).ok)break}catch{}if(i===100)throw new Error(logs);await new Promise(r=>setTimeout(r,100))}await checks()}finally{server.kill()}})().catch(e=>{console.error(e);process.exitCode=1});
