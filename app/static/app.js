@@ -31,8 +31,10 @@ const rosterManagement = document.querySelector("#roster-management");
 const manageRoster = document.querySelector("#manage-roster");
 let draftBusy = false;
 let draftPendingChoice = null;
+let draftPendingAuto = false;
 const draftButton = document.querySelector("#draft-button");
 const draftDialog = document.querySelector("#draft-dialog");
+const autoDraftButton = document.querySelector("#auto-draft");
 const nextSeasonButton = document.querySelector("#next-season");
 let currentWeek = 0;
 let latestResult = null;
@@ -546,6 +548,7 @@ function renderSchedule(data, runSeed, { priorStandings = {}, history = [], care
   pendingCut = null;
   renderCuts();
   draftPendingChoice = null;
+  draftPendingAuto = false;
   draftButton.hidden = true;
   draftButton.textContent = "Start rookie draft";
   document.querySelector("#draft-summary").hidden = true;
@@ -1038,27 +1041,33 @@ async function careerRequest(action, extra = {}, context = null) {
   return response.json();
 }
 
-async function fetchDraft(choices, context = null) {
+function draftChoicesMatch(data, choices, autoDraft) {
+  if (!autoDraft) return JSON.stringify(data.manual_picks) === JSON.stringify(choices);
+  return data.complete && Array.isArray(data.manual_picks) && data.manual_picks.length === 4
+    && choices.every((id, index) => data.manual_picks[index] === id);
+}
+
+async function fetchDraft(choices, context = null, autoDraft = false) {
   const teamId = context?.teamId ?? activeTeamId;
   const season = context?.season ?? activeSeason;
   const seed = context?.runSeed ?? activeRunSeed;
   const ranks = context?.priorStandings ?? activePriorStandings;
   const dropped = context?.dropped ?? activeDropped;
   if ((context?.career ?? activeCareer).length || dropped.length) {
-    const data = await careerRequest(dropped.length ? "cuts" : "draft", { manual_picks: choices, dropped }, context);
+    const data = await careerRequest(dropped.length ? "cuts" : "draft", { manual_picks: choices, dropped, auto_draft: autoDraft }, context);
     if (data.team.id !== teamId || data.season !== season || data.run_seed !== seed
-        || JSON.stringify(data.manual_picks) !== JSON.stringify(choices)) throw new Error("Draft could not be restored.");
+        || !draftChoicesMatch(data, choices, autoDraft)) throw new Error("Draft could not be restored.");
     return data;
   }
   const response = await fetch(`/api/draft/${teamId}`, {
     method: "POST", headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ season, run_seed: seed, lineup_rules: context?.lineupRules ?? activeLineupRules, development_start: context?.developmentStart ?? activeDevelopmentStart ?? 1, rebuild_team: rebuildOrigin(context),
-      prior_standings: Object.keys(ranks).length ? ranks : null, manual_picks: choices }),
+      prior_standings: Object.keys(ranks).length ? ranks : null, manual_picks: choices, auto_draft: autoDraft }),
   });
   if (!response.ok) throw new Error("The draft could not be loaded. Please try again.");
   const data = await response.json();
   if (data.team.id !== teamId || data.season !== season || data.run_seed !== seed
-      || JSON.stringify(data.manual_picks) !== JSON.stringify(choices)) {
+      || !draftChoicesMatch(data, choices, autoDraft)) {
     throw new Error("The draft could not be loaded. Please try again.");
   }
   return data;
@@ -1100,6 +1109,7 @@ function applyDraft(data) {
 
 function renderDraft() {
   if (!draftState) return;
+  autoDraftButton.disabled = draftBusy || draftState.complete;
   document.querySelector("#draft-title").textContent = `Season ${draftState.draft_season} rookie draft`;
   document.querySelector("#draft-status").textContent = draftState.complete
     ? "All 120 picks are complete. Your four rookies have joined your offseason roster."
@@ -1133,10 +1143,13 @@ function renderDraft() {
   document.querySelector("#draft-board").hidden = draftState.complete;
 }
 
-async function loadDraft(choice = null) {
+async function loadDraft(choice = null, autoDraft = false) {
   if (draftBusy || advancingSeason || !playoffState?.postseason_complete || activeSeason >= 999) return;
+  if (autoDraft && draftState?.complete) return;
   draftBusy = true;
   draftPendingChoice = choice;
+  draftPendingAuto = autoDraft;
+  autoDraftButton.disabled = true;
   draftButton.disabled = true;
   document.querySelector("#change-team-button").disabled = true;
   nextSeasonButton.disabled = true;
@@ -1144,15 +1157,16 @@ async function loadDraft(choice = null) {
   document.querySelector("#draft-retry").hidden = true;
   if (!draftDialog.open) draftDialog.showModal();
   if (draftState) renderDraft();
-  document.querySelector("#draft-status").textContent = choice ? "Recording your pick and simulating CPU picks…" : "Loading rookie draft…";
+  document.querySelector("#draft-status").textContent = autoDraft ? "Auto-drafting your remaining picks…" : choice ? "Recording your pick and simulating CPU picks…" : "Loading rookie draft…";
   const teamId = activeTeamId, seed = activeRunSeed, season = activeSeason;
   const choices = [...(activeDraftChoices ?? []), ...(choice ? [choice] : [])];
   try {
-    const data = await fetchDraft(choices);
+    const data = await fetchDraft(choices, null, autoDraft);
     if (teamId !== activeTeamId || seed !== activeRunSeed || season !== activeSeason) return;
     applyDraft(data);
     saveProgress();
     draftPendingChoice = null;
+    draftPendingAuto = false;
   } catch (error) {
     if (teamId !== activeTeamId || seed !== activeRunSeed || season !== activeSeason) return;
     document.querySelector("#draft-error").textContent = error.message;
@@ -1175,7 +1189,8 @@ draftButton.addEventListener("click", () => {
 });
 document.querySelector("#draft-close").addEventListener("click", () => draftDialog.close());
 document.querySelector("#draft-position").addEventListener("change", renderDraft);
-document.querySelector("#draft-retry").addEventListener("click", () => loadDraft(draftPendingChoice));
+document.querySelector("#draft-retry").addEventListener("click", () => loadDraft(draftPendingChoice, draftPendingAuto));
+autoDraftButton.addEventListener("click", () => loadDraft(null, true));
 document.querySelector("#draft-prospects").addEventListener("click", event => {
   const button = event.target.closest("[data-draft-id]");
   if (button && !button.disabled) loadDraft(button.dataset.draftId);

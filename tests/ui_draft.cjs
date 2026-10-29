@@ -98,6 +98,29 @@ async function checks(){
  const damaged=JSON.parse(complete);damaged.draftChoices[0]='missing-prospect';
  const invalid=JSON.stringify(damaged);p=await restore(invalid);
  assert.match(q(p,'#save-status').textContent,/could not be loaded/);assert.equal(raw(p),invalid);assert.equal(q(p,'#schedule-section').hidden,true);p.dom.window.close();
+ // Auto-draft can finish from any user turn, preserves manual choices, and uses ordinary saved IDs.
+ for(const manualCount of [0,1,2,3]){
+  p=await restore(legacy);const previousStats=oldStats(p);
+  q(p,'#draft-button').click();await until(()=>save(p).draftChoices?.length===0);
+  for(let turn=1;turn<=manualCount;turn++){q(p,'#draft-prospects [data-draft-id]').click();await until(()=>save(p).draftChoices.length===turn)}
+  const prefix=[...save(p).draftChoices],priorPicks=structuredClone(p.state.last.picks),checkpoint=raw(p);
+  if(manualCount===1){
+   p.state.fail=true;q(p,'#auto-draft').click();await until(()=>!q(p,'#draft-error').hidden);
+   assert.equal(raw(p),checkpoint);assert.equal(q(p,'#next-season').hidden,true);p.state.fail=false;
+   q(p,'#draft-retry').click();
+  }else{
+   const count=p.state.calls;q(p,'#auto-draft').click();q(p,'#auto-draft').click();assert.equal(p.state.calls,count+1,'Auto-draft double click makes one request');
+   assert.equal(q(p,'#auto-draft').disabled,true);assert.ok([...p.d.querySelectorAll('#draft-prospects [data-draft-id]')].every(button=>button.disabled));
+  }
+  await until(()=>save(p).draftChoices.length===4);
+  assert.deepEqual(save(p).draftChoices.slice(0,manualCount),prefix);
+  assert.deepEqual(p.state.last.picks.slice(0,priorPicks.length),priorPicks);
+  assert.equal(p.state.last.picks.length,120);assert.equal(p.state.last.complete,true);
+  assert.equal(p.d.querySelectorAll('#roster-groups .roster-player').length,42);assert.equal(q(p,'#next-season').disabled,true);
+  assert.equal(q(p,'#draft-board').hidden,true);assert.deepEqual(oldStats(p),previousStats);
+  const allPicks=structuredClone(p.state.last.picks),saved=raw(p);p.dom.window.close();p=await restore(saved);
+  assert.deepEqual(p.state.last.picks,allPicks);assert.equal(raw(p),saved);p.dom.window.close();
+ }
  // Validate real POST requests and ensure unavailable/duplicate picks never commit.
  const first=await api(`/api/draft/${owner}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({season:1,run_seed:1234})});
  for(const body of [{manual_picks:['missing']},{manual_picks:['x','x']},{manual_picks:['a','b','c','d','e']},{season:999},{run_seed:-1},{prior_standings:{}},{manual_picks:[first.picks[0].player.id]}]){
