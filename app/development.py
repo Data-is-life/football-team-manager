@@ -44,6 +44,7 @@ class DevelopmentContext:
     run_seed: int
     development: tuple
     lineup_rules: int = 3
+    rebuild_team: str | None = None
 
     def __iter__(self):
         return iter(self.rosters)
@@ -62,7 +63,7 @@ def initial_state(player, seed):
 def with_rosters(context, rosters):
     old = dict(context.development)
     values = {p.id: old.get(p.id) or initial_state(p, context.run_seed) for _, players in rosters for p in players}
-    return DevelopmentContext(tuple(rosters), context.season, context.run_seed, tuple(sorted(values.items())), context.lineup_rules)
+    return DevelopmentContext(tuple(rosters), context.season, context.run_seed, tuple(sorted(values.items())), context.lineup_rules, context.rebuild_team)
 
 
 def rating_view(player, context):
@@ -102,22 +103,28 @@ def next_player(player, state, seed, season):
 
 
 
-def advance_context(context, run_seed, season, development_start=1, lineup_rules=None):
+def advance_context(context, run_seed, season, development_start=1, lineup_rules=None, rebuild_team=None):
     current_rules = getattr(context, 'lineup_rules', 1)
+    if rebuild_team is None and current_rules >= 3:
+        rebuild_team = context.rebuild_team
     lineup_rules = lineup_rules if lineup_rules is not None else max(3, current_rules)
     if lineup_rules not in (3, 4) or current_rules > lineup_rules:
         raise ValueError('Invalid development rules')
     if not 1 <= development_start <= season <= 999:
         raise ValueError('Invalid development season')
+    if current_rules >= 3 and context.rebuild_team != rebuild_team:
+        raise ValueError('Rebuild team cannot change during a career')
+    if rebuild_team is not None and (lineup_rules != 4 or development_start != 1):
+        raise ValueError('Rebuild careers must begin with initial development rules')
     if current_rules < 3:
         if not context and lineup_rules == 4:
-            from .lineups import initial_hierarchy
-            rosters = initial_hierarchy(run_seed)
+            from .lineups import initial_hierarchy, rebuild_lineups
+            rosters = rebuild_lineups(run_seed,rebuild_team) if rebuild_team is not None else initial_hierarchy(run_seed)
         else:
             rosters = tuple(context) if context else tuple((team.id, tuple(roster_for(team.id,run_seed).values())) for team in TEAMS)
         rosters = tuple((owner,ranked_players(players)) for owner,players in rosters)
         states = tuple(sorted((p.id,initial_state(p,run_seed)) for _,players in rosters for p in players))
-        context = DevelopmentContext(rosters,max(1,development_start-1),run_seed,states,lineup_rules)
+        context = DevelopmentContext(rosters,max(1,development_start-1),run_seed,states,lineup_rules,rebuild_team)
     # Changing a rules label never reshapes an existing roster.
     if context.lineup_rules != lineup_rules:
         context = replace(context, lineup_rules=lineup_rules)
@@ -135,5 +142,5 @@ def advance_context(context, run_seed, season, development_start=1, lineup_rules
                 updated.append(player)
                 updated_states.append((player.id,state))
             rosters.append((owner,ranked_players(updated)))
-        context = DevelopmentContext(tuple(rosters),year,run_seed,tuple(sorted(updated_states)),lineup_rules)
+        context = DevelopmentContext(tuple(rosters),year,run_seed,tuple(sorted(updated_states)),lineup_rules,rebuild_team)
     return context

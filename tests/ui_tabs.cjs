@@ -35,17 +35,18 @@ async function checkUI() {
   w.HTMLDialogElement.prototype.close=function(){this.open=false;this.dispatchEvent(new w.Event('close'));};
   let fail=false,randomCalls=0;
   const usedSeeds=[];
-  Object.defineProperty(w.crypto,'getRandomValues',{value:array=>{array[0]=fixtureSeed+randomCalls++;return array}});
+  Object.defineProperty(w.crypto,'getRandomValues',{value:array=>{array[0]=fixtureSeed+1+randomCalls++;return array}});
   w.fetch=path=>{
    const url=new URL(path,base);
    if(/^\/api\/(season|playoffs)\//.test(url.pathname)) usedSeeds.push(Number(url.searchParams.get('run_seed')));
    return fail && path.startsWith('/api/playoffs/') ? Promise.resolve({ok:false}) : fetch(url);
   };
   w.HTMLElement.prototype.scrollIntoView=()=>{};
+  // Restore pre-rebuild careers to retain explicit bye/elimination/champion coverage.
+  w.localStorage.setItem('arcade-league-save',JSON.stringify({version:7,teamId:id,runSeed:fixtureSeed,season:1,week:0,lineupRules:4,developmentStart:1,priorStandings:{},history:[],draftChoices:null,dropped:[],career:[],playoffRound:null}));
   w.eval(fs.readFileSync(path.join(root,'app/static/app.js'),'utf8'));
   await until(()=>d.querySelector('#team-select').options.length===31);
-  d.querySelector('#team-select').value=id;
-  d.querySelector('#team-form').dispatchEvent(new w.Event('submit',{cancelable:true}));
+  await until(()=>/restored/.test(d.querySelector('#save-status').textContent));
   await until(()=>!d.querySelector('#schedule-section').hidden);
   assert.equal(d.querySelectorAll('#schedule .opponent-record').length,17);
   for(const record of d.querySelectorAll('#schedule .opponent-record')) assert.equal(record.textContent,'Record: 0–0');
@@ -419,7 +420,7 @@ async function checkUI() {
   assert.equal(advance.textContent,'Postseason complete');
   checkLeagueContent();
   d.querySelector('#change-team-button').click();
-  assert.equal(randomCalls,1,'Tab changes, weeks, rounds, retries and cancel must retain the run seed');
+  assert.equal(randomCalls,0,'Tab changes, weeks, rounds, retries and cancel must retain the run seed');
   assert.ok(usedSeeds.length>0 && usedSeeds.every(seed=>seed===fixtureSeed));
   d.querySelector('#team-select').value='seattle';
   const realFetch=w.fetch;
@@ -427,7 +428,7 @@ async function checkUI() {
   w.fetch=()=>Promise.resolve({ok:false});
   d.querySelector('#team-form').dispatchEvent(new w.Event('submit',{cancelable:true}));
   await until(()=>!d.querySelector('#error').hidden && !d.querySelector('#team-form button[type=submit]').disabled);
-  assert.equal(randomCalls,2,'A failed start can draw a candidate seed without replacing the active run');
+  assert.equal(randomCalls,1,'A failed start can draw a candidate seed without replacing the active run');
   assert.equal(d.querySelector('#roster-groups').innerHTML,previousRoster);
   assert.equal(d.querySelector('#season-record').textContent,record);
   w.fetch=realFetch;
@@ -440,7 +441,7 @@ async function checkUI() {
   for(const record of d.querySelectorAll('#schedule .opponent-record')) assert.equal(record.textContent,'Record: 0–0');
   assert.equal(d.querySelector('#roster-ratings-button').getAttribute('aria-pressed'),'true');
   assert.equal(d.querySelector('#roster-competition').value,'regular');
-  const freshProfile=await (await fetch(base+`/api/team/seattle?run_seed=${fixtureSeed+2}`)).json();
+  const freshProfile=await (await fetch(base+`/api/team/seattle?run_seed=${fixtureSeed+2}&rebuild_team=seattle`)).json();
   const oldSeattle=await (await fetch(base+`/api/team/seattle?run_seed=${fixtureSeed}`)).json();
   checkRatings(freshProfile);
   assert.notDeepEqual(freshProfile.roster.map(player=>player.name),oldSeattle.roster.map(player=>player.name));
@@ -462,15 +463,15 @@ async function checkUI() {
   assert.equal(start.hidden,true);
   assert.equal(d.querySelectorAll('.roster-player').length,38);
   assert.equal(d.querySelectorAll('.roster-group').length,10);
-  assert.equal(randomCalls,3,'Starting another season gets a fresh seed');
+  assert.equal(randomCalls,2,'Starting another season gets a fresh seed');
   d.querySelector('#simulate-button').click();
   await until(()=>d.querySelector('#simulate-button').textContent==='Simulate Week 2');
   assert.equal(usedSeeds.at(-1),fixtureSeed+2);
-  const freshGame=await (await fetch(base+`/api/season/seattle/week/1?run_seed=${fixtureSeed+2}`)).json();
+  const freshGame=await (await fetch(base+`/api/season/seattle/week/1?run_seed=${fixtureSeed+2}&rebuild_team=seattle`)).json();
   assert.equal(d.querySelector('#season-record').textContent,`${freshGame.record.wins}–${freshGame.record.losses}${freshGame.record.ties?`–${freshGame.record.ties}`:''}`);
   assert.equal(d.querySelector('#schedule .game-final').textContent,`${freshGame.game_results[0].outcome} · ${freshGame.game_results[0].team_score}–${freshGame.game_results[0].opponent_score}${freshGame.game_results[0].overtime?' · OT':''}`);
   if(index===0) {
-   const oldData=await (await fetch(base+`/api/season/seattle/week/2?run_seed=${fixtureSeed+2}`)).json();
+   const oldData=await (await fetch(base+`/api/season/seattle/week/2?run_seed=${fixtureSeed+2}&rebuild_team=seattle`)).json();
    const live=w.fetch;let release;
    w.fetch=path=>path.startsWith('/api/season/') ? Promise.resolve({ok:true,json:()=>new Promise(resolve=>{release=()=>resolve(oldData)})}) : live(path);
    d.querySelector('#simulate-button').click();await until(()=>Boolean(release));

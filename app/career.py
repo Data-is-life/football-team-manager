@@ -57,18 +57,18 @@ def offseason(team_id, season, run_seed, choices, dropped, prior=(), roster_cont
 
 
 @lru_cache(maxsize=32)
-def replay_career(team_id: str, run_seed: int, steps: tuple, lineup_rules: int = 1, season: int = 1, development_start: int = 1) -> tuple:
+def replay_career(team_id: str, run_seed: int, steps: tuple, lineup_rules: int = 1, season: int = 1, development_start: int = 1, rebuild_team: str | None = None) -> tuple:
     target_season = season
     context = ()
     previous = 0
     for step in steps:
         season, prior, choices, dropped = step[:4]
         rules = step[4] if len(step) > 4 else 1
-        context = lineup_context(context, run_seed, rules, season, development_start)
+        context = lineup_context(context, run_seed, rules, season, development_start, rebuild_team)
         if season <= previous:
             raise ValueError('Career offseason years must be in increasing order')
         _, context = offseason(team_id, season, run_seed, choices, dropped, prior, context)
         if len(dict(context)[team_id]) > ROSTER_MAX:
             raise ValueError('Finalize each past roster at 38 players or fewer')
         previous = season
-    return lineup_context(context, run_seed, lineup_rules, target_season, development_start)
+    return lineup_context(context, run_seed, lineup_rules, target_season, development_start, rebuild_team)

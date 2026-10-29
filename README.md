@@ -101,7 +101,7 @@ Current is the ability rating used by roster decisions and simulation. Potential
 
 Legacy career rules retain the earlier age-band display until upgrading at a season boundary. New careers use development rules immediately.
 
-Player API payloads add `current_rating` and `potential_rating`. The existing `rating`, experience, and generated attribute data remain available for API/save compatibility and existing usage logic; attributes are no longer displayed and still do not affect gameplay. Save version 7 reconstructs the displayed ratings from seeded player state and offseason history.
+Player API payloads add `current_rating` and `potential_rating`. The existing `rating`, experience, and generated attribute data remain available for API/save compatibility and existing usage logic; attributes are no longer displayed and still do not affect gameplay. Save version 8 reconstructs the displayed ratings from seeded player state and offseason history.
 
 ## Run locally
 
@@ -262,7 +262,7 @@ All retained players are ordered by descending current rating within their posit
 
 Under the current lineup rules, each position starts its highest-current-rated players. Offense/defense ratings are 80% average starter rating plus 20% average bench rating, rounded to the nearest integer. If a unit has no bench, its starter average is used for the full rating. Kickers are excluded from both units and K1 is the highest-rated kicker. This affects scoring, usage, overtime, standings ratings, and postseason; potential is not used. Older saved seasons keep their original rating formula until the next season so completed results and draft availability cannot be rerolled.
 
-Save version 7 stores the managed team's completed draft choices, cuts, and each offseason's schedule context. The server replays those decisions to reconstruct all 30 rosters, rather than accepting arbitrary player attributes from the browser. Bounded caches include the immutable roster context so distinct rosters cannot share scores or standings accidentally. Later drafts start from the modified league; surviving rookies retain their IDs across further seasons and reloads. A failed next-season load preserves the completed offseason save.
+Save version 8 stores the managed team's completed draft choices, cuts, and each offseason's schedule context. The server replays those decisions to reconstruct all 30 rosters, rather than accepting arbitrary player attributes from the browser. Bounded caches include the immutable roster context so distinct rosters cannot share scores or standings accidentally. Later drafts start from the modified league; surviving rookies retain their IDs across further seasons and reloads. A failed next-season load preserves the completed offseason save.
 
 `POST /api/career/{team_id}` supports profile, week, playoffs, draft, and cuts actions with the run seed, current season/prior ranks, and completed offseason decisions. Each past offseason must be in increasing year order, precede the current season, include four valid picks and legal drops, and finish at 38 players or fewer. Existing seed-only GET APIs remain available for their original deterministic worlds; the UI uses career requests after roster changes.
 
@@ -307,8 +307,17 @@ Players from the most recent draft have an **R** badge beside their names in ros
 
 ## Initial starter and backup hierarchy
 
-New careers use lineup rules 4 (save version 7). Every team's initial roster is ranked by current ability, then backups are lowered relative to the weakest starter at that position. Starter counts remain QB 1, WR 2, TE 1, RB 1, OL 5, K 1, DL 4, LB 3, CB 2, and S 2.
+New careers use lineup rules 4 (save version 8). Every team's initial roster is ranked by current ability, then backups are lowered relative to the weakest starter at that position. Starter counts remain QB 1, WR 2, TE 1, RB 1, OL 5, K 1, DL 4, LB 3, CB 2, and S 2.
 
 If the weakest starter is rated 70 or higher, each backup has a seeded ceiling 8–14 points below that starter. If the weakest starter is below 70, the ceiling is only 1–4 points lower, allowing closer competition on weak units. These are minimum separations: an already weaker backup stays weaker. Initial QB and K backups are also capped at 74. The adjustment never improves or lowers the selected starters, and preserves player identities, names, ages, experience, roster sizes, and position minimums. Backup attributes and potential are initialized from their adjusted ability.
 
 This is a one-time initial-roster rule, not an ongoing limit. Future draft picks, development, aging, and automatic depth-chart changes can produce strong backups or new starters. Existing saved careers keep rules 1–3 and their original rosters, scores, and draft availability; they are not reshaped at their next season transition. Rules 4 persist through drafts, cuts, scouting, and later seasons. The 80% starter/20% bench team-rating formula is unchanged, so reducing initial bench quality can lower new-career team ratings.
+
+
+## Rebuild challenge
+
+New careers start the selected city with a struggling roster. Only that team is rebuilt: every initial player receives a seeded current rating from 52–69, then the starter/backup hierarchy is applied (which may lower a backup slightly further). Player identities, ages, experience, roster sizes, and position minimums are preserved. Other teams keep their normal initial rosters. A short first-season message explains the rebuilding job.
+
+This is a one-time starting condition. Potential is initialized from the rebuilt abilities and existing age/position rules; young players can develop, and draft picks retain their normal ratings. The team is never weakened again during a season transition. Better rosters can earn wins and championships through the normal simulation; losses are not scripted.
+
+Save version 8 stores `rebuildTeam`, the managed city at career creation. Team/week/playoff GET requests and draft/career POST requests carry the matching `rebuild_team` so profiles, scouting, ratings, standings, scores, CPU draft choices, cuts, and future seasons all use the same league. Immutable contexts and cache keys include this origin. Scouting another team never changes the managed team or starts another rebuild. Existing versions 1–7 restore with no rebuild origin and retain their original rosters and outcomes. Starting a new career intentionally creates a new rebuild.
