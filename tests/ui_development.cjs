@@ -1,5 +1,6 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 const {spawn}=require('node:child_process'),{JSDOM}=require('jsdom');
+const {finishOffseason}=require('./ui_offseason_helpers.cjs');
 const root=path.resolve(__dirname,'..'),base='http://127.0.0.1:8773',key='arcade-league-save';
 async function until(check){for(let i=0;i<2000;i++){if(check())return;await new Promise(r=>setTimeout(r,10))}throw new Error('UI state timed out')}
 async function api(url,body){const r=await fetch(base+url,body?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}:undefined);assert.equal(r.ok,true);return r.json()}
@@ -10,15 +11,16 @@ async function checks(){
  // Existing version-5 season remains frozen, then upgrades and ages once.
  const old={version:5,teamId:'seattle',runSeed:1234,season:1,week:17,playoffRound:4,priorStandings:{},history:[],draftChoices:null,dropped:[],career:[],lineupRules:2};
  let p=await restore(JSON.stringify(old));
- const before=await api('/api/team/seattle?run_seed=1234&lineup_rules=2');
+ await finishOffseason(p,until);
+ const before=(await api('/api/career/seattle',{action:'cuts',run_seed:1234,lineup_rules:2,manual_picks:save(p).draftChoices,dropped:save(p).dropped})).profile;
  assert.equal(p.d.querySelectorAll('.rating-change').length,0);
  q(p,'#next-season').click();await until(()=>save(p).season===2);
  assert.equal(save(p).version,9);assert.equal(save(p).lineupRules,3);assert.equal(save(p).developmentStart,2);
- const current=await api('/api/team/seattle?run_seed=1234&lineup_rules=3&season=2&development_start=2');
+ const current=await api('/api/career/seattle',{action:'profile',run_seed:1234,lineup_rules:3,season:2,development_start:2,career:save(p).career});
  const previous=new Map(before.roster.map(p=>[p.id,p]));
  let changed=0;
  for(const player of current.roster){
-  assert.equal(player.age,previous.get(player.id).age+1);
+  assert.equal(player.age,previous.get(player.id).age+(player.id.startsWith('rookie-')?0:1));
   const row=q(p,`#roster-groups [data-player-id="${player.id}"]`);
   assert.equal(row.children[2].textContent,String(player.age));
   const delta=player.current_rating-previous.get(player.id).current_rating;
@@ -32,7 +34,7 @@ async function checks(){
  const stats=q(p,'#roster-groups').textContent;
  const raw=p.w.localStorage.getItem(key);p.dom.window.close();p=await restore(raw);assert.equal(q(p,'#roster-groups').textContent,stats);
  q(p,'#simulate-button').click();await until(()=>save(p).week===1);
- const after=await api('/api/team/seattle?run_seed=1234&lineup_rules=3&season=2&development_start=2');assert.deepEqual(current,after,'Playing/retrying a week cannot age players again');
+ const after=await api('/api/career/seattle',{action:'profile',run_seed:1234,lineup_rules:3,season:2,development_start:2,career:save(p).career});assert.deepEqual(current,after,'Playing/retrying a week cannot age players again');
  p.dom.window.close();
  const invalid=await fetch(base+'/api/team/seattle?lineup_rules=3&season=2&development_start=3');assert.equal(invalid.status,422);
  // Version-6 development careers retain their exact old abilities when re-saved.

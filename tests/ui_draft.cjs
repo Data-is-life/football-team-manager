@@ -15,8 +15,9 @@ function page(checkpoint){
  w.HTMLDialogElement.prototype.close=function(){this.open=false;this.dispatchEvent(new w.Event('close'))};
  w.HTMLDialogElement.prototype.showModal=function(){this.open=true};
  Object.defineProperty(w.crypto,'getRandomValues',{value:a=>{a[0]=5678;return a}});
- const state={fail:false,calls:0,last:null};
+ const state={fail:false,calls:0,last:null,urls:[]};
  w.fetch=async(url,init)=>{
+  state.urls.push(url);
   if(url.startsWith('/api/draft/')){
    state.calls++;
    if(state.fail)return {ok:false};
@@ -35,9 +36,13 @@ async function checks(){
  const legacy=JSON.stringify({version:2,teamId:owner,runSeed:1234,season:1,week:17,playoffRound:4,priorStandings:{},history:[]});
  let p=await restore(legacy);assert.match(q(p,'#save-status').textContent,/restored/);
  assert.equal(q(p,'#draft-button').hidden,false);
+ assert.equal(q(p,'#next-season').hidden,true);assert.equal(q(p,'#next-season').disabled,true);
+ const calls=p.state.urls.length;
+ q(p,'#next-season').hidden=false;q(p,'#next-season').disabled=false;q(p,'#next-season').click();
+ assert.equal(p.state.urls.length,calls,'Even a forced click cannot bypass the draft');assert.equal(raw(p),legacy);
  const before=oldStats(p);q(p,'#roster-groups [data-position="QB"]').open=false;
  p.state.fail=true;q(p,'#draft-button').click();await until(()=>!q(p,'#draft-error').hidden);
- assert.equal(raw(p),legacy,'Failed start does not erase the saved season');assert.equal(q(p,'#next-season').disabled,false);
+ assert.equal(raw(p),legacy,'Failed start does not erase the saved season');assert.equal(q(p,'#next-season').disabled,true);assert.equal(q(p,'#next-season').hidden,true);
  p.state.fail=false;q(p,'#draft-retry').click();await until(()=>save(p).draftChoices?.length===0);
  assert.equal(p.state.last.class_size,200);assert.equal(p.state.last.order.length,30);
  assert.equal(p.state.last.next_pick,30,'Champion drafts last');
@@ -75,7 +80,7 @@ async function checks(){
   assert.match(q(p,'#save-status').textContent,/restored/);assert.equal(JSON.stringify(p.state.last.picks),picks);
   assert.equal(p.d.querySelectorAll('#roster-groups .roster-player').length,38+turn);
   assert.deepEqual(oldStats(p),before);
-  assert.equal(q(p,'#next-season').disabled,true);
+  assert.equal(q(p,'#next-season').disabled,true);assert.equal(q(p,'#next-season').hidden,turn<4);
   q(p,'#draft-button').click();
  }
  assert.equal(p.state.last.complete,true);assert.equal(p.state.last.picks.length,120);assert.equal(p.state.last.available.length,80);

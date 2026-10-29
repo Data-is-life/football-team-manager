@@ -3,6 +3,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const {spawn} = require('node:child_process');
 const {JSDOM} = require('jsdom');
+const {finishOffseason}=require('./ui_offseason_helpers.cjs');
 const root=path.resolve(__dirname,'..'),base='http://127.0.0.1:8770',key='arcade-league-save';
 const script=fs.readFileSync(path.join(root,'app/static/app.js'),'utf8');
 const html=fs.readFileSync(path.join(root,'app/static/index.html'),'utf8');
@@ -23,10 +24,11 @@ function page(raw) {
  w.HTMLDialogElement.prototype.showModal=function(){this.open=true};
  Object.defineProperty(w.crypto,'getRandomValues',{value:a=>{a[0]=5678;return a}});
  const state={failNext:false,delayNext:null,urls:[]};
- w.fetch=async url=> {
+ w.fetch=async (url,init)=> {
   state.urls.push(url);
   if(state.failNext && url.startsWith('/api/schedule/') && url.includes('season=2'))return {ok:false};
   if(state.delayNext && url.startsWith('/api/schedule/') && url.includes('season=2'))await state.delayNext;
+  if(init)return fetch(new URL(url,base),init);
   return {ok:true,json:()=>api(url)};
  };
  w.eval(script);
@@ -48,7 +50,7 @@ async function checks() {
  let p=await restore(legacy(id,3));
  assert.equal(q(p,'#next-season').hidden,true,'Cannot skip an unfinished postseason');p.dom.window.close();
  p=await restore(legacy(id));
- assert.equal(q(p,'#next-season').hidden,false);
+ assert.equal(q(p,'#next-season').hidden,true);await finishOffseason(p,until);assert.equal(q(p,'#next-season').hidden,false);
  const roster=[...p.d.querySelectorAll('.roster-player')].map(row=>[row.dataset.playerId,row.children[1].textContent]).sort();
  const regular=await api(`/api/season/${id}/week/17?season=1&run_seed=1234`);
  const ranks=ranksOf(regular),old=rawSave(p);
@@ -89,7 +91,7 @@ async function checks() {
   }
  }
  assert.equal(q(p,'#next-season').hidden,true);
- const expected=await api(`/api/season/${id}/week/17?season=2&run_seed=1234&lineup_rules=3&development_start=2&prior_standings=${encodeURIComponent(JSON.stringify(ranks))}`);
+ const expected=await (await fetch(base+'/api/career/'+id,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'week',season:2,week:17,run_seed:1234,lineup_rules:3,development_start:2,prior_standings:ranks,career:save(p).career})})).json();
  const rec=expected.record;assert.equal(q(p,'#season-record').textContent,`${rec.wins}–${rec.losses}${rec.ties?`–${rec.ties}`:''}`);
  q(p,'#playoffs-start').click();await until(()=>save(p).playoffRound===0);
  for(let round=1;round<=4;round++) {
@@ -97,7 +99,7 @@ async function checks() {
  }
  raw=rawSave(p);const playoffText=q(p,'#playoff-bracket').textContent;p.dom.window.close();p=await restore(raw);
  assert.equal(q(p,'#playoff-bracket').textContent,playoffText);
- assert.equal(q(p,'#next-season').textContent,'Continue to Season 3');
+ assert.equal(q(p,'#next-season').hidden,true);await finishOffseason(p,until);assert.equal(q(p,'#next-season').textContent,'Continue to Season 3');
  q(p,'#next-season').click();await until(()=>save(p).season===3);
  assert.deepEqual(save(p).priorStandings,ranksOf(expected));
  assert.equal(save(p).history.length,2);assert.deepEqual(save(p).history[0],history[0]);
@@ -114,7 +116,7 @@ async function checks() {
  const nonqual=teams.find(t=>!final.field.some(f=>f.team.id===t.id)).id;
  const game=final.rounds[0].games[0];const loser=game.winner.team.id===game.home.team.id?game.away.team.id:game.home.team.id;
  for(const [other,finish] of [[nonqual,'Missed playoffs'],[loser,'Lost in Wild Card']]) {
-  p=await restore(legacy(other));q(p,'#next-season').click();await until(()=>save(p).season===2);
+  p=await restore(legacy(other));assert.equal(q(p,'#next-season').hidden,true);await finishOffseason(p,until);q(p,'#next-season').click();await until(()=>save(p).season===2);
   assert.equal(save(p).history[0].playoffFinish,finish);p.dom.window.close();
  }
  // All three API routes reject malformed ranking context; object key order is irrelevant.

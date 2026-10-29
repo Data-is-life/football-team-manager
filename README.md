@@ -226,7 +226,7 @@ Saves store a versioned team/season/run-seed/progress checkpoint; the API recons
 
 ## Multiple seasons
 
-After completing the league championship, choose **Continue to Season 2** (then Season 3, and so on). This is available whether your team wins, loses, or misses qualification, once all four playoff rounds are complete. The API currently supports seasons 1–999; continuation stops at that limit.
+After completing all four playoff rounds, complete the rookie draft and trim the roster to at most 38 players. Then choose **Continue to Season 2** (then Season 3, and so on). The same offseason steps apply whether your team wins, loses, or misses qualification. The API currently supports seasons 1–999; continuation stops at that limit.
 
 Continuing retains your franchise, run seed, and finalized rosters for all 30 teams, including retained rookies and player cuts. Veterans age and gain experience once each offseason; current ability develops or declines by position and age. Attributes remain unchanged; retirements, free agency, and trades are separate future features. The new season has a fresh 17-game schedule, a new group rotation, a 0–0 record, and zero regular-season/playoff stats. Game results use the new season number, so they are not a replay of Season 1.
 
@@ -246,7 +246,7 @@ CPU teams select automatically up to your next turn. Their score balances prospe
 
 Each rookie is added without replacing a player: the offseason roster grows from 38 to 42. Your Roster includes the rookies, and scouting shows other teams' drafted players. Completed-season stats are preserved; rookies have zero production. Team ratings, depth leaders, and finished-season game outcomes do not change during the draft.
 
-After the draft, drop players directly from **Roster → Ratings**. **Manage roster** is a shortcut to this view. Next-season continuation unlocks when the roster is at most 38 and every position minimum is satisfied. Existing no-draft season continuation remains available if a draft has not been started. Salary caps, contracts, retirement, and trades are later work.
+After the draft, drop players directly from **Roster → Ratings**. **Manage roster** is a shortcut to this view. Next-season continuation unlocks when the roster is at most 38 and every position minimum is satisfied. The draft is mandatory before every future season transition, including restored legacy careers. Salary caps, contracts, retirement, and trades are later work.
 
 Draft choices autosave after each successful turn. Save version 4 stores up to four prospect IDs for the current draft plus cut and past offseason decisions; the API deterministically replays CPU decisions and validates that each chosen prospect was available at the user's actual pick. Reloads preserve the class, selection history, permanent IDs, and enlarged roster. Failed loads/picks preserve the last checkpoint and offer Retry; duplicate clicks cannot select twice. Versions 1 and 2 restore without a draft, and version 3 restores its saved draft; all upgrade on the next save. Starting a new career clears the draft. Drafts are available through the Season 998 offseason because the next season must fit the API's Season 999 limit.
 
@@ -336,3 +336,12 @@ Under-25 reserves outside QB/K normally receive a role floor of 5% of their unit
 The season's role is captured when entering it and preserved through draft/cut replay. Drafting a replacement cannot remove an incumbent's already assigned development credit. New rookies get no credit for a season before joining the team; they first earn role credit after their rookie season. The next season captures fresh roles after aging and depth-chart changes. Repeat requests, reloads, and playoff games never award extra development. Hidden role state is reconstructed server-side, not trusted from browser saves.
 
 Rules 5 boxes include participation, and Season Stats adds Snaps for all positions. Receiving adds Targets in game and season stats. Older rules retain their original payloads and table layouts. Scores remain outcome-first; this change allocates production after scoring rather than implementing the future drive engine.
+
+
+## Mandatory offseason draft
+
+After the league championship, **Start rookie draft** is the next step. The next-season button stays hidden until all four user picks and all 120 league picks are complete. A completed draft with more than 38 players shows a disabled **Roster limit: 38** button; finish cuts in Roster to enable **Continue to Season N**. Position minimums remain enforced by the cut API.
+
+Closing the draft, reloading midway, or a failed first draft load cannot enable a season skip. The transition handler independently requires a completed four-pick draft, even if button visibility is changed. A failed next-season load preserves the completed draft/cuts and allows retry. At season 999 no draft or transition is offered.
+
+Existing saves still load, including past seasons that skipped drafts. Their next transition must follow the current mandatory draft flow; past results are not replayed under new rules. The save format and simulation rules are unchanged. Automatic drafting remains a separate improvement.
