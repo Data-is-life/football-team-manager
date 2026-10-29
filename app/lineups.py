@@ -52,12 +52,31 @@ def initial_hierarchy(run_seed):
                  for team in TEAMS)
 
 
-def lineup_context(context, run_seed, rules, season=1, development_start=1):
+@lru_cache(maxsize=32)
+def rebuild_lineups(run_seed, team_id):
+    """Only the hired GM's initial roster changes; opponents keep normal ability."""
+    if team_id not in {team.id for team in TEAMS}:
+        raise ValueError('Unknown rebuild team')
+    rosters = dict(initial_hierarchy(run_seed))
+    players = []
+    for player in rosters[team_id]:
+        draw = int.from_bytes(hashlib.sha256(
+            f'rebuild-v1:{run_seed}:{player.id}'.encode()).digest()[:8], 'big')
+        rating = 52 + draw % 18
+        players.append(replace(player, rating=rating,
+            attributes=generate_attributes(player.id, player.position, rating, run_seed)))
+    rosters[team_id] = starter_hierarchy(players, run_seed)
+    return tuple(rosters.items())
+
+
+def lineup_context(context, run_seed, rules, season=1, development_start=1, rebuild_team=None):
+    if rebuild_team is not None and rules != 4:
+        raise ValueError('Rebuild careers require lineup rules 4')
     if rules in (3, 4):
         from .development import advance_context
         if getattr(context, 'lineup_rules', 1) > rules:
             raise ValueError('Lineup rules cannot be downgraded')
-        return advance_context(context,run_seed,season,development_start,rules)
+        return advance_context(context,run_seed,season,development_start,rules,rebuild_team)
     if rules == 1:
         if getattr(context, 'lineup_rules', 1) != 1:
             raise ValueError('Lineup rules cannot be downgraded')

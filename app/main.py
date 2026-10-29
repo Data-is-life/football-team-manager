@@ -37,9 +37,9 @@ def list_teams() -> dict[str, object]:
     return {"groups": list(GROUPS), "teams": teams_payload()}
 
 
-def request_lineups(seed, rules, season, start):
+def request_lineups(seed, rules, season, start, rebuild_team=None):
     try:
-        return lineup_context((),seed,rules,season,start)
+        return lineup_context((),seed,rules,season,start,rebuild_team)
     except ValueError as error:
         raise HTTPException(status_code=422,detail=str(error)) from error
 
@@ -48,10 +48,11 @@ def request_lineups(seed, rules, season, start):
 def team_profile(team_id: str, run_seed: Annotated[int, Query(ge=0, le=4294967295)] = 0,
                  lineup_rules: Annotated[int, Query(ge=1, le=4)] = 1,
                  season: Annotated[int, Query(ge=1, le=999)] = 1,
-                 development_start: Annotated[int, Query(ge=1, le=999)] = 1) -> dict[str, object]:
+                 development_start: Annotated[int, Query(ge=1, le=999)] = 1,
+                 rebuild_team: Annotated[str | None, Query(max_length=40)] = None) -> dict[str, object]:
     if team_id not in TEAM_BY_ID:
         raise HTTPException(status_code=404, detail="Team not found")
-    context = request_lineups(run_seed,lineup_rules,season,development_start)
+    context = request_lineups(run_seed,lineup_rules,season,development_start,rebuild_team)
     players = list(roster_for(team_id, run_seed, context).values())
     return profile_payload(team_id, players, run_seed, context)
 
@@ -67,6 +68,7 @@ def profile_payload(team_id, players, run_seed, roster_context=()):
         "ratings": asdict(team_ratings(team_id, run_seed, roster_context)),
         "run_seed": run_seed,
         "lineup_rules": getattr(roster_context, "lineup_rules", 1),
+        **({"rebuild_team": roster_context.rebuild_team} if getattr(roster_context, "rebuild_team", None) else {}),
         "roster": [{**asdict(player), **rating_payload(player,roster_context), "attributes": {
             key: getattr(player.attributes, key) for key in attribute_keys(player.position)
         }} for player in players],
@@ -104,6 +106,7 @@ def team_schedule(
     prior_standings: Annotated[str | None, Query(max_length=2000)] = None,
     lineup_rules: Annotated[int, Query(ge=1, le=4)] = 1,
     development_start: Annotated[int, Query(ge=1, le=999)] = 1,
+    rebuild_team: Annotated[str | None, Query(max_length=40)] = None,
 ) -> dict[str, object]:
     if team_id not in TEAM_BY_ID:
         raise HTTPException(status_code=404, detail="Team not found")
@@ -127,6 +130,7 @@ def simulate_week(
     prior_standings: Annotated[str | None, Query(max_length=2000)] = None,
     lineup_rules: Annotated[int, Query(ge=1, le=4)] = 1,
     development_start: Annotated[int, Query(ge=1, le=999)] = 1,
+    rebuild_team: Annotated[str | None, Query(max_length=40)] = None,
 ) -> dict[str, object]:
     if team_id not in TEAM_BY_ID:
         raise HTTPException(status_code=404, detail="Team not found")
@@ -134,7 +138,7 @@ def simulate_week(
         raise HTTPException(status_code=400, detail="Week must be between 1 and 17")
     return simulate_through_week(team_id=team_id, season=season, week=week, run_seed=run_seed,
                                  prior_standings=parse_prior_standings(prior_standings),
-                                 roster_context=request_lineups(run_seed,lineup_rules,season,development_start))
+                                 roster_context=request_lineups(run_seed,lineup_rules,season,development_start,rebuild_team))
 
 
 @app.get("/api/playoffs/{team_id}/round/{round_number}")
@@ -146,13 +150,14 @@ def playoff_round(
     prior_standings: Annotated[str | None, Query(max_length=2000)] = None,
     lineup_rules: Annotated[int, Query(ge=1, le=4)] = 1,
     development_start: Annotated[int, Query(ge=1, le=999)] = 1,
+    rebuild_team: Annotated[str | None, Query(max_length=40)] = None,
 ) -> dict[str, object]:
     if team_id not in TEAM_BY_ID:
         raise HTTPException(status_code=404, detail="Team not found")
     if round_number < 0 or round_number > 4:
         raise HTTPException(status_code=400, detail="Playoff round must be between 0 and 4")
     return playoffs_through_round(team_id, season, round_number, run_seed,
-                                  parse_prior_standings(prior_standings), request_lineups(run_seed,lineup_rules,season,development_start))
+                                  parse_prior_standings(prior_standings), request_lineups(run_seed,lineup_rules,season,development_start,rebuild_team))
 
 
 class DraftRequest(BaseModel):
@@ -160,6 +165,7 @@ class DraftRequest(BaseModel):
     run_seed: int = Field(default=0, ge=0, le=4294967295)
     lineup_rules: Literal[1, 2, 3, 4] = 1
     development_start: int = Field(default=1, ge=1, le=999)
+    rebuild_team: str | None = Field(default=None, max_length=40)
     prior_standings: dict[str, StrictInt] | None = None
     manual_picks: list[str] = Field(default_factory=list, max_length=4)
 
@@ -170,7 +176,9 @@ def rookie_draft(team_id: str, request: DraftRequest) -> dict:
         raise HTTPException(status_code=404, detail="Team not found")
     prior = parse_prior_standings(json.dumps(request.prior_standings) if request.prior_standings is not None else None)
     try:
-        context = lineup_context((), request.run_seed, request.lineup_rules,request.season,request.development_start)
+        if request.rebuild_team is not None and request.rebuild_team != team_id:
+            raise ValueError('Rebuild team must match the managed team')
+        context = lineup_context((), request.run_seed, request.lineup_rules,request.season,request.development_start,request.rebuild_team)
         draft, players = build_draft(team_id, request.season, request.run_seed,
                                     tuple(request.manual_picks), prior, context)
     except ValueError as error:
@@ -192,6 +200,7 @@ class CareerRequest(BaseModel):
     run_seed: int = Field(default=0, ge=0, le=4294967295)
     lineup_rules: Literal[1, 2, 3, 4] = 1
     development_start: int = Field(default=1, ge=1, le=999)
+    rebuild_team: str | None = Field(default=None, max_length=40)
     prior_standings: dict[str, StrictInt] | None = None
     career: list[CareerStep] = Field(default_factory=list, max_length=998)
     manual_picks: list[str] = Field(default_factory=list, max_length=4)
@@ -210,11 +219,13 @@ def career_action(team_id: str, request: CareerRequest) -> dict:
     if team_id not in TEAM_BY_ID or (request.view_team is not None and request.view_team not in TEAM_BY_ID):
         raise HTTPException(status_code=404, detail='Team not found')
     try:
+        if request.rebuild_team is not None and request.rebuild_team != team_id:
+            raise ValueError('Rebuild team must match the managed team')
         if any(step.season >= request.season for step in request.career):
             raise ValueError('Past offseasons must precede the current season')
         steps = tuple((step.season, ranks_context(step.prior_standings), tuple(step.manual_picks), tuple(step.dropped), step.lineup_rules)
                       for step in request.career)
-        context = replay_career(team_id, request.run_seed, steps, request.lineup_rules,request.season,request.development_start)
+        context = replay_career(team_id, request.run_seed, steps, request.lineup_rules,request.season,request.development_start,request.rebuild_team)
         prior = ranks_context(request.prior_standings)
         viewed = request.view_team or team_id
         if request.action == 'week':
