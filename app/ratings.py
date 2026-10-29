@@ -3,7 +3,7 @@ import hashlib
 
 
 def rating_payload(player, roster_context=()) -> dict[str, int]:
-    if getattr(roster_context,"lineup_rules",1)==3:
+    if getattr(roster_context,"lineup_rules",1)>=3:
         from .development import rating_view
         return rating_view(player,roster_context)
     current = player.rating

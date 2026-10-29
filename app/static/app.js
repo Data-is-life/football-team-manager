@@ -14,7 +14,7 @@ const cancelTeamChange = document.querySelector("#cancel-team-change");
 let activeTeamId = null;
 let activeRunSeed = 0;
 let activeSeason = 1;
-let activeLineupRules = 3;
+let activeLineupRules = 4;
 let activeDevelopmentStart = 1;
 let activePriorStandings = {};
 let careerHistory = [];
@@ -58,7 +58,7 @@ let restoring = false;
 
 function saveProgress() {
   if (!activeTeamId || restoring) return;
-  const save = { version: 6, teamId: activeTeamId, runSeed: activeRunSeed,
+  const save = { version: 7, teamId: activeTeamId, runSeed: activeRunSeed,
     season: activeSeason, week: currentWeek, lineupRules: activeLineupRules, developmentStart: activeDevelopmentStart,
     priorStandings: activePriorStandings, history: careerHistory,
     draftChoices: activeDraftChoices,
@@ -78,7 +78,7 @@ function readSave() {
   if (!raw) return null;
   const save = JSON.parse(raw);
   const integer = (value, min, max) => Number.isInteger(value) && value >= min && value <= max;
-  if (!save || ![1, 2, 3, 4, 5, 6].includes(save.version) || typeof save.teamId !== "string"
+  if (!save || ![1, 2, 3, 4, 5, 6, 7].includes(save.version) || typeof save.teamId !== "string"
       || ![...select.options].some(option => option.value && option.value === save.teamId)
       || !integer(save.runSeed, 0, 4294967295) || !integer(save.season, 1, 999)
       || !integer(save.week, 0, 17)
@@ -107,9 +107,9 @@ function readSave() {
         && ids(step.manual_picks) && step.manual_picks.length === 4 && ids(step.dropped)
         && validPriorStandings(step.prior_standings ?? {}, step.season))) throw new Error("Invalid roster save");
   if (save.version < 5) save.lineupRules = 1;
-  if (![1, 2, 3].includes(save.lineupRules)) throw new Error("Invalid lineup rules");
+  if (![1, 2, 3, 4].includes(save.lineupRules)) throw new Error("Invalid lineup rules");
   if (save.lineupRules < 3) save.developmentStart = null;
-  if (save.lineupRules === 3 && !integer(save.developmentStart, 1, save.season)) throw new Error("Invalid development start");
+  if (save.lineupRules >= 3 && !integer(save.developmentStart, 1, save.season)) throw new Error("Invalid development start");
   const allowedFinishes = ["Champions", "Missed playoffs", "Lost in Wild Card", "Lost in Quarterfinals", "Lost in Semifinals", "Lost in Championship"];
   const knownTeam = id => [...select.options].some(option => option.value && option.value === id);
   if (!Array.isArray(save.history) || save.history.length !== save.season - 1
@@ -400,7 +400,7 @@ function renderTeamProfile(profile, latestDraftSeason = activeSeason) {
   document.querySelector("#defense-rating").textContent = profile.ratings.defense;
   const groups = createRosterGroups(profile);
   document.querySelector("#roster-groups").replaceChildren(...groups);
-  document.querySelector("#development-note").textContent = profile.lineup_rules === 3
+  document.querySelector("#development-note").textContent = profile.lineup_rules >= 3
     ? "Ratings change once each offseason by position and age. Potential is a possible ceiling; arrows show last offseason’s actual change. Longevity varies by player."
     : "This saved season keeps its original ratings. Position-specific development and aging begin next season.";
   document.querySelector("#roster-title").textContent = `Roster · ${profile.roster.length} players`;
@@ -505,7 +505,7 @@ function createRunSeed() {
   return candidate === activeRunSeed ? (candidate % 4294967295) + 1 : candidate;
 }
 
-function renderSchedule(data, runSeed, { priorStandings = {}, history = [], career = [], lineupRules = 3, developmentStart = 1 } = {}) {
+function renderSchedule(data, runSeed, { priorStandings = {}, history = [], career = [], lineupRules = 4, developmentStart = 1 } = {}) {
   if (rosterDialog.open) rosterDialog.close();
   activeTeamId = data.team.id;
   activeRunSeed = runSeed;
@@ -806,7 +806,7 @@ form.addEventListener("submit", async (event) => {
     const runSeed = createRunSeed();
     const [scheduleResponse, profileResponse] = await Promise.all([
       fetch(`/api/schedule/${teamId}?season=1`),
-      fetch(`/api/team/${teamId}?run_seed=${runSeed}&lineup_rules=3&season=1&development_start=1`),
+      fetch(`/api/team/${teamId}?run_seed=${runSeed}&lineup_rules=4&season=1&development_start=1`),
     ]);
     if (!scheduleResponse.ok || !profileResponse.ok) {
       throw new Error("Your team could not be loaded. Please try again.");
@@ -814,7 +814,7 @@ form.addEventListener("submit", async (event) => {
     const [schedule, profile] = await Promise.all([
       scheduleResponse.json(), profileResponse.json(),
     ]);
-    if (profile.run_seed !== runSeed || profile.team.id !== teamId || profile.lineup_rules !== 3) {
+    if (profile.run_seed !== runSeed || profile.team.id !== teamId || profile.lineup_rules !== 4) {
       throw new Error("Your team could not be loaded. Please try again.");
     }
     renderTeamProfile(profile, 1);
@@ -1266,6 +1266,7 @@ nextSeasonButton.addEventListener("click", async () => {
       : !playoffState.qualified ? "Missed playoffs" : `Lost in ${lastOwnRound.name}` };
   try {
     const developmentStart = activeDevelopmentStart ?? nextSeason;
+    const lineupRules = Math.max(3, activeLineupRules);
     const career = activeDraftChoices === null ? activeCareer : [...activeCareer, {
       season: activeSeason, prior_standings: Object.keys(activePriorStandings).length ? activePriorStandings : null,
       manual_picks: activeDraftChoices, dropped: activeDropped, lineup_rules: activeLineupRules,
@@ -1278,17 +1279,17 @@ nextSeasonButton.addEventListener("click", async () => {
     }
     const history = [...careerHistory, summary];
     let profile;
-    if (career.length) profile = await careerRequest("profile", { season: nextSeason, career, lineup_rules: 3, development_start: developmentStart });
+    if (career.length) profile = await careerRequest("profile", { season: nextSeason, career, lineup_rules: lineupRules, development_start: developmentStart });
     else {
-      const response = await fetch(`/api/team/${activeTeamId}?run_seed=${activeRunSeed}&lineup_rules=3&season=${nextSeason}&development_start=${developmentStart}`);
+      const response = await fetch(`/api/team/${activeTeamId}?run_seed=${activeRunSeed}&lineup_rules=${lineupRules}&season=${nextSeason}&development_start=${developmentStart}`);
       if (!response.ok) throw new Error("The next season could not be loaded. Please try again.");
       profile = await response.json();
     }
-    if (profile.team?.id !== activeTeamId || profile.run_seed !== activeRunSeed || profile.lineup_rules !== 3) {
+    if (profile.team?.id !== activeTeamId || profile.run_seed !== activeRunSeed || profile.lineup_rules !== lineupRules) {
       throw new Error("The next season could not be loaded. Please try again.");
     }
     renderTeamProfile(profile, nextSeason);
-    renderSchedule(schedule, activeRunSeed, { priorStandings: ranks, history, career, lineupRules: 3, developmentStart });
+    renderSchedule(schedule, activeRunSeed, { priorStandings: ranks, history, career, lineupRules, developmentStart });
     saveProgress();
   } catch (error) {
     showError(error.message);
