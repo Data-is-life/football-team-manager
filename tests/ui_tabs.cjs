@@ -79,7 +79,7 @@ async function checkUI() {
    assert.doesNotMatch(d.querySelector('#roster-groups').textContent,/Scouting rating|Football IQ|Clutch Factor/);
   }
   checkRatings(api);
-  const views=['roster','game','schedule','standings','league','race','playoffs'];
+  const views=['roster','game','schedule','standings','league','race','playoffs','gm'];
   assert.deepEqual([...d.querySelectorAll('.view-tab')].map(tab=>tab.id),views.map(view=>`view-${view}`));
   let requests=0;
   const originalFetch=w.fetch;
@@ -107,10 +107,10 @@ async function checkUI() {
    button.dispatchEvent(new w.KeyboardEvent('keydown',{key,bubbles:true,cancelable:true}));
    checkView(to);assert.equal(d.activeElement.id,`view-${to}`);
   }
-  key('roster','ArrowLeft','playoffs');
-  key('playoffs','ArrowRight','roster');
-  key('schedule','End','playoffs');
-  key('playoffs','Home','roster');
+  key('roster','ArrowLeft','gm');
+  key('gm','ArrowRight','roster');
+  key('schedule','End','gm');
+  key('gm','Home','roster');
   key('roster','ArrowRight','game');
   const rosterGroup=d.querySelector('.roster-group');rosterGroup.open=false;
   go('schedule');go('roster');assert.equal(rosterGroup.open,false);
@@ -262,6 +262,9 @@ async function checkUI() {
     assert.deepEqual({roster:d.querySelector('#roster-groups').innerHTML,team:d.querySelector('#team-name').textContent,record:d.querySelector('#season-record').textContent,week:d.querySelector('#simulate-button').textContent,seedCalls:randomCalls},before);
     go(selected);
    }
+   assert.equal(d.querySelector('#gm-regular').textContent,`${weekData.record.wins}–${weekData.record.losses}–${weekData.record.ties}`);
+   assert.equal(d.querySelector('#gm-appearances').textContent,String(week===17&&weekData.standings.playoff_race.some(entry=>entry.team.id===id)?1:0));
+   assert.equal(d.querySelector('#gm-playoffs').textContent,'0–0');assert.equal(d.querySelector('#gm-championships').textContent,'0');
    const qualification=d.querySelector('#qualification-status');
    assert.equal(qualification.hidden,week<17,'Qualification is only announced after the regular season');
    assert.equal(qualification.getAttribute('role'),'status');
@@ -507,7 +510,7 @@ async function checkUI() {
   assert.doesNotMatch(fixture.textContent,/NaN|Infinity|null|undefined/);
   dom.window.close();
  }
- console.log('UI checks passed: seven tabs, keyboard navigation, empty states, unchanged views across weeks, roster collapse state, always-expanded league content, efficiency/kicking/roster season stats, full seasons/playoffs, retry, and team reset/cancel.');
+ console.log('UI checks passed: eight tabs, keyboard navigation, empty states, unchanged views across weeks, roster collapse state, always-expanded league content, efficiency/kicking/roster season stats, full seasons/playoffs, retry, and team reset/cancel.');
  }
 (async()=>{
  const server=spawn(process.env.PYTHON || 'python',['-m','uvicorn','app.main:app','--host','127.0.0.1','--port','8767'],{cwd:root,stdio:['ignore','pipe','pipe']});

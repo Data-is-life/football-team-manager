@@ -16,7 +16,7 @@ Python owns the league rules and schedule generation. The browser layer only ren
 - 4 remaining opponents from a rotating group
 - five-season group rotation
 - responsive schedule screen
-- seven top tabs: Roster, Game Stats, Schedule, Standings, League Results, Playoff Race, and Playoffs
+- eight top tabs: Roster, Game Stats, Schedule, Standings, League Results, Playoff Race, Playoffs, and GM Records
 - one-click, week-by-week simulation
 - fresh fictional rosters and team ratings on each start, reproducible within one run
 - final score, team comparison, and player box scores
@@ -101,7 +101,7 @@ Current is the ability rating used by roster decisions and simulation. Potential
 
 Legacy career rules retain the earlier age-band display until upgrading at a season boundary. New careers use development rules immediately.
 
-Player API payloads add `current_rating` and `potential_rating`. The existing `rating`, experience, and generated attribute data remain available for API/save compatibility and existing usage logic; attributes are no longer displayed and still do not affect gameplay. Save version 9 reconstructs the displayed ratings from seeded player state and offseason history.
+Player API payloads add `current_rating` and `potential_rating`. The existing `rating`, experience, and generated attribute data remain available for API/save compatibility and existing usage logic; attributes are no longer displayed and still do not affect gameplay. Save version 10 reconstructs the displayed ratings from seeded player state and offseason history.
 
 ## Run locally
 
@@ -155,7 +155,7 @@ npm ci
 npm run test:ui
 ```
 
-The UI suites start local FastAPI servers on ports 8767, 8769, 8770, 8771, 8772, and 8773 and checks tab/keyboard navigation, empty states, full seasons and playoffs, box-score values, roster collapse state, always-expanded league content, failed-request retry, team reset/cancel, save restoration, and multiple-season continuation using jsdom. Node dependencies are only for development checks; Render still runs the Python app directly. These DOM checks do not verify visual layout.
+The UI suites start local FastAPI servers on ports 8767, 8769, 8770, 8771, 8772, 8773, and 8774 and checks tab/keyboard navigation, empty states, full seasons and playoffs, box-score values, roster collapse state, always-expanded league content, failed-request retry, team reset/cancel, save restoration, and multiple-season continuation using jsdom. Node dependencies are only for development checks; Render still runs the Python app directly. These DOM checks do not verify visual layout.
 
 ## Randomized runs
 
@@ -232,9 +232,9 @@ Continuing retains your franchise, run seed, and finalized rosters for all 30 te
 
 Same-place opponents use the previous season's actual final group ranks. The browser carries all 30 ranks into schedule, simulation, standings, and postseason requests as the optional JSON `prior_standings` query parameter. The API validates one rank from 1–5 per team/group and canonicalizes the mapping for bounded cache keys. Existing API callers that omit the mapping keep the original placeholder ranks; Season 1 also uses those placeholders. This avoids replaying every past season when restoring a later save.
 
-**Franchise history** above the tabs lists completed prior seasons: your regular-season record, playoff finish, and league champion. It is a summary archive; individual past-season box scores and player/career totals are not retained. A failed season transition leaves the current game and saved checkpoint intact; retrying cannot append duplicate history. **Choose another team → Start new career** explicitly resets season, history, and seed instead of continuing the franchise.
+**Franchise history** inside GM Records lists completed prior seasons: your regular-season record, playoff finish/record, and league champion. It is a summary archive; individual past-season box scores and individual player career totals are not retained. A failed season transition leaves the current game and saved checkpoint intact; retrying cannot append duplicate history. **Choose another team → Start new career** explicitly resets season, history, and seed instead of continuing the franchise.
 
-Save version 6 includes prior ranks, history summaries, draft choices, drops, past offseason decisions, lineup/rating rules, and the season development was enabled. Version 2 and 3 career/draft saves remain supported. Version 1 saves from the saved-progress PR still restore with identical first-season results and upgrade on the next successful save. Refreshing in later seasons restores the correct schedule, standings, season totals, and postseason without mixing seasons.
+Save version 10 includes prior ranks, history summaries with exact playoff records for newly completed seasons, draft choices, drops, past offseason decisions, lineup/rating rules, and the season development was enabled. Version 2 and 3 career/draft saves remain supported. Version 1 saves from the saved-progress PR still restore with identical first-season results and upgrade on the next successful save. Refreshing in later seasons restores the correct schedule, standings, season totals, and postseason without mixing seasons.
 
 ## Four-round rookie draft
 
@@ -262,7 +262,7 @@ All retained players are ordered by descending current rating within their posit
 
 Under the current lineup rules, each position starts its highest-current-rated players. Offense/defense ratings are 80% average starter rating plus 20% average bench rating, rounded to the nearest integer. If a unit has no bench, its starter average is used for the full rating. Kickers are excluded from both units and K1 is the highest-rated kicker. This affects scoring, usage, overtime, standings ratings, and postseason; potential is not used. Older saved seasons keep their original rating formula until the next season so completed results and draft availability cannot be rerolled.
 
-Save version 9 stores the managed team's completed draft choices, cuts, and each offseason's schedule context. The server replays those decisions to reconstruct all 30 rosters, rather than accepting arbitrary player attributes from the browser. Bounded caches include the immutable roster context so distinct rosters cannot share scores or standings accidentally. Later drafts start from the modified league; surviving rookies retain their IDs across further seasons and reloads. A failed next-season load preserves the completed offseason save.
+Save version 10 stores the managed team's completed draft choices, cuts, and each offseason's schedule context. The server replays those decisions to reconstruct all 30 rosters, rather than accepting arbitrary player attributes from the browser. Bounded caches include the immutable roster context so distinct rosters cannot share scores or standings accidentally. Later drafts start from the modified league; surviving rookies retain their IDs across further seasons and reloads. A failed next-season load preserves the completed offseason save.
 
 `POST /api/career/{team_id}` supports profile, week, playoffs, draft, and cuts actions with the run seed, current season/prior ranks, and completed offseason decisions. Each past offseason must be in increasing year order, precede the current season, include four valid picks and legal drops, and finish at 38 players or fewer. Existing seed-only GET APIs remain available for their original deterministic worlds; the UI uses career requests after roster changes.
 
@@ -307,7 +307,7 @@ Players from the most recent draft have an **R** badge beside their names in ros
 
 ## Initial starter and backup hierarchy
 
-New careers use lineup rules 5 (save version 9). Every team's initial roster is ranked by current ability, then backups are lowered relative to the weakest starter at that position. Starter counts remain QB 1, WR 2, TE 1, RB 1, OL 5, K 1, DL 4, LB 3, CB 2, and S 2.
+New careers use lineup rules 5 (save version 10). Every team's initial roster is ranked by current ability, then backups are lowered relative to the weakest starter at that position. Starter counts remain QB 1, WR 2, TE 1, RB 1, OL 5, K 1, DL 4, LB 3, CB 2, and S 2.
 
 If the weakest starter is rated 70 or higher, each backup has a seeded ceiling 8–14 points below that starter. If the weakest starter is below 70, the ceiling is only 1–4 points lower, allowing closer competition on weak units. These are minimum separations: an already weaker backup stays weaker. Initial QB and K backups are also capped at 74. The adjustment never improves or lowers the selected starters, and preserves player identities, names, ages, experience, roster sizes, and position minimums. Backup attributes and potential are initialized from their adjusted ability.
 
@@ -325,7 +325,7 @@ Save version 8 stores `rebuildTeam`, the managed city at career creation. Team/w
 
 ## Rating-based rotations and youth development
 
-New careers use lineup rules 5 and save version 9. Existing saves keep their current-season playing-time model and remain on their existing rules in later seasons (the earlier rules 1/2 development migration is unchanged). Start a new career for the new rotations.
+New careers use lineup rules 5 and save version 10. Existing saves keep their current-season playing-time model and remain on their existing rules in later seasons (the earlier rules 1/2 development migration is unchanged). Start a new career for the new rotations.
 
 QB1 handles all passing and K1 all kicking; youth development does not force their backups into games. Starting OL receive nearly all pass/run blocking snaps, with a small reserve role. RB carries favor the stronger starter while keeping a rotation. WR/TE targets combine their current ability with their assigned role; the existing 60% WR / 22% TE / 18% RB receiving mix remains. DL rotate most, LB next, with lighter CB/S rotations. Depth is automatically ranked by current rating as before. Potential does not influence playing time.
 
@@ -361,3 +361,12 @@ Draft/career POST requests accept a strict boolean `auto_draft` flag. The respon
 As soon as Week 17 finishes, a message above the tabs announces the selected team's final playoff qualification. Qualifiers receive a green congratulations message with their final seed, group-winner/wildcard route, final W–L–T record, and first-round bye when applicable. Teams outside the final field receive a red missed-playoffs message and their final record. The final standings determine the message using the same tiebreakers as the playoff field; earlier weeks do not announce qualification.
 
 The regular-season message remains available while following the playoffs, independently of individual playoff win/loss messages. Reloads reconstruct it from the saved regular-season snapshot. Advancing to the next season or starting another career clears it. This UI change works with existing saves and makes no extra API requests or simulation changes.
+
+
+## GM Records
+
+The **GM Records** tab follows Playoffs and preserves the order of the existing seven tabs. It shows career regular-season W–L–T, playoff appearances, playoff wins/losses, and championships. Career totals include the current season's completed games. A playoff appearance counts when the final Week 17 field is known, even before revealing the bracket. Only completed playoff games count toward the playoff record; byes do not count as wins, and championships count only when your team wins the final.
+
+The completed-season Franchise history table now lives in GM Records and includes each season's playoff record. Save version 10 stores exact playoff wins/losses when advancing to the next season. The completed season moves from live totals into history once, avoiding double counting. Reloads preserve totals, and starting a new career resets them. Opening the tab makes no requests and changes no saved progress.
+
+Older saves remain supported. Their completed-season summaries store a finishing round but not bye information, so exact playoff wins cannot always be recovered. Those seasons display a bounded range rather than an invented result: for example, an old champion has 3–4 wins and no losses, and a quarterfinal exit has 0–1 wins and one loss. Career totals add those ranges and show an explanatory note when needed. Current seasons and newly completed summaries use exact results; older missing-playoff and Wild Card exits are already exact. No historical simulations are rerun or modified for this page.

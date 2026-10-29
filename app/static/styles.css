@@ -278,3 +278,8 @@ tr.selected-team td { color: var(--cyan); background: rgba(72,230,210,0.07); }
 .rating-change.declined { color: var(--danger); }
 
 .rookie-badge { display: inline-block; padding: 1px 5px; border: 1px solid var(--cyan); border-radius: 4px; color: var(--cyan); font-size: .7rem; font-weight: 800; line-height: 1.3; vertical-align: middle; }
+
+.gm-records-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin: 20px 0; }
+.gm-records-grid > div { padding: 20px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); }
+.gm-records-grid dt { color: var(--muted); font-size: .85rem; }
+.gm-records-grid dd { overflow-wrap: anywhere; margin: 10px 0 0; color: var(--cyan); font-size: 1.7rem; font-weight: 800; }

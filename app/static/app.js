@@ -68,7 +68,7 @@ function rebuildOrigin(context) {
 
 function saveProgress() {
   if (!activeTeamId || restoring) return;
-  const save = { version: 9, teamId: activeTeamId, runSeed: activeRunSeed,
+  const save = { version: 10, teamId: activeTeamId, runSeed: activeRunSeed,
     season: activeSeason, week: currentWeek, lineupRules: activeLineupRules, developmentStart: activeDevelopmentStart, rebuildTeam: activeRebuildTeam,
     priorStandings: activePriorStandings, history: careerHistory,
     draftChoices: activeDraftChoices,
@@ -88,7 +88,7 @@ function readSave() {
   if (!raw) return null;
   const save = JSON.parse(raw);
   const integer = (value, min, max) => Number.isInteger(value) && value >= min && value <= max;
-  if (!save || ![1, 2, 3, 4, 5, 6, 7, 8, 9].includes(save.version) || typeof save.teamId !== "string"
+  if (!save || ![1, 2, 3, 4, 5, 6, 7, 8, 9, 10].includes(save.version) || typeof save.teamId !== "string"
       || ![...select.options].some(option => option.value && option.value === save.teamId)
       || !integer(save.runSeed, 0, 4294967295) || !integer(save.season, 1, 999)
       || !integer(save.week, 0, 17)
@@ -128,7 +128,8 @@ function readSave() {
       || !save.history.every((entry, index) => entry && entry.season === index + 1
         && [entry.wins, entry.losses, entry.ties].every(value => integer(value, 0, 17))
         && entry.wins + entry.losses + entry.ties === 17
-        && knownTeam(entry.championId) && allowedFinishes.includes(entry.playoffFinish))
+        && knownTeam(entry.championId) && allowedFinishes.includes(entry.playoffFinish)
+        && validPlayoffSummary(entry))
       || !validPriorStandings(save.priorStandings, save.season)) throw new Error("Invalid career save");
   return save;
 }
@@ -147,13 +148,74 @@ function priorStandingsQuery(ranks = activePriorStandings) {
   return Object.keys(ranks).length ? `&prior_standings=${encodeURIComponent(JSON.stringify(ranks))}` : "";
 }
 
+function legacyPlayoffRecord(entry) {
+  const bounds = {
+    "Missed playoffs": [0, 0, 0], "Lost in Wild Card": [0, 0, 1],
+    "Lost in Quarterfinals": [0, 1, 1], "Lost in Semifinals": [1, 2, 1],
+    "Lost in Championship": [2, 3, 1], "Champions": [3, 4, 0],
+  };
+  const [minimum, maximum, losses] = bounds[entry.playoffFinish];
+  return { minimum, maximum, losses };
+}
+
+function validPlayoffSummary(entry) {
+  if (entry.playoffWins === undefined && entry.playoffLosses === undefined) return true;
+  const bounds = legacyPlayoffRecord(entry);
+  return Number.isInteger(entry.playoffWins) && entry.playoffWins >= bounds.minimum
+    && entry.playoffWins <= bounds.maximum && entry.playoffLosses === bounds.losses;
+}
+
+function historicalPlayoffRecord(entry) {
+  return entry.playoffWins === undefined ? legacyPlayoffRecord(entry)
+    : { minimum: entry.playoffWins, maximum: entry.playoffWins, losses: entry.playoffLosses };
+}
+
+function formatPlayoffRecord(record) {
+  return record.minimum === record.maximum ? `${record.minimum}–${record.losses}`
+    : `${record.minimum}–${record.maximum} W / ${record.losses} L`;
+}
+
+function currentPlayoffRecord() {
+  let wins = 0, losses = 0;
+  for (const round of playoffState?.rounds ?? []) {
+    for (const game of round.games) {
+      if (game.home.team.id !== activeTeamId && game.away.team.id !== activeTeamId) continue;
+      if (game.winner.team.id === activeTeamId) wins++; else losses++;
+    }
+  }
+  return { wins, losses };
+}
+
+function renderGMRecords() {
+  const current = currentPlayoffRecord();
+  const record = { minimum: current.wins, maximum: current.wins, losses: current.losses };
+  const regular = { wins: 0, losses: 0, ties: 0, ...(regularSnapshot?.record ?? {}) };
+  let appearances = regularSnapshot?.season_complete
+    && regularSnapshot.standings.playoff_race.some(row => row.team.id === activeTeamId) ? 1 : 0;
+  let championships = playoffState?.champion?.team.id === activeTeamId ? 1 : 0;
+  for (const entry of careerHistory) {
+    for (const key of ["wins", "losses", "ties"]) regular[key] += entry[key];
+    if (entry.playoffFinish !== "Missed playoffs") appearances++;
+    if (entry.playoffFinish === "Champions") championships++;
+    const past = historicalPlayoffRecord(entry);
+    record.minimum += past.minimum; record.maximum += past.maximum; record.losses += past.losses;
+  }
+  const city = [...select.options].find(option => option.value === activeTeamId)?.textContent ?? "";
+  document.querySelector("#gm-team").textContent = `${city} · Season ${activeSeason}`;
+  document.querySelector("#gm-regular").textContent = `${regular.wins}–${regular.losses}–${regular.ties}`;
+  document.querySelector("#gm-appearances").textContent = appearances;
+  document.querySelector("#gm-playoffs").textContent = formatPlayoffRecord(record);
+  document.querySelector("#gm-championships").textContent = championships;
+  document.querySelector("#gm-legacy-note").hidden = record.minimum === record.maximum;
+}
+
 function renderSeasonHistory() {
   const section = document.querySelector("#season-history");
   section.hidden = careerHistory.length === 0;
   const rows = careerHistory.map(entry => {
     const row = document.createElement("tr");
     const champion = [...select.options].find(option => option.value === entry.championId)?.textContent;
-    for (const value of [entry.season, `${entry.wins}–${entry.losses}${entry.ties ? `–${entry.ties}` : ""}`, entry.playoffFinish, champion]) {
+    for (const value of [entry.season, `${entry.wins}–${entry.losses}${entry.ties ? `–${entry.ties}` : ""}`, entry.playoffFinish, formatPlayoffRecord(historicalPlayoffRecord(entry)), champion]) {
       const cell = document.createElement("td"); cell.textContent = value; row.append(cell);
     }
     return row;
@@ -573,6 +635,7 @@ function renderSchedule(data, runSeed, { priorStandings = {}, history = [], care
   postseasonSection.hidden = true;
   document.querySelector("#season-status").textContent = "Ready for Week 1.";
   renderQualification(null);
+  renderGMRecords();
   for (const id of ["game", "league", "standings", "race", "playoffs"]) {
     document.querySelector(`#${id}-empty`).hidden = false;
   }
@@ -791,6 +854,7 @@ function renderResult(data) {
   document.querySelector("#season-status").textContent =
     `Week ${data.week} final: ${own.team.city} ${own.score}–${opponent.score} ${opponent.team.city}${latestResult.overtime ? " · OT" : ""}.`;
   renderQualification(data);
+  renderGMRecords();
   if (data.season_complete) {
     document.querySelector("#playoffs-empty p").textContent =
       "The playoff field is set. Choose View playoffs above to reveal the bracket.";
@@ -958,6 +1022,7 @@ function renderPostseason(data) {
   renderRosterStats();
   playoffState = data;
   completedPlayoffRound = data.completed_round;
+  renderGMRecords();
   playoffsStart.hidden = true;
   playoffSimulate.hidden = false;
   document.querySelector("#playoffs-empty").hidden = true;
@@ -1317,6 +1382,7 @@ nextSeasonButton.addEventListener("click", async () => {
     game.home.team.id === activeTeamId || game.away.team.id === activeTeamId)).at(-1);
   const summary = { season: activeSeason, ...regularSnapshot.record,
     championId: playoffState.champion.team.id,
+    playoffWins: currentPlayoffRecord().wins, playoffLosses: currentPlayoffRecord().losses,
     playoffFinish: playoffState.champion.team.id === activeTeamId ? "Champions"
       : !playoffState.qualified ? "Missed playoffs" : `Lost in ${lastOwnRound.name}` };
   try {
