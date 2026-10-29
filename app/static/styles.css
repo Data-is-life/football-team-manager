@@ -184,9 +184,10 @@ tr.selected-team td { color: var(--cyan); background: rgba(72,230,210,0.07); }
 
 .postseason-section { scroll-margin-top: 24px; margin-bottom: 28px; padding: clamp(20px, 3vw, 30px); background: var(--panel); border: 1px solid var(--cyan); border-radius: 18px; }
 #postseason-title { font-size: clamp(2rem, 5vw, 3rem); margin-bottom: 16px; }
-#postseason-status { color: var(--muted); line-height: 1.6; }
-#postseason-status[data-outcome="win"] { color: #6ee7a0; padding: 14px 16px; background: rgba(110,231,160,0.08); border: 1px solid #6ee7a0; border-radius: 10px; font-weight: 700; }
-#postseason-status[data-outcome="loss"] { color: var(--danger); padding: 14px 16px; background: rgba(255,115,115,0.08); border: 1px solid var(--danger); border-radius: 10px; font-weight: 700; }
+#qualification-status { margin: 0 0 22px; }
+#postseason-status, #qualification-status { color: var(--muted); line-height: 1.6; }
+#postseason-status[data-outcome="win"], #qualification-status[data-outcome="win"] { color: #6ee7a0; padding: 14px 16px; background: rgba(110,231,160,0.08); border: 1px solid #6ee7a0; border-radius: 10px; font-weight: 700; }
+#postseason-status[data-outcome="loss"], #qualification-status[data-outcome="loss"] { color: var(--danger); padding: 14px 16px; background: rgba(255,115,115,0.08); border: 1px solid var(--danger); border-radius: 10px; font-weight: 700; }
 .champion-banner { padding: 22px; margin-bottom: 24px; color: #0a0c12; background: var(--lime); border-radius: 12px; font-size: 1.4rem; font-weight: 900; }
 .your-playoff-game { padding: 18px; margin-bottom: 24px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px; }
 .league-team.playoff-team-selected { padding: 8px; border-left: 3px solid var(--cyan); border-radius: 4px; background: rgba(72,230,210,0.1); }

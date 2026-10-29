@@ -572,6 +572,7 @@ function renderSchedule(data, runSeed, { priorStandings = {}, history = [], care
   playoffSimulate.hidden = true;
   postseasonSection.hidden = true;
   document.querySelector("#season-status").textContent = "Ready for Week 1.";
+  renderQualification(null);
   for (const id of ["game", "league", "standings", "race", "playoffs"]) {
     document.querySelector(`#${id}-empty`).hidden = false;
   }
@@ -649,6 +650,21 @@ function selectBoxScore(side) {
   awayTab.setAttribute("aria-pressed", String(side === "away"));
   homeTab.setAttribute("aria-pressed", String(side === "home"));
   renderPlayerStats(latestResult[side]);
+}
+
+function renderQualification(data) {
+  const status = document.querySelector("#qualification-status");
+  status.hidden = !data?.season_complete;
+  status.textContent = "";
+  status.dataset.outcome = "neutral";
+  if (status.hidden) return;
+  const entry = data.standings.playoff_race.find(row => row.team.id === data.team.id);
+  const { wins, losses, ties } = data.record;
+  const record = `${wins}–${losses}${ties ? `–${ties}` : ""}`;
+  status.dataset.outcome = entry ? "win" : "loss";
+  status.textContent = entry
+    ? `Congratulations! ${data.team.city} qualified for the Season ${data.season} playoffs as seed #${entry.seed} (${entry.qualification}). Final record: ${record}.${entry.bye ? " You earned a first-round bye." : ""}`
+    : `Sorry! ${data.team.city} missed the Season ${data.season} playoffs. Final record: ${record}.`;
 }
 
 function renderResult(data) {
@@ -774,6 +790,7 @@ function renderResult(data) {
   const opponent = own === home ? away : home;
   document.querySelector("#season-status").textContent =
     `Week ${data.week} final: ${own.team.city} ${own.score}–${opponent.score} ${opponent.team.city}${latestResult.overtime ? " · OT" : ""}.`;
+  renderQualification(data);
   if (data.season_complete) {
     document.querySelector("#playoffs-empty p").textContent =
       "The playoff field is set. Choose View playoffs above to reveal the bracket.";

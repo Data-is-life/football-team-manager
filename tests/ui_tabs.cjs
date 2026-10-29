@@ -262,6 +262,17 @@ async function checkUI() {
     assert.deepEqual({roster:d.querySelector('#roster-groups').innerHTML,team:d.querySelector('#team-name').textContent,record:d.querySelector('#season-record').textContent,week:d.querySelector('#simulate-button').textContent,seedCalls:randomCalls},before);
     go(selected);
    }
+   const qualification=d.querySelector('#qualification-status');
+   assert.equal(qualification.hidden,week<17,'Qualification is only announced after the regular season');
+   assert.equal(qualification.getAttribute('role'),'status');
+   if(week<17){assert.equal(qualification.textContent,'');assert.equal(qualification.dataset.outcome,'neutral');}
+   else{
+    const seed=weekData.standings.playoff_race.find(entry=>entry.team.id===id);
+    assert.equal(qualification.dataset.outcome,seed?'win':'loss');
+    assert.match(qualification.textContent,seed?/Congratulations!.*qualified/:/Sorry!.*missed/);
+    assert.match(qualification.textContent,new RegExp(`Final record: ${weekData.record.wins}–${weekData.record.losses}${weekData.record.ties?'–'+weekData.record.ties:''}`));
+    if(seed){assert.ok(qualification.textContent.includes(`seed #${seed.seed} (${seed.qualification})`));assert.equal(qualification.textContent.includes('first-round bye'),seed.bye);}
+   }
    const groupCards=d.querySelectorAll('#group-standings .standings-card');
    weekData.standings.groups.forEach((group,i)=>{
     assert.deepEqual([...groupCards[i].querySelectorAll('th')].map(cell=>cell.textContent),['#','Team','Offense','Defense','Record','Diff']);
@@ -309,6 +320,7 @@ async function checkUI() {
   }
   const regularFinal=(await (await fetch(base+`/api/season/${id}/week/17?season=1&run_seed=${fixtureSeed}`)).json()).roster_stats;
   const record=d.querySelector('#season-record').textContent;
+  const qualificationText=d.querySelector('#qualification-status').textContent;
   assert.match(d.querySelector('#playoffs-empty p').textContent,/field is set/);
   go('roster');
   if(index===0) {
@@ -408,7 +420,7 @@ async function checkUI() {
    assert.equal(d.querySelector('#season-record').textContent,record);
    assert.equal(d.querySelector('#franchise-setup').hidden,true);
   }
-  assert.equal(advance.disabled,true);
+  assert.equal(advance.disabled,true);assert.equal(d.querySelector('#qualification-status').textContent,qualificationText,'Regular-season qualification remains accurate through the playoffs');
   assert.match(d.querySelector('#champion-banner').textContent,new RegExp(finished.champion.team.city));
   if(index===2) assert.match(d.querySelector('#postseason-status').textContent,/champions/);
   go('race');
@@ -457,7 +469,7 @@ async function checkUI() {
   checkView('schedule');
   assert.equal(advance.hidden,true);
   for(const view of ['game','league','standings','race','playoffs']) assert.equal(d.querySelector(`#${view}-empty`).hidden,false);
-  assert.equal(d.querySelector('#season-status').textContent,'Ready for Week 1.');
+  assert.equal(d.querySelector('#season-status').textContent,'Ready for Week 1.');assert.equal(d.querySelector('#qualification-status').hidden,true);assert.equal(d.querySelector('#qualification-status').textContent,'');
   checkLeagueContent();
   assert.equal(d.querySelectorAll('#schedule .game-final').length,17);
   assert.equal(start.hidden,true);
