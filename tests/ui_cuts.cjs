@@ -75,7 +75,8 @@ async function checks(){
  q(p,'#playoffs-start').click();await until(()=>save(p).playoffRound===0);for(let round=1;round<=4;round++){q(p,'#playoff-simulate').click();await until(()=>save(p).playoffRound===round)}
  // A second offseason must draft from the already modified league, then preserve that career on another rollover.
  q(p,'#draft-button').click();await until(()=>save(p).draftChoices?.length===0);
- for(let turn=1;turn<=4;turn++){q(p,'#draft-prospects [data-draft-id]').click();await until(()=>save(p).draftChoices.length===turn)}
+ q(p,'#draft-prospects [data-draft-id]').click();await until(()=>save(p).draftChoices.length===1);
+ const manualPick=save(p).draftChoices[0];q(p,'#auto-draft').click();await until(()=>save(p).draftChoices.length===4);assert.equal(save(p).draftChoices[0],manualPick,'Career auto-draft preserves the earlier manual pick');
  q(p,'#draft-close').click();q(p,'#manage-roster').click();
  for(let count=1;count<=4;count++){q(p,'#roster-groups [data-drop-id]:not([disabled])').click();q(p,'#cut-confirm').click();await until(()=>save(p).dropped.length===count)}
  q(p,'#next-season').click();await until(()=>save(p).season===3);

@@ -344,4 +344,13 @@ After the league championship, **Start rookie draft** is the next step. The next
 
 Closing the draft, reloading midway, or a failed first draft load cannot enable a season skip. The transition handler independently requires a completed four-pick draft, even if button visibility is changed. A failed next-season load preserves the completed draft/cuts and allows retry. At season 999 no draft or transition is offered.
 
-Existing saves still load, including past seasons that skipped drafts. Their next transition must follow the current mandatory draft flow; past results are not replayed under new rules. The save format and simulation rules are unchanged. Automatic drafting remains a separate improvement.
+Existing saves still load, including past seasons that skipped drafts. Their next transition must follow the current mandatory draft flow; past results are not replayed under new rules. The save format and simulation rules are unchanged. Players may make picks manually or use Auto-draft remaining picks; either path completes the required draft.
+
+
+## Optional auto-draft
+
+Open **Start rookie draft** (or **Resume draft**) and choose **Auto-draft remaining picks**. It fills only your remaining turns using the same current-quality, position-need, and repeat-position penalty as CPU teams. Earlier manual choices and all previous league picks are preserved. You can start with auto-draft or switch after one, two, or three manual picks.
+
+The completed draft still adds four rookies without releasing anyone. Review the roster and make cuts to reach the 38-player maximum before continuing. Auto-draft does not automatically cut players or advance the season.
+
+Draft/career POST requests accept a strict boolean `auto_draft` flag. The response's existing `manual_picks` field contains all resolved user selections, including auto-picks; the browser saves those IDs normally. Reloading uses ordinary replay without another automated selection, so no save-format change is needed. Failed requests retain the previous checkpoint and Retry preserves whether the failed action was auto-drafting. Repeated identical requests produce identical picks, and duplicate UI clicks are blocked. Career auto-draft uses the actual retained rosters and original season/rules context; it cannot be requested as a cut, profile, week, or playoff action.

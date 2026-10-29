@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Annotated, Literal
 
 from fastapi import FastAPI, HTTPException, Query
-from pydantic import BaseModel, Field, StrictInt
+from pydantic import BaseModel, Field, StrictInt, StrictBool
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -168,6 +168,7 @@ class DraftRequest(BaseModel):
     rebuild_team: str | None = Field(default=None, max_length=40)
     prior_standings: dict[str, StrictInt] | None = None
     manual_picks: list[str] = Field(default_factory=list, max_length=4)
+    auto_draft: StrictBool = False
 
 
 @app.post("/api/draft/{team_id}")
@@ -180,7 +181,7 @@ def rookie_draft(team_id: str, request: DraftRequest) -> dict:
             raise ValueError('Rebuild team must match the managed team')
         context = lineup_context((), request.run_seed, request.lineup_rules,request.season,request.development_start,request.rebuild_team)
         draft, players = build_draft(team_id, request.season, request.run_seed,
-                                    tuple(request.manual_picks), prior, context)
+                                    tuple(request.manual_picks), prior, context, auto_pick=request.auto_draft)
     except ValueError as error:
         raise HTTPException(status_code=422, detail=str(error)) from error
     return {**draft, "profile": profile_payload(team_id, players, request.run_seed, context)}
@@ -204,6 +205,7 @@ class CareerRequest(BaseModel):
     prior_standings: dict[str, StrictInt] | None = None
     career: list[CareerStep] = Field(default_factory=list, max_length=998)
     manual_picks: list[str] = Field(default_factory=list, max_length=4)
+    auto_draft: StrictBool = False
     dropped: list[str] = Field(default_factory=list, max_length=42)
     week: int = Field(default=1, ge=1, le=17)
     round_number: int = Field(default=0, ge=0, le=4)
@@ -221,6 +223,8 @@ def career_action(team_id: str, request: CareerRequest) -> dict:
     try:
         if request.rebuild_team is not None and request.rebuild_team != team_id:
             raise ValueError('Rebuild team must match the managed team')
+        if request.auto_draft and (request.action != 'draft' or request.dropped):
+            raise ValueError('Auto-draft is only available for an unfinished draft before roster cuts')
         if any(step.season >= request.season for step in request.career):
             raise ValueError('Past offseasons must precede the current season')
         steps = tuple((step.season, ranks_context(step.prior_standings), tuple(step.manual_picks), tuple(step.dropped), step.lineup_rules)
@@ -241,7 +245,7 @@ def career_action(team_id: str, request: CareerRequest) -> dict:
                         'can_continue': len(dict(cut_context)[team_id]) <= ROSTER_MAX,
                         'profile': profile_payload(viewed, players, request.run_seed, cut_context)}
             draft, players = build_draft(team_id, request.season, request.run_seed,
-                                        tuple(request.manual_picks), prior, context)
+                                        tuple(request.manual_picks), prior, context, auto_pick=request.auto_draft)
             return {**draft, 'profile': profile_payload(team_id, players, request.run_seed, context)}
         return profile_payload(viewed, list(roster_for(viewed, request.run_seed, context).values()), request.run_seed, context)
     except ValueError as error:

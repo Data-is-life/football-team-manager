@@ -64,10 +64,21 @@ def draft_order(season: int, run_seed: int, prior_standings: tuple = (), roster_
             for group in groups for team_id in group]
 
 
+def cpu_pick(available, current, additions):
+    """Shared quality/need/repeat-position policy for CPU and user auto-picks."""
+    position_quality = {position: sum(p.rating for p in current if p.position == position)
+                        / sum(p.position == position for p in current) for position in ROSTER_RULES}
+    return max(available, key=lambda p: (
+        p.rating - .25 * position_quality[p.position] - 12 * additions.get(p.position, 0),
+        p.rating, p.id))
+
+
 def build_draft(team_id: str, season: int, run_seed: int, choices: tuple[str, ...] = (),
-                prior_standings: tuple = (), roster_context: tuple = (), return_league: bool = False) -> tuple[dict, list[Player]]:
+                prior_standings: tuple = (), roster_context: tuple = (), return_league: bool = False, auto_pick: bool = False) -> tuple[dict, list[Player]]:
     """Auto-pick up to the user's next turn, or finish after their fourth pick.
 
+    With auto_pick, fill remaining user turns using the same CPU policy and return
+    all resolved user picks, so ordinary manual replay reproduces the whole draft.
     Replaying all choices validates availability at the actual pick, including CPU picks.
     Neither the cached class nor the base rosters is mutated.
     """
@@ -83,26 +94,22 @@ def build_draft(team_id: str, season: int, run_seed: int, choices: tuple[str, ..
     rosters = {team.id: list(roster_for(team.id, run_seed, roster_context).values()) for team in TEAMS}
     additions = {team.id: {} for team in TEAMS}
     picks = []
+    resolved_choices = list(choices)
     consumed = 0
     for overall in range(1, ROUNDS * len(order) + 1):
         owner = order[(overall - 1) % len(order)]['team']['id']
-        if owner == team_id:
-            if consumed == len(choices):
-                break
+        if owner == team_id and consumed < len(choices):
             choice = choices[consumed]
             if choice not in available:
                 raise ValueError('That prospect was already drafted before your turn')
             prospect = available[choice]
             consumed += 1
         else:
-            # Best player available with a modest need adjustment and a penalty for
-            # repeatedly drafting a position. No hidden potential or salary assumptions.
-            current = rosters[owner]
-            position_quality = {position: sum(p.rating for p in current if p.position == position)
-                                / sum(p.position == position for p in current) for position in ROSTER_RULES}
-            prospect = max(available.values(), key=lambda p: (
-                p.rating - .25 * position_quality[p.position] - 12 * additions[owner].get(p.position, 0),
-                p.rating, p.id))
+            if owner == team_id and not auto_pick:
+                break
+            prospect = cpu_pick(available.values(), rosters[owner], additions[owner])
+            if owner == team_id:
+                resolved_choices.append(prospect.id)
         del available[prospect.id]
         depth = 1 + max(p.depth for p in rosters[owner] if p.position == prospect.position)
         signed = replace(prospect, depth=depth)
@@ -115,6 +122,6 @@ def build_draft(team_id: str, season: int, run_seed: int, choices: tuple[str, ..
              'team': asdict(TEAM_BY_ID[team_id]), 'rounds': ROUNDS, 'total_picks': ROUNDS * len(order),
              'class_size': CLASS_SIZE, 'order': order, 'picks': picks,
              'available': [player_payload(player,roster_context) for player in prospects if player.id in available],
-             'manual_picks': list(choices), 'complete': complete,
+             'manual_picks': resolved_choices, 'complete': complete,
              'next_pick': None if complete else len(picks) + 1,
-             'next_round': None if complete else len(choices) + 1}, rosters if return_league else rosters[team_id])
+             'next_round': None if complete else len(resolved_choices) + 1}, rosters if return_league else rosters[team_id])
