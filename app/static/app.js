@@ -923,6 +923,16 @@ function renderPlayoffBracket(data) {
   }).join("");
 }
 
+function updateOffseasonActions() {
+  const finished = Boolean(playoffState?.postseason_complete) && activeSeason < 999;
+  const drafted = Boolean(draftState?.complete) && activeDraftChoices?.length === 4;
+  const oversized = (rosterProfile?.roster.length ?? 0) > 38;
+  draftButton.hidden = !finished;
+  nextSeasonButton.hidden = !finished || !drafted;
+  nextSeasonButton.disabled = !finished || !drafted || oversized || draftBusy || cutBusy || advancingSeason;
+  nextSeasonButton.textContent = !drafted ? "Finish rookie draft" : oversized ? "Roster limit: 38" : `Continue to Season ${activeSeason + 1}`;
+}
+
 function renderPostseason(data) {
   rosterTotals.playoffs = data.roster_stats;
   renderRosterStats();
@@ -958,10 +968,7 @@ function renderPostseason(data) {
   const banner = document.querySelector("#champion-banner");
   banner.hidden = !champion;
   banner.textContent = champion ? `Season ${data.season} champions: ${champion.team.city} · Seed #${champion.seed}` : "";
-  draftButton.hidden = !data.postseason_complete || activeSeason >= 999;
-  nextSeasonButton.hidden = !data.postseason_complete;
-  nextSeasonButton.disabled = activeSeason >= 999;
-  nextSeasonButton.textContent = activeSeason < 999 ? `Continue to Season ${activeSeason + 1}` : "Season limit reached";
+  updateOffseasonActions();
   playoffSimulate.disabled = data.postseason_complete;
   playoffSimulate.textContent = data.upcoming ? `Simulate ${data.upcoming.name}` : "Postseason complete";
 
@@ -1079,8 +1086,7 @@ function applyDraft(data) {
   renderRosterStats();
   for (const position of collapsed) document.querySelector(`#roster-groups [data-position="${position}"]`).open = false;
   const count = data.profile.roster.length;
-  nextSeasonButton.disabled = !data.complete || count > 38;
-  nextSeasonButton.textContent = !data.complete ? "Finish rookie draft" : count > 38 ? "Roster limit: 38" : `Continue to Season ${activeSeason + 1}`;
+  updateOffseasonActions();
   manageRoster.hidden = !data.complete;
   draftButton.textContent = data.complete ? "Review draft" : "Resume draft";
   const summary = document.querySelector("#draft-summary");
@@ -1156,10 +1162,10 @@ async function loadDraft(choice = null) {
     draftBusy = false;
     draftButton.disabled = false;
     document.querySelector("#change-team-button").disabled = false;
+    updateOffseasonActions();
     if (draftState) renderDraft();
     else {
       document.querySelector("#draft-status").textContent = "Draft not started. Your saved season is unchanged.";
-      nextSeasonButton.disabled = activeSeason >= 999;
     }
   }
 }
@@ -1258,13 +1264,13 @@ document.querySelector("#cut-confirm").addEventListener("click", async () => {
     document.querySelector("#cut-confirm").disabled = false;
     document.querySelector("#cut-cancel").disabled = false;
     document.querySelector("#change-team-button").disabled = false;
-    nextSeasonButton.disabled = rosterProfile.roster.length > 38;
+    updateOffseasonActions();
     renderCuts();
   }
 });
 
 nextSeasonButton.addEventListener("click", async () => {
-  if (advancingSeason || nextSeasonButton.disabled || (activeDraftChoices !== null && (!draftState?.complete || rosterProfile.roster.length > 38)) || cutBusy || draftBusy || !playoffState?.postseason_complete || !regularSnapshot || activeSeason >= 999) return;
+  if (advancingSeason || nextSeasonButton.disabled || (activeDraftChoices?.length !== 4 || !draftState?.complete || rosterProfile.roster.length > 38) || cutBusy || draftBusy || !playoffState?.postseason_complete || !regularSnapshot || activeSeason >= 999) return;
   advancingSeason = true;
   nextSeasonButton.disabled = true;
   manageRoster.disabled = true;
@@ -1284,7 +1290,7 @@ nextSeasonButton.addEventListener("click", async () => {
   try {
     const developmentStart = activeDevelopmentStart ?? nextSeason;
     const lineupRules = Math.max(3, activeLineupRules);
-    const career = activeDraftChoices === null ? activeCareer : [...activeCareer, {
+    const career = [...activeCareer, {
       season: activeSeason, prior_standings: Object.keys(activePriorStandings).length ? activePriorStandings : null,
       manual_picks: activeDraftChoices, dropped: activeDropped, lineup_rules: activeLineupRules,
     }];
@@ -1295,13 +1301,7 @@ nextSeasonButton.addEventListener("click", async () => {
       throw new Error("The next season could not be loaded. Please try again.");
     }
     const history = [...careerHistory, summary];
-    let profile;
-    if (career.length) profile = await careerRequest("profile", { season: nextSeason, career, lineup_rules: lineupRules, development_start: developmentStart });
-    else {
-      const response = await fetch(`/api/team/${activeTeamId}?run_seed=${activeRunSeed}&lineup_rules=${lineupRules}&season=${nextSeason}&development_start=${developmentStart}${rebuildQuery()}`);
-      if (!response.ok) throw new Error("The next season could not be loaded. Please try again.");
-      profile = await response.json();
-    }
+    const profile = await careerRequest("profile", { season: nextSeason, career, lineup_rules: lineupRules, development_start: developmentStart });
     if (profile.team?.id !== activeTeamId || profile.run_seed !== activeRunSeed || profile.lineup_rules !== lineupRules) {
       throw new Error("The next season could not be loaded. Please try again.");
     }
@@ -1310,9 +1310,9 @@ nextSeasonButton.addEventListener("click", async () => {
     saveProgress();
   } catch (error) {
     showError(error.message);
-    nextSeasonButton.disabled = false;
   } finally {
     advancingSeason = false;
+    updateOffseasonActions();
     manageRoster.disabled = false;
     renderCuts();
     draftButton.disabled = false;
