@@ -15,7 +15,7 @@ async function checks(){
  const before=(await api('/api/career/seattle',{action:'cuts',run_seed:1234,lineup_rules:2,manual_picks:save(p).draftChoices,dropped:save(p).dropped})).profile;
  assert.equal(p.d.querySelectorAll('.rating-change').length,0);
  q(p,'#next-season').click();await until(()=>save(p).season===2);
- assert.equal(save(p).version,10);assert.equal(save(p).lineupRules,3);assert.equal(save(p).developmentStart,2);
+ assert.equal(save(p).version,11);assert.equal(save(p).lineupRules,3);assert.equal(save(p).developmentStart,2);
  const current=await api('/api/career/seattle',{action:'profile',run_seed:1234,lineup_rules:3,season:2,development_start:2,career:save(p).career});
  const previous=new Map(before.roster.map(p=>[p.id,p]));
  let changed=0;
@@ -44,7 +44,7 @@ async function checks(){
  assert.deepEqual([...p.d.querySelectorAll('#roster-groups .roster-player')].map(row=>row.dataset.playerId),v3.roster.map(player=>player.id));
  for(const player of v3.roster)assert.equal(q(p,`#roster-groups [data-player-id="${player.id}"]`).children[3].textContent,String(player.current_rating));
  q(p,'#simulate-button').click();await until(()=>save(p).week===1);
- assert.equal(save(p).version,10);assert.equal(save(p).lineupRules,3,'Saving an existing career must not adopt initial hierarchy');
+ assert.equal(save(p).version,11);assert.equal(save(p).lineupRules,3,'Saving an existing career must not adopt initial hierarchy');
  p.dom.window.close();
  // The most recent pre-rotation rebuild save remains on rules 4 after re-saving.
  const v8={...old,version:8,lineupRules:4,developmentStart:1,rebuildTeam:'seattle',week:0,playoffRound:null};
@@ -52,8 +52,16 @@ async function checks(){
  const previousRebuild=await api('/api/team/seattle?run_seed=1234&lineup_rules=4&rebuild_team=seattle');
  for(const player of previousRebuild.roster)assert.equal(q(p,`#roster-groups [data-player-id="${player.id}"]`).children[3].textContent,String(player.current_rating));
  q(p,'#simulate-button').click();await until(()=>save(p).week===1);
- assert.equal(save(p).version,10);assert.equal(save(p).lineupRules,4);assert.equal(save(p).rebuildTeam,'seattle');
+ assert.equal(save(p).version,11);assert.equal(save(p).lineupRules,4);assert.equal(save(p).rebuildTeam,'seattle');
  assert.equal(q(p,'#player-stats').textContent.includes('Targets'),false,'Legacy receiving layouts remain unchanged');
+ p.dom.window.close();
+ // The stronger starting balance must not rewrite the latest rules-5 rebuild save.
+ const v10={...old,version:10,lineupRules:5,developmentStart:1,rebuildTeam:'seattle',week:0,playoffRound:null};
+ p=await restore(JSON.stringify(v10));
+ const oldBalance=await api('/api/team/seattle?run_seed=1234&lineup_rules=5&rebuild_team=seattle');
+ assert.equal(q(p,'#offense-rating').textContent,String(oldBalance.ratings.offense));assert.ok(oldBalance.ratings.offense<68);
+ q(p,'#simulate-button').click();await until(()=>save(p).week===1);
+ assert.equal(save(p).version,11);assert.equal(save(p).lineupRules,5);assert.equal(save(p).rebuildTeam,'seattle');
  p.dom.window.close();
  console.log('Development UI checks passed: legacy season unchanged, migration ages once, actual rating arrows, private longevity, seeded profile equality after reload/week, and invalid development start.');
 }

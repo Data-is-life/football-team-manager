@@ -53,7 +53,7 @@ def initial_hierarchy(run_seed):
 
 
 @lru_cache(maxsize=32)
-def rebuild_lineups(run_seed, team_id):
+def rebuild_lineups(run_seed, team_id, balanced=False):
     """Only the hired GM's initial roster changes; opponents keep normal ability."""
     if team_id not in {team.id for team in TEAMS}:
         raise ValueError('Unknown rebuild team')
@@ -61,8 +61,13 @@ def rebuild_lineups(run_seed, team_id):
     players = []
     for player in rosters[team_id]:
         draw = int.from_bytes(hashlib.sha256(
-            f'rebuild-v1:{run_seed}:{player.id}'.encode()).digest()[:8], 'big')
-        rating = 52 + draw % 18
+            f"{'rebuild-v2' if balanced else 'rebuild-v1'}:{run_seed}:{player.id}".encode()).digest()[:8], 'big')
+        if balanced:
+            # With 71–73 starters and 57–64 reserves after hierarchy caps,
+            # round(.8 * starters + .2 * bench) stays inside 68–72.
+            rating = 71 + draw % 3 if player.depth <= ROSTER_RULES[player.position][1] else 60 + draw % 5
+        else:
+            rating = 52 + draw % 18
         players.append(replace(player, rating=rating,
             attributes=generate_attributes(player.id, player.position, rating, run_seed)))
     rosters[team_id] = starter_hierarchy(players, run_seed)
@@ -72,7 +77,7 @@ def rebuild_lineups(run_seed, team_id):
 def lineup_context(context, run_seed, rules, season=1, development_start=1, rebuild_team=None):
     if rebuild_team is not None and rules < 4:
         raise ValueError('Rebuild careers require lineup rules 4 or later')
-    if rules in (3, 4, 5):
+    if rules in (3, 4, 5, 6):
         from .development import advance_context
         if getattr(context, 'lineup_rules', 1) > rules:
             raise ValueError('Lineup rules cannot be downgraded')

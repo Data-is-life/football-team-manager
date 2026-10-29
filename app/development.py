@@ -113,7 +113,7 @@ def advance_context(context, run_seed, season, development_start=1, lineup_rules
     if rebuild_team is None and current_rules >= 3:
         rebuild_team = context.rebuild_team
     lineup_rules = lineup_rules if lineup_rules is not None else max(3, current_rules)
-    if lineup_rules not in (3, 4, 5) or current_rules > lineup_rules:
+    if lineup_rules not in (3, 4, 5, 6) or current_rules > lineup_rules:
         raise ValueError('Invalid development rules')
     if not 1 <= development_start <= season <= 999:
         raise ValueError('Invalid development season')
@@ -125,7 +125,7 @@ def advance_context(context, run_seed, season, development_start=1, lineup_rules
     if current_rules < 3:
         if not context and lineup_rules >= 4:
             from .lineups import initial_hierarchy, rebuild_lineups
-            rosters = rebuild_lineups(run_seed,rebuild_team) if rebuild_team is not None else initial_hierarchy(run_seed)
+            rosters = rebuild_lineups(run_seed,rebuild_team,balanced=lineup_rules>=6) if rebuild_team is not None else initial_hierarchy(run_seed)
         else:
             rosters = tuple(context) if context else tuple((team.id, tuple(roster_for(team.id,run_seed).values())) for team in TEAMS)
         rosters = tuple((owner,ranked_players(players)) for owner,players in rosters)
