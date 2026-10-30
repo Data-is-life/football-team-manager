@@ -299,3 +299,7 @@ tr.selected-team td { color: var(--cyan); background: rgba(72,230,210,0.07); }
 .starter-fields label { display: block; margin: 8px 0; color: var(--muted); }
 .starter-fields select { display: block; width: 100%; min-width: 0; margin-top: 4px; }
 #starter-form button { margin: 4px; }
+
+.potential-change { white-space: nowrap; font-size: .85em; }
+.potential-change.improved { color: #6ee7a0; }
+.potential-change.declined { color: var(--danger); }

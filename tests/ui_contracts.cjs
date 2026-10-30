@@ -80,7 +80,7 @@ async function checks(){
  // Starting over after firing clears old history, warnings, contract expiry, and records.
  const dead=checkpoint(missed,4,miss.slice(0,3),ranks);p=await restore(dead);
  q(p,'#change-team-button').click();q(p,'#team-select').value='seattle';q(p,'#team-form').dispatchEvent(new p.w.Event('submit',{bubbles:true,cancelable:true}));
- await until(()=>save(p).season===1&&save(p).week===16);assert.equal(save(p).contracts,true);assert.equal(save(p).version,14);assert.equal(save(p).history.length,0);
+ await until(()=>save(p).season===1&&save(p).week===16);assert.equal(save(p).contracts,true);assert.equal(save(p).version,15);assert.equal(save(p).history.length,0);
  assert.match(q(p,'#owner-feedback').textContent,/hired.*four-year/);assert.match(q(p,'#contract-status').textContent,/4 years remaining.*Season 5/);assert.equal(q(p,'#simulate-button').disabled,false);p.dom.window.close();
  console.log('GM contract checks passed: hiring, highest-only rewards, ties, four-year deadline, later expiry, fourth-year qualification, guard enforcement, records after firing, reload idempotence, draft/cuts/season rollover, legacy exemption, invalid-save preservation, and new-career reset.');
 }

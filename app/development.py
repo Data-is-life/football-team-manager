@@ -36,6 +36,9 @@ class DevelopmentState:
     baseline: int
     change: int = 0
     rotation_share: float = 0
+    potential_change: int = 0
+    rookie_revealed: bool = False
+    rookie_outcome: str | None = None
 
 
 @dataclass(frozen=True)
@@ -69,18 +72,48 @@ def with_rosters(context, rosters):
 
 def rating_view(player, context):
     state = dict(context.development).get(player.id) or initial_state(player, context.run_seed)
-    return {'current_rating': player.rating, 'potential_rating': state.potential, 'rating_change': state.change}
+    result = {'current_rating': player.rating, 'potential_rating': state.potential, 'rating_change': state.change}
+    if context.lineup_rules >= 7:
+        result['potential_change'] = state.potential_change
+        if state.rookie_revealed and player.id.startswith('rookie-') and int(player.id.split('-')[-2]) == context.season:
+            result['rookie_outcome'] = state.rookie_outcome
+    return result
 
 
-def next_player(player, state, seed, season, rotation_growth=False):
+def reveal_rookie(player, state, seed):
+    """One seeded reassessment: 15% boom, 15% bust, 70% unchanged."""
+    if state.rookie_revealed:
+        return player, state
+    draw = number(seed, player.id, 'rookie-reveal-v1') % 100
+    outcome = 'boom' if draw < 15 else 'bust' if draw < 30 else 'normal'
+    current, potential = player.rating, state.potential
+    if outcome == 'boom':
+        current = min(99, current + 2 + number(seed, player.id, 'rookie-current-v1') % 5)
+        potential = max(current, min(99, potential + 8 + number(seed, player.id, 'rookie-potential-v1') % 8))
+    elif outcome == 'bust':
+        potential = max(40, potential - 15 - number(seed, player.id, 'rookie-potential-v1') % 11)
+        current = max(40, min(potential, current - 3 - number(seed, player.id, 'rookie-current-v1') % 6))
+    if player.position == 'K':
+        # Kicking remains seasonal form around an anchor, rather than a growth ceiling.
+        potential = current
+    from .attributes import generate_attributes
+    updated = replace(player, rating=current, attributes=generate_attributes(player.id, player.position, current, seed)) if current != player.rating else player
+    return updated, replace(state, potential=potential, baseline=current if player.position == 'K' else state.baseline,
+                            change=current-player.rating, potential_change=potential-state.potential,
+                            rookie_revealed=True, rookie_outcome=outcome)
+
+
+def next_player(player, state, seed, season, rotation_growth=False, rookie_reassessment=False):
     # A drafted rookie's listed age is their age in the upcoming rookie season.
     entry = int(player.id.split('-')[-2]) if player.id.startswith('rookie-') else 1
+    if rookie_reassessment and player.id.startswith('rookie-') and season == entry:
+        return reveal_rookie(player, state, seed)
     if season <= entry:
-        return player, replace(state, change=0)
+        return player, replace(state, change=0, potential_change=0)
     age = player.age + 1
     if player.position == 'K':
         current = max(1, min(99, state.baseline + number(seed, player.id, f'form:{season}') % 9 - 4))
-        return replace(player, age=age, experience=player.experience+1, rating=current), DevelopmentState(current,state.baseline,current-player.rating)
+        return replace(player, age=age, experience=player.experience+1, rating=current), DevelopmentState(current,state.baseline,current-player.rating, potential_change=current-state.potential if rookie_reassessment else 0, rookie_revealed=state.rookie_revealed, rookie_outcome=state.rookie_outcome)
     develop, decline, cliff, loss, hard_loss = CURVES[player.position]
     delay, exceptional = longevity(seed, player.id, player.position)
     decline += delay
@@ -104,7 +137,7 @@ def next_player(player, state, seed, season, rotation_growth=False):
     if age >= decline:
         potential = current
     updated = replace(player, age=age, experience=player.experience+1, rating=current)
-    return updated, DevelopmentState(potential,state.baseline,current-player.rating)
+    return updated, DevelopmentState(potential,state.baseline,current-player.rating, potential_change=potential-state.potential if rookie_reassessment else 0, rookie_revealed=state.rookie_revealed, rookie_outcome=state.rookie_outcome)
 
 
 
@@ -113,7 +146,7 @@ def advance_context(context, run_seed, season, development_start=1, lineup_rules
     if rebuild_team is None and current_rules >= 3:
         rebuild_team = context.rebuild_team
     lineup_rules = lineup_rules if lineup_rules is not None else max(3, current_rules)
-    if lineup_rules not in (3, 4, 5, 6) or current_rules > lineup_rules:
+    if lineup_rules not in (3, 4, 5, 6, 7) or current_rules > lineup_rules:
         raise ValueError('Invalid development rules')
     if not 1 <= development_start <= season <= 999:
         raise ValueError('Invalid development season')
@@ -147,7 +180,7 @@ def advance_context(context, run_seed, season, development_start=1, lineup_rules
         for owner, players in context:
             updated = []
             for player in players:
-                player, state = next_player(player,states[player.id],run_seed,year,rotation_growth and player.position not in ('QB','K'))
+                player, state = next_player(player,states[player.id],run_seed,year,rotation_growth and player.position not in ('QB','K'), lineup_rules >= 7)
                 updated.append(player)
                 updated_states.append((player.id,state))
             rosters.append((owner,ranked_players(updated)))
