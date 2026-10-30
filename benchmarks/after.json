@@ -1,0 +1,1058 @@
+[
+  {
+    "fixture": "fresh",
+    "trial": 0,
+    "cache": "empty",
+    "sample": 0,
+    "startup_ms": 623.16,
+    "ms": 495.93,
+    "render_ms": 198.64,
+    "requests": [
+      {
+        "url": "/api/teams",
+        "ms": 9.6
+      },
+      {
+        "url": "/api/team/seattle?run_seed=1234&lineup_rules=6&season=1&development_start=1&rebuild_team=seattle",
+        "ms": 241
+      },
+      {
+        "url": "/api/schedule/seattle?season=1",
+        "ms": 277.24
+      }
+    ],
+    "signature": "4938fd1f18c5bd4eaa1efd2ced5368173f6b6b4bcc1a7a0ee548be946bc69bdf"
+  },
+  {
+    "fixture": "fresh",
+    "trial": 0,
+    "cache": "warm",
+    "sample": 1,
+    "startup_ms": 623.16,
+    "ms": 77.83,
+    "render_ms": 45.73,
+    "requests": [
+      {
+        "url": "/api/teams",
+        "ms": 3.07
+      },
+      {
+        "url": "/api/schedule/seattle?season=1",
+        "ms": 19.43
+      },
+      {
+        "url": "/api/team/seattle?run_seed=1234&lineup_rules=6&season=1&development_start=1&rebuild_team=seattle",
+        "ms": 24.13
+      }
+    ],
+    "signature": "4938fd1f18c5bd4eaa1efd2ced5368173f6b6b4bcc1a7a0ee548be946bc69bdf"
+  },
+  {
+    "fixture": "fresh",
+    "trial": 0,
+    "cache": "warm",
+    "sample": 2,
+    "startup_ms": 623.16,
+    "ms": 70.77,
+    "render_ms": 33.33,
+    "requests": [
+      {
+        "url": "/api/teams",
+        "ms": 3.48
+      },
+      {
+        "url": "/api/schedule/seattle?season=1",
+        "ms": 26.47
+      },
+      {
+        "url": "/api/team/seattle?run_seed=1234&lineup_rules=6&season=1&development_start=1&rebuild_team=seattle",
+        "ms": 27.85
+      }
+    ],
+    "signature": "4938fd1f18c5bd4eaa1efd2ced5368173f6b6b4bcc1a7a0ee548be946bc69bdf"
+  },
+  {
+    "fixture": "fresh",
+    "trial": 0,
+    "cache": "warm",
+    "sample": 3,
+    "startup_ms": 623.16,
+    "ms": 63.82,
+    "render_ms": 28.32,
+    "requests": [
+      {
+        "url": "/api/teams",
+        "ms": 6.07
+      },
+      {
+        "url": "/api/schedule/seattle?season=1",
+        "ms": 26.58
+      },
+      {
+        "url": "/api/team/seattle?run_seed=1234&lineup_rules=6&season=1&development_start=1&rebuild_team=seattle",
+        "ms": 26.9
+      }
+    ],
+    "signature": "4938fd1f18c5bd4eaa1efd2ced5368173f6b6b4bcc1a7a0ee548be946bc69bdf"
+  },
+  {
+    "fixture": "fresh",
+    "trial": 1,
+    "cache": "empty",
+    "sample": 0,
+    "startup_ms": 563.38,
+    "ms": 340.66,
+    "render_ms": 38.1,
+    "requests": [
+      {
+        "url": "/api/teams",
+        "ms": 3.52
+      },
+      {
+        "url": "/api/team/seattle?run_seed=1234&lineup_rules=6&season=1&development_start=1&rebuild_team=seattle",
+        "ms": 206.33
+      },
+      {
+        "url": "/api/schedule/seattle?season=1",
+        "ms": 296.19
+      }
+    ],
+    "signature": "4938fd1f18c5bd4eaa1efd2ced5368173f6b6b4bcc1a7a0ee548be946bc69bdf"
+  },
+  {
+    "fixture": "fresh",
+    "trial": 1,
+    "cache": "warm",
+    "sample": 1,
+    "startup_ms": 563.38,
+    "ms": 73.4,
+    "render_ms": 46.94,
+    "requests": [
+      {
+        "url": "/api/teams",
+        "ms": 3.75
+      },
+      {
+        "url": "/api/schedule/seattle?season=1",
+        "ms": 3.04
+      },
+      {
+        "url": "/api/team/seattle?run_seed=1234&lineup_rules=6&season=1&development_start=1&rebuild_team=seattle",
+        "ms": 19.29
+      }
+    ],
+    "signature": "4938fd1f18c5bd4eaa1efd2ced5368173f6b6b4bcc1a7a0ee548be946bc69bdf"
+  },
+  {
+    "fixture": "fresh",
+    "trial": 1,
+    "cache": "warm",
+    "sample": 2,
+    "startup_ms": 563.38,
+    "ms": 73.12,
+    "render_ms": 48.87,
+    "requests": [
+      {
+        "url": "/api/teams",
+        "ms": 2.45
+      },
+      {
+        "url": "/api/schedule/seattle?season=1",
+        "ms": 13.08
+      },
+      {
+        "url": "/api/team/seattle?run_seed=1234&lineup_rules=6&season=1&development_start=1&rebuild_team=seattle",
+        "ms": 19.27
+      }
+    ],
+    "signature": "4938fd1f18c5bd4eaa1efd2ced5368173f6b6b4bcc1a7a0ee548be946bc69bdf"
+  },
+  {
+    "fixture": "fresh",
+    "trial": 1,
+    "cache": "warm",
+    "sample": 3,
+    "startup_ms": 563.38,
+    "ms": 58.32,
+    "render_ms": 27.15,
+    "requests": [
+      {
+        "url": "/api/teams",
+        "ms": 9.93
+      },
+      {
+        "url": "/api/schedule/seattle?season=1",
+        "ms": 8.01
+      },
+      {
+        "url": "/api/team/seattle?run_seed=1234&lineup_rules=6&season=1&development_start=1&rebuild_team=seattle",
+        "ms": 18.73
+      }
+    ],
+    "signature": "4938fd1f18c5bd4eaa1efd2ced5368173f6b6b4bcc1a7a0ee548be946bc69bdf"
+  },
+  {
+    "fixture": "fresh",
+    "trial": 2,
+    "cache": "empty",
+    "sample": 0,
+    "startup_ms": 582.46,
+    "ms": 334.46,
+    "render_ms": 36.54,
+    "requests": [
+      {
+        "url": "/api/teams",
+        "ms": 2.94
+      },
+      {
+        "url": "/api/team/seattle?run_seed=1234&lineup_rules=6&season=1&development_start=1&rebuild_team=seattle",
+        "ms": 216.46
+      },
+      {
+        "url": "/api/schedule/seattle?season=1",
+        "ms": 292.24
+      }
+    ],
+    "signature": "4938fd1f18c5bd4eaa1efd2ced5368173f6b6b4bcc1a7a0ee548be946bc69bdf"
+  },
+  {
+    "fixture": "fresh",
+    "trial": 2,
+    "cache": "warm",
+    "sample": 1,
+    "startup_ms": 582.46,
+    "ms": 82.23,
+    "render_ms": 53.27,
+    "requests": [
+      {
+        "url": "/api/teams",
+        "ms": 3.28
+      },
+      {
+        "url": "/api/schedule/seattle?season=1",
+        "ms": 20.48
+      },
+      {
+        "url": "/api/team/seattle?run_seed=1234&lineup_rules=6&season=1&development_start=1&rebuild_team=seattle",
+        "ms": 21.33
+      }
+    ],
+    "signature": "4938fd1f18c5bd4eaa1efd2ced5368173f6b6b4bcc1a7a0ee548be946bc69bdf"
+  },
+  {
+    "fixture": "fresh",
+    "trial": 2,
+    "cache": "warm",
+    "sample": 2,
+    "startup_ms": 582.46,
+    "ms": 66.26,
+    "render_ms": 35.3,
+    "requests": [
+      {
+        "url": "/api/teams",
+        "ms": 6.75
+      },
+      {
+        "url": "/api/schedule/seattle?season=1",
+        "ms": 7.59
+      },
+      {
+        "url": "/api/team/seattle?run_seed=1234&lineup_rules=6&season=1&development_start=1&rebuild_team=seattle",
+        "ms": 22.57
+      }
+    ],
+    "signature": "4938fd1f18c5bd4eaa1efd2ced5368173f6b6b4bcc1a7a0ee548be946bc69bdf"
+  },
+  {
+    "fixture": "fresh",
+    "trial": 2,
+    "cache": "warm",
+    "sample": 3,
+    "startup_ms": 582.46,
+    "ms": 55.07,
+    "render_ms": 25.13,
+    "requests": [
+      {
+        "url": "/api/teams",
+        "ms": 3.21
+      },
+      {
+        "url": "/api/schedule/seattle?season=1",
+        "ms": 3.77
+      },
+      {
+        "url": "/api/team/seattle?run_seed=1234&lineup_rules=6&season=1&development_start=1&rebuild_team=seattle",
+        "ms": 22.34
+      }
+    ],
+    "signature": "4938fd1f18c5bd4eaa1efd2ced5368173f6b6b4bcc1a7a0ee548be946bc69bdf"
+  },
+  {
+    "fixture": "year4",
+    "trial": 0,
+    "cache": "empty",
+    "sample": 0,
+    "startup_ms": 618.46,
+    "ms": 2225.47,
+    "render_ms": 128.94,
+    "requests": [
+      {
+        "url": "/api/teams",
+        "ms": 3.96
+      },
+      {
+        "url": "/api/schedule/seattle?season=4&prior_standings=%7B%22atlanta%22%3A5%2C%22baltimore%22%3A4%2C%22boston%22%3A2%2C%22chicago%22%3A3%2C%22cincinnati%22%3A3%2C%22cleveland%22%3A4%2C%22dallas%22%3A1%2C%22denver%22%3A4%2C%22detroit%22%3A2%2C%22green-bay%22%3A5%2C%22houston%22%3A2%2C%22kansas-city%22%3A5%2C%22las-vegas%22%3A5%2C%22los-angeles%22%3A3%2C%22miami%22%3A1%2C%22minneapolis%22%3A1%2C%22nashville%22%3A2%2C%22new-jersey%22%3A1%2C%22new-orleans%22%3A2%2C%22new-york%22%3A5%2C%22philadelphia%22%3A5%2C%22phoenix%22%3A3%2C%22pittsburgh%22%3A1%2C%22raleigh%22%3A4%2C%22san-diego%22%3A2%2C%22san-francisco%22%3A1%2C%22seattle%22%3A4%2C%22tampa-bay%22%3A3%2C%22toronto%22%3A4%2C%22washington-dc%22%3A3%7D",
+        "ms": 948.94
+      },
+      {
+        "url": "/api/career/seattle",
+        "ms": 1871.76
+      },
+      {
+        "url": "/api/career/seattle",
+        "ms": 170.38
+      },
+      {
+        "url": "/api/career/seattle",
+        "ms": 171.61
+      },
+      {
+        "url": "/api/career/seattle",
+        "ms": 44.06
+      }
+    ],
+    "signature": "c62680900d43dd14baf29eb56f9e88fdb97760e99e6c0aad7f49cbd8b2b0db56"
+  },
+  {
+    "fixture": "year4",
+    "trial": 0,
+    "cache": "warm",
+    "sample": 1,
+    "startup_ms": 618.46,
+    "ms": 242.2,
+    "render_ms": 117.12,
+    "requests": [
+      {
+        "url": "/api/teams",
+        "ms": 2.95
+      },
+      {
+        "url": "/api/schedule/seattle?season=4&prior_standings=%7B%22atlanta%22%3A5%2C%22baltimore%22%3A4%2C%22boston%22%3A2%2C%22chicago%22%3A3%2C%22cincinnati%22%3A3%2C%22cleveland%22%3A4%2C%22dallas%22%3A1%2C%22denver%22%3A4%2C%22detroit%22%3A2%2C%22green-bay%22%3A5%2C%22houston%22%3A2%2C%22kansas-city%22%3A5%2C%22las-vegas%22%3A5%2C%22los-angeles%22%3A3%2C%22miami%22%3A1%2C%22minneapolis%22%3A1%2C%22nashville%22%3A2%2C%22new-jersey%22%3A1%2C%22new-orleans%22%3A2%2C%22new-york%22%3A5%2C%22philadelphia%22%3A5%2C%22phoenix%22%3A3%2C%22pittsburgh%22%3A1%2C%22raleigh%22%3A4%2C%22san-diego%22%3A2%2C%22san-francisco%22%3A1%2C%22seattle%22%3A4%2C%22tampa-bay%22%3A3%2C%22toronto%22%3A4%2C%22washington-dc%22%3A3%7D",
+        "ms": 5.72
+      },
+      {
+        "url": "/api/career/seattle",
+        "ms": 7.07
+      },
+      {
+        "url": "/api/career/seattle",
+        "ms": 45.16
+      },
+      {
+        "url": "/api/career/seattle",
+        "ms": 62.6
+      },
+      {
+        "url": "/api/career/seattle",
+        "ms": 47.9
+      }
+    ],
+    "signature": "c62680900d43dd14baf29eb56f9e88fdb97760e99e6c0aad7f49cbd8b2b0db56"
+  },
+  {
+    "fixture": "year4",
+    "trial": 0,
+    "cache": "warm",
+    "sample": 2,
+    "startup_ms": 618.46,
+    "ms": 236.2,
+    "render_ms": 122.62,
+    "requests": [
+      {
+        "url": "/api/teams",
+        "ms": 2.59
+      },
+      {
+        "url": "/api/schedule/seattle?season=4&prior_standings=%7B%22atlanta%22%3A5%2C%22baltimore%22%3A4%2C%22boston%22%3A2%2C%22chicago%22%3A3%2C%22cincinnati%22%3A3%2C%22cleveland%22%3A4%2C%22dallas%22%3A1%2C%22denver%22%3A4%2C%22detroit%22%3A2%2C%22green-bay%22%3A5%2C%22houston%22%3A2%2C%22kansas-city%22%3A5%2C%22las-vegas%22%3A5%2C%22los-angeles%22%3A3%2C%22miami%22%3A1%2C%22minneapolis%22%3A1%2C%22nashville%22%3A2%2C%22new-jersey%22%3A1%2C%22new-orleans%22%3A2%2C%22new-york%22%3A5%2C%22philadelphia%22%3A5%2C%22phoenix%22%3A3%2C%22pittsburgh%22%3A1%2C%22raleigh%22%3A4%2C%22san-diego%22%3A2%2C%22san-francisco%22%3A1%2C%22seattle%22%3A4%2C%22tampa-bay%22%3A3%2C%22toronto%22%3A4%2C%22washington-dc%22%3A3%7D",
+        "ms": 5.78
+      },
+      {
+        "url": "/api/career/seattle",
+        "ms": 7.01
+      },
+      {
+        "url": "/api/career/seattle",
+        "ms": 46.93
+      },
+      {
+        "url": "/api/career/seattle",
+        "ms": 56.36
+      },
+      {
+        "url": "/api/career/seattle",
+        "ms": 44.52
+      }
+    ],
+    "signature": "c62680900d43dd14baf29eb56f9e88fdb97760e99e6c0aad7f49cbd8b2b0db56"
+  },
+  {
+    "fixture": "year4",
+    "trial": 0,
+    "cache": "warm",
+    "sample": 3,
+    "startup_ms": 618.46,
+    "ms": 220.46,
+    "render_ms": 100.88,
+    "requests": [
+      {
+        "url": "/api/teams",
+        "ms": 2.6
+      },
+      {
+        "url": "/api/schedule/seattle?season=4&prior_standings=%7B%22atlanta%22%3A5%2C%22baltimore%22%3A4%2C%22boston%22%3A2%2C%22chicago%22%3A3%2C%22cincinnati%22%3A3%2C%22cleveland%22%3A4%2C%22dallas%22%3A1%2C%22denver%22%3A4%2C%22detroit%22%3A2%2C%22green-bay%22%3A5%2C%22houston%22%3A2%2C%22kansas-city%22%3A5%2C%22las-vegas%22%3A5%2C%22los-angeles%22%3A3%2C%22miami%22%3A1%2C%22minneapolis%22%3A1%2C%22nashville%22%3A2%2C%22new-jersey%22%3A1%2C%22new-orleans%22%3A2%2C%22new-york%22%3A5%2C%22philadelphia%22%3A5%2C%22phoenix%22%3A3%2C%22pittsburgh%22%3A1%2C%22raleigh%22%3A4%2C%22san-diego%22%3A2%2C%22san-francisco%22%3A1%2C%22seattle%22%3A4%2C%22tampa-bay%22%3A3%2C%22toronto%22%3A4%2C%22washington-dc%22%3A3%7D",
+        "ms": 5.68
+      },
+      {
+        "url": "/api/career/seattle",
+        "ms": 7.11
+      },
+      {
+        "url": "/api/career/seattle",
+        "ms": 31.39
+      },
+      {
+        "url": "/api/career/seattle",
+        "ms": 58.75
+      },
+      {
+        "url": "/api/career/seattle",
+        "ms": 47.62
+      }
+    ],
+    "signature": "c62680900d43dd14baf29eb56f9e88fdb97760e99e6c0aad7f49cbd8b2b0db56"
+  },
+  {
+    "fixture": "year4",
+    "trial": 1,
+    "cache": "empty",
+    "sample": 0,
+    "startup_ms": 576.24,
+    "ms": 2012.94,
+    "render_ms": 115.25,
+    "requests": [
+      {
+        "url": "/api/teams",
+        "ms": 4.88
+      },
+      {
+        "url": "/api/schedule/seattle?season=4&prior_standings=%7B%22atlanta%22%3A5%2C%22baltimore%22%3A4%2C%22boston%22%3A2%2C%22chicago%22%3A3%2C%22cincinnati%22%3A3%2C%22cleveland%22%3A4%2C%22dallas%22%3A1%2C%22denver%22%3A4%2C%22detroit%22%3A2%2C%22green-bay%22%3A5%2C%22houston%22%3A2%2C%22kansas-city%22%3A5%2C%22las-vegas%22%3A5%2C%22los-angeles%22%3A3%2C%22miami%22%3A1%2C%22minneapolis%22%3A1%2C%22nashville%22%3A2%2C%22new-jersey%22%3A1%2C%22new-orleans%22%3A2%2C%22new-york%22%3A5%2C%22philadelphia%22%3A5%2C%22phoenix%22%3A3%2C%22pittsburgh%22%3A1%2C%22raleigh%22%3A4%2C%22san-diego%22%3A2%2C%22san-francisco%22%3A1%2C%22seattle%22%3A4%2C%22tampa-bay%22%3A3%2C%22toronto%22%3A4%2C%22washington-dc%22%3A3%7D",
+        "ms": 889.24
+      },
+      {
+        "url": "/api/career/seattle",
+        "ms": 1688.57
+      },
+      {
+        "url": "/api/career/seattle",
+        "ms": 154.71
+      },
+      {
+        "url": "/api/career/seattle",
+        "ms": 156.05
+      },
+      {
+        "url": "/api/career/seattle",
+        "ms": 45.49
+      }
+    ],
+    "signature": "c62680900d43dd14baf29eb56f9e88fdb97760e99e6c0aad7f49cbd8b2b0db56"
+  },
+  {
+    "fixture": "year4",
+    "trial": 1,
+    "cache": "warm",
+    "sample": 1,
+    "startup_ms": 576.24,
+    "ms": 254.76,
+    "render_ms": 101.85,
+    "requests": [
+      {
+        "url": "/api/teams",
+        "ms": 17.64
+      },
+      {
+        "url": "/api/schedule/seattle?season=4&prior_standings=%7B%22atlanta%22%3A5%2C%22baltimore%22%3A4%2C%22boston%22%3A2%2C%22chicago%22%3A3%2C%22cincinnati%22%3A3%2C%22cleveland%22%3A4%2C%22dallas%22%3A1%2C%22denver%22%3A4%2C%22detroit%22%3A2%2C%22green-bay%22%3A5%2C%22houston%22%3A2%2C%22kansas-city%22%3A5%2C%22las-vegas%22%3A5%2C%22los-angeles%22%3A3%2C%22miami%22%3A1%2C%22minneapolis%22%3A1%2C%22nashville%22%3A2%2C%22new-jersey%22%3A1%2C%22new-orleans%22%3A2%2C%22new-york%22%3A5%2C%22philadelphia%22%3A5%2C%22phoenix%22%3A3%2C%22pittsburgh%22%3A1%2C%22raleigh%22%3A4%2C%22san-diego%22%3A2%2C%22san-francisco%22%3A1%2C%22seattle%22%3A4%2C%22tampa-bay%22%3A3%2C%22toronto%22%3A4%2C%22washington-dc%22%3A3%7D",
+        "ms": 7.5
+      },
+      {
+        "url": "/api/career/seattle",
+        "ms": 9.6
+      },
+      {
+        "url": "/api/career/seattle",
+        "ms": 56.16
+      },
+      {
+        "url": "/api/career/seattle",
+        "ms": 74.94
+      },
+      {
+        "url": "/api/career/seattle",
+        "ms": 47.29
+      }
+    ],
+    "signature": "c62680900d43dd14baf29eb56f9e88fdb97760e99e6c0aad7f49cbd8b2b0db56"
+  },
+  {
+    "fixture": "year4",
+    "trial": 1,
+    "cache": "warm",
+    "sample": 2,
+    "startup_ms": 576.24,
+    "ms": 297.37,
+    "render_ms": 102.76,
+    "requests": [
+      {
+        "url": "/api/teams",
+        "ms": 11.6
+      },
+      {
+        "url": "/api/schedule/seattle?season=4&prior_standings=%7B%22atlanta%22%3A5%2C%22baltimore%22%3A4%2C%22boston%22%3A2%2C%22chicago%22%3A3%2C%22cincinnati%22%3A3%2C%22cleveland%22%3A4%2C%22dallas%22%3A1%2C%22denver%22%3A4%2C%22detroit%22%3A2%2C%22green-bay%22%3A5%2C%22houston%22%3A2%2C%22kansas-city%22%3A5%2C%22las-vegas%22%3A5%2C%22los-angeles%22%3A3%2C%22miami%22%3A1%2C%22minneapolis%22%3A1%2C%22nashville%22%3A2%2C%22new-jersey%22%3A1%2C%22new-orleans%22%3A2%2C%22new-york%22%3A5%2C%22philadelphia%22%3A5%2C%22phoenix%22%3A3%2C%22pittsburgh%22%3A1%2C%22raleigh%22%3A4%2C%22san-diego%22%3A2%2C%22san-francisco%22%3A1%2C%22seattle%22%3A4%2C%22tampa-bay%22%3A3%2C%22toronto%22%3A4%2C%22washington-dc%22%3A3%7D",
+        "ms": 58.31
+      },
+      {
+        "url": "/api/career/seattle",
+        "ms": 59.18
+      },
+      {
+        "url": "/api/career/seattle",
+        "ms": 44.4
+      },
+      {
+        "url": "/api/career/seattle",
+        "ms": 69.84
+      },
+      {
+        "url": "/api/career/seattle",
+        "ms": 50.05
+      }
+    ],
+    "signature": "c62680900d43dd14baf29eb56f9e88fdb97760e99e6c0aad7f49cbd8b2b0db56"
+  },
+  {
+    "fixture": "year4",
+    "trial": 1,
+    "cache": "warm",
+    "sample": 3,
+    "startup_ms": 576.24,
+    "ms": 235.24,
+    "render_ms": 118.92,
+    "requests": [
+      {
+        "url": "/api/teams",
+        "ms": 2.8
+      },
+      {
+        "url": "/api/career/seattle",
+        "ms": 11.99
+      },
+      {
+        "url": "/api/schedule/seattle?season=4&prior_standings=%7B%22atlanta%22%3A5%2C%22baltimore%22%3A4%2C%22boston%22%3A2%2C%22chicago%22%3A3%2C%22cincinnati%22%3A3%2C%22cleveland%22%3A4%2C%22dallas%22%3A1%2C%22denver%22%3A4%2C%22detroit%22%3A2%2C%22green-bay%22%3A5%2C%22houston%22%3A2%2C%22kansas-city%22%3A5%2C%22las-vegas%22%3A5%2C%22los-angeles%22%3A3%2C%22miami%22%3A1%2C%22minneapolis%22%3A1%2C%22nashville%22%3A2%2C%22new-jersey%22%3A1%2C%22new-orleans%22%3A2%2C%22new-york%22%3A5%2C%22philadelphia%22%3A5%2C%22phoenix%22%3A3%2C%22pittsburgh%22%3A1%2C%22raleigh%22%3A4%2C%22san-diego%22%3A2%2C%22san-francisco%22%3A1%2C%22seattle%22%3A4%2C%22tampa-bay%22%3A3%2C%22toronto%22%3A4%2C%22washington-dc%22%3A3%7D",
+        "ms": 13.08
+      },
+      {
+        "url": "/api/career/seattle",
+        "ms": 33.78
+      },
+      {
+        "url": "/api/career/seattle",
+        "ms": 60.54
+      },
+      {
+        "url": "/api/career/seattle",
+        "ms": 37.74
+      }
+    ],
+    "signature": "c62680900d43dd14baf29eb56f9e88fdb97760e99e6c0aad7f49cbd8b2b0db56"
+  },
+  {
+    "fixture": "year4",
+    "trial": 2,
+    "cache": "empty",
+    "sample": 0,
+    "startup_ms": 609.3,
+    "ms": 2303.07,
+    "render_ms": 111.8,
+    "requests": [
+      {
+        "url": "/api/teams",
+        "ms": 5.49
+      },
+      {
+        "url": "/api/schedule/seattle?season=4&prior_standings=%7B%22atlanta%22%3A5%2C%22baltimore%22%3A4%2C%22boston%22%3A2%2C%22chicago%22%3A3%2C%22cincinnati%22%3A3%2C%22cleveland%22%3A4%2C%22dallas%22%3A1%2C%22denver%22%3A4%2C%22detroit%22%3A2%2C%22green-bay%22%3A5%2C%22houston%22%3A2%2C%22kansas-city%22%3A5%2C%22las-vegas%22%3A5%2C%22los-angeles%22%3A3%2C%22miami%22%3A1%2C%22minneapolis%22%3A1%2C%22nashville%22%3A2%2C%22new-jersey%22%3A1%2C%22new-orleans%22%3A2%2C%22new-york%22%3A5%2C%22philadelphia%22%3A5%2C%22phoenix%22%3A3%2C%22pittsburgh%22%3A1%2C%22raleigh%22%3A4%2C%22san-diego%22%3A2%2C%22san-francisco%22%3A1%2C%22seattle%22%3A4%2C%22tampa-bay%22%3A3%2C%22toronto%22%3A4%2C%22washington-dc%22%3A3%7D",
+        "ms": 1007.99
+      },
+      {
+        "url": "/api/career/seattle",
+        "ms": 1980.96
+      },
+      {
+        "url": "/api/career/seattle",
+        "ms": 140.42
+      },
+      {
+        "url": "/api/career/seattle",
+        "ms": 145.84
+      },
+      {
+        "url": "/api/career/seattle",
+        "ms": 53.42
+      }
+    ],
+    "signature": "c62680900d43dd14baf29eb56f9e88fdb97760e99e6c0aad7f49cbd8b2b0db56"
+  },
+  {
+    "fixture": "year4",
+    "trial": 2,
+    "cache": "warm",
+    "sample": 1,
+    "startup_ms": 609.3,
+    "ms": 205.2,
+    "render_ms": 92.63,
+    "requests": [
+      {
+        "url": "/api/teams",
+        "ms": 2.53
+      },
+      {
+        "url": "/api/schedule/seattle?season=4&prior_standings=%7B%22atlanta%22%3A5%2C%22baltimore%22%3A4%2C%22boston%22%3A2%2C%22chicago%22%3A3%2C%22cincinnati%22%3A3%2C%22cleveland%22%3A4%2C%22dallas%22%3A1%2C%22denver%22%3A4%2C%22detroit%22%3A2%2C%22green-bay%22%3A5%2C%22houston%22%3A2%2C%22kansas-city%22%3A5%2C%22las-vegas%22%3A5%2C%22los-angeles%22%3A3%2C%22miami%22%3A1%2C%22minneapolis%22%3A1%2C%22nashville%22%3A2%2C%22new-jersey%22%3A1%2C%22new-orleans%22%3A2%2C%22new-york%22%3A5%2C%22philadelphia%22%3A5%2C%22phoenix%22%3A3%2C%22pittsburgh%22%3A1%2C%22raleigh%22%3A4%2C%22san-diego%22%3A2%2C%22san-francisco%22%3A1%2C%22seattle%22%3A4%2C%22tampa-bay%22%3A3%2C%22toronto%22%3A4%2C%22washington-dc%22%3A3%7D",
+        "ms": 5.5
+      },
+      {
+        "url": "/api/career/seattle",
+        "ms": 6.86
+      },
+      {
+        "url": "/api/career/seattle",
+        "ms": 27.98
+      },
+      {
+        "url": "/api/career/seattle",
+        "ms": 57.95
+      },
+      {
+        "url": "/api/career/seattle",
+        "ms": 42.28
+      }
+    ],
+    "signature": "c62680900d43dd14baf29eb56f9e88fdb97760e99e6c0aad7f49cbd8b2b0db56"
+  },
+  {
+    "fixture": "year4",
+    "trial": 2,
+    "cache": "warm",
+    "sample": 2,
+    "startup_ms": 609.3,
+    "ms": 244.19,
+    "render_ms": 103.36,
+    "requests": [
+      {
+        "url": "/api/teams",
+        "ms": 22.43
+      },
+      {
+        "url": "/api/schedule/seattle?season=4&prior_standings=%7B%22atlanta%22%3A5%2C%22baltimore%22%3A4%2C%22boston%22%3A2%2C%22chicago%22%3A3%2C%22cincinnati%22%3A3%2C%22cleveland%22%3A4%2C%22dallas%22%3A1%2C%22denver%22%3A4%2C%22detroit%22%3A2%2C%22green-bay%22%3A5%2C%22houston%22%3A2%2C%22kansas-city%22%3A5%2C%22las-vegas%22%3A5%2C%22los-angeles%22%3A3%2C%22miami%22%3A1%2C%22minneapolis%22%3A1%2C%22nashville%22%3A2%2C%22new-jersey%22%3A1%2C%22new-orleans%22%3A2%2C%22new-york%22%3A5%2C%22philadelphia%22%3A5%2C%22phoenix%22%3A3%2C%22pittsburgh%22%3A1%2C%22raleigh%22%3A4%2C%22san-diego%22%3A2%2C%22san-francisco%22%3A1%2C%22seattle%22%3A4%2C%22tampa-bay%22%3A3%2C%22toronto%22%3A4%2C%22washington-dc%22%3A3%7D",
+        "ms": 10.72
+      },
+      {
+        "url": "/api/career/seattle",
+        "ms": 13.54
+      },
+      {
+        "url": "/api/career/seattle",
+        "ms": 32.75
+      },
+      {
+        "url": "/api/career/seattle",
+        "ms": 51.44
+      },
+      {
+        "url": "/api/career/seattle",
+        "ms": 46.63
+      }
+    ],
+    "signature": "c62680900d43dd14baf29eb56f9e88fdb97760e99e6c0aad7f49cbd8b2b0db56"
+  },
+  {
+    "fixture": "year4",
+    "trial": 2,
+    "cache": "warm",
+    "sample": 3,
+    "startup_ms": 609.3,
+    "ms": 227,
+    "render_ms": 121.98,
+    "requests": [
+      {
+        "url": "/api/teams",
+        "ms": 2.55
+      },
+      {
+        "url": "/api/schedule/seattle?season=4&prior_standings=%7B%22atlanta%22%3A5%2C%22baltimore%22%3A4%2C%22boston%22%3A2%2C%22chicago%22%3A3%2C%22cincinnati%22%3A3%2C%22cleveland%22%3A4%2C%22dallas%22%3A1%2C%22denver%22%3A4%2C%22detroit%22%3A2%2C%22green-bay%22%3A5%2C%22houston%22%3A2%2C%22kansas-city%22%3A5%2C%22las-vegas%22%3A5%2C%22los-angeles%22%3A3%2C%22miami%22%3A1%2C%22minneapolis%22%3A1%2C%22nashville%22%3A2%2C%22new-jersey%22%3A1%2C%22new-orleans%22%3A2%2C%22new-york%22%3A5%2C%22philadelphia%22%3A5%2C%22phoenix%22%3A3%2C%22pittsburgh%22%3A1%2C%22raleigh%22%3A4%2C%22san-diego%22%3A2%2C%22san-francisco%22%3A1%2C%22seattle%22%3A4%2C%22tampa-bay%22%3A3%2C%22toronto%22%3A4%2C%22washington-dc%22%3A3%7D",
+        "ms": 5.67
+      },
+      {
+        "url": "/api/career/seattle",
+        "ms": 6.74
+      },
+      {
+        "url": "/api/career/seattle",
+        "ms": 26.84
+      },
+      {
+        "url": "/api/career/seattle",
+        "ms": 54.72
+      },
+      {
+        "url": "/api/career/seattle",
+        "ms": 37.59
+      }
+    ],
+    "signature": "c62680900d43dd14baf29eb56f9e88fdb97760e99e6c0aad7f49cbd8b2b0db56"
+  },
+  {
+    "fixture": "year8",
+    "trial": 0,
+    "cache": "empty",
+    "sample": 0,
+    "startup_ms": 630.37,
+    "ms": 3852.78,
+    "render_ms": 60.82,
+    "requests": [
+      {
+        "url": "/api/teams",
+        "ms": 4.46
+      },
+      {
+        "url": "/api/schedule/seattle?season=8&prior_standings=%7B%22atlanta%22%3A5%2C%22baltimore%22%3A4%2C%22boston%22%3A5%2C%22chicago%22%3A1%2C%22cincinnati%22%3A5%2C%22cleveland%22%3A2%2C%22dallas%22%3A1%2C%22denver%22%3A3%2C%22detroit%22%3A5%2C%22green-bay%22%3A4%2C%22houston%22%3A4%2C%22kansas-city%22%3A5%2C%22las-vegas%22%3A2%2C%22los-angeles%22%3A5%2C%22miami%22%3A4%2C%22minneapolis%22%3A3%2C%22nashville%22%3A2%2C%22new-jersey%22%3A4%2C%22new-orleans%22%3A1%2C%22new-york%22%3A3%2C%22philadelphia%22%3A1%2C%22phoenix%22%3A2%2C%22pittsburgh%22%3A3%2C%22raleigh%22%3A2%2C%22san-diego%22%3A4%2C%22san-francisco%22%3A3%2C%22seattle%22%3A1%2C%22tampa-bay%22%3A3%2C%22toronto%22%3A2%2C%22washington-dc%22%3A1%7D",
+        "ms": 138.29
+      },
+      {
+        "url": "/api/career/seattle",
+        "ms": 3719.13
+      },
+      {
+        "url": "/api/career/seattle",
+        "ms": 63.81
+      }
+    ],
+    "signature": "62380898adaf564967f7bc3eb40f2863b3171cb98376b72e6fbcb956fc2d2ce6"
+  },
+  {
+    "fixture": "year8",
+    "trial": 0,
+    "cache": "warm",
+    "sample": 1,
+    "startup_ms": 630.37,
+    "ms": 142.52,
+    "render_ms": 67.66,
+    "requests": [
+      {
+        "url": "/api/teams",
+        "ms": 4.12
+      },
+      {
+        "url": "/api/career/seattle",
+        "ms": 7.27
+      },
+      {
+        "url": "/api/schedule/seattle?season=8&prior_standings=%7B%22atlanta%22%3A5%2C%22baltimore%22%3A4%2C%22boston%22%3A5%2C%22chicago%22%3A1%2C%22cincinnati%22%3A5%2C%22cleveland%22%3A2%2C%22dallas%22%3A1%2C%22denver%22%3A3%2C%22detroit%22%3A5%2C%22green-bay%22%3A4%2C%22houston%22%3A4%2C%22kansas-city%22%3A5%2C%22las-vegas%22%3A2%2C%22los-angeles%22%3A5%2C%22miami%22%3A4%2C%22minneapolis%22%3A3%2C%22nashville%22%3A2%2C%22new-jersey%22%3A4%2C%22new-orleans%22%3A1%2C%22new-york%22%3A3%2C%22philadelphia%22%3A1%2C%22phoenix%22%3A2%2C%22pittsburgh%22%3A3%2C%22raleigh%22%3A2%2C%22san-diego%22%3A4%2C%22san-francisco%22%3A3%2C%22seattle%22%3A1%2C%22tampa-bay%22%3A3%2C%22toronto%22%3A2%2C%22washington-dc%22%3A1%7D",
+        "ms": 7.85
+      },
+      {
+        "url": "/api/career/seattle",
+        "ms": 56.72
+      }
+    ],
+    "signature": "62380898adaf564967f7bc3eb40f2863b3171cb98376b72e6fbcb956fc2d2ce6"
+  },
+  {
+    "fixture": "year8",
+    "trial": 0,
+    "cache": "warm",
+    "sample": 2,
+    "startup_ms": 630.37,
+    "ms": 107.95,
+    "render_ms": 55.97,
+    "requests": [
+      {
+        "url": "/api/teams",
+        "ms": 2.64
+      },
+      {
+        "url": "/api/schedule/seattle?season=8&prior_standings=%7B%22atlanta%22%3A5%2C%22baltimore%22%3A4%2C%22boston%22%3A5%2C%22chicago%22%3A1%2C%22cincinnati%22%3A5%2C%22cleveland%22%3A2%2C%22dallas%22%3A1%2C%22denver%22%3A3%2C%22detroit%22%3A5%2C%22green-bay%22%3A4%2C%22houston%22%3A4%2C%22kansas-city%22%3A5%2C%22las-vegas%22%3A2%2C%22los-angeles%22%3A5%2C%22miami%22%3A4%2C%22minneapolis%22%3A3%2C%22nashville%22%3A2%2C%22new-jersey%22%3A4%2C%22new-orleans%22%3A1%2C%22new-york%22%3A3%2C%22philadelphia%22%3A1%2C%22phoenix%22%3A2%2C%22pittsburgh%22%3A3%2C%22raleigh%22%3A2%2C%22san-diego%22%3A4%2C%22san-francisco%22%3A3%2C%22seattle%22%3A1%2C%22tampa-bay%22%3A3%2C%22toronto%22%3A2%2C%22washington-dc%22%3A1%7D",
+        "ms": 7.7
+      },
+      {
+        "url": "/api/career/seattle",
+        "ms": 9.18
+      },
+      {
+        "url": "/api/career/seattle",
+        "ms": 36.17
+      }
+    ],
+    "signature": "62380898adaf564967f7bc3eb40f2863b3171cb98376b72e6fbcb956fc2d2ce6"
+  },
+  {
+    "fixture": "year8",
+    "trial": 0,
+    "cache": "warm",
+    "sample": 3,
+    "startup_ms": 630.37,
+    "ms": 161.23,
+    "render_ms": 54.36,
+    "requests": [
+      {
+        "url": "/api/teams",
+        "ms": 13.08
+      },
+      {
+        "url": "/api/schedule/seattle?season=8&prior_standings=%7B%22atlanta%22%3A5%2C%22baltimore%22%3A4%2C%22boston%22%3A5%2C%22chicago%22%3A1%2C%22cincinnati%22%3A5%2C%22cleveland%22%3A2%2C%22dallas%22%3A1%2C%22denver%22%3A3%2C%22detroit%22%3A5%2C%22green-bay%22%3A4%2C%22houston%22%3A4%2C%22kansas-city%22%3A5%2C%22las-vegas%22%3A2%2C%22los-angeles%22%3A5%2C%22miami%22%3A4%2C%22minneapolis%22%3A3%2C%22nashville%22%3A2%2C%22new-jersey%22%3A4%2C%22new-orleans%22%3A1%2C%22new-york%22%3A3%2C%22philadelphia%22%3A1%2C%22phoenix%22%3A2%2C%22pittsburgh%22%3A3%2C%22raleigh%22%3A2%2C%22san-diego%22%3A4%2C%22san-francisco%22%3A3%2C%22seattle%22%3A1%2C%22tampa-bay%22%3A3%2C%22toronto%22%3A2%2C%22washington-dc%22%3A1%7D",
+        "ms": 30.94
+      },
+      {
+        "url": "/api/career/seattle",
+        "ms": 38.07
+      },
+      {
+        "url": "/api/career/seattle",
+        "ms": 51.62
+      }
+    ],
+    "signature": "62380898adaf564967f7bc3eb40f2863b3171cb98376b72e6fbcb956fc2d2ce6"
+  },
+  {
+    "fixture": "year8",
+    "trial": 1,
+    "cache": "empty",
+    "sample": 0,
+    "startup_ms": 611.94,
+    "ms": 4139.12,
+    "render_ms": 57.57,
+    "requests": [
+      {
+        "url": "/api/teams",
+        "ms": 3.94
+      },
+      {
+        "url": "/api/schedule/seattle?season=8&prior_standings=%7B%22atlanta%22%3A5%2C%22baltimore%22%3A4%2C%22boston%22%3A5%2C%22chicago%22%3A1%2C%22cincinnati%22%3A5%2C%22cleveland%22%3A2%2C%22dallas%22%3A1%2C%22denver%22%3A3%2C%22detroit%22%3A5%2C%22green-bay%22%3A4%2C%22houston%22%3A4%2C%22kansas-city%22%3A5%2C%22las-vegas%22%3A2%2C%22los-angeles%22%3A5%2C%22miami%22%3A4%2C%22minneapolis%22%3A3%2C%22nashville%22%3A2%2C%22new-jersey%22%3A4%2C%22new-orleans%22%3A1%2C%22new-york%22%3A3%2C%22philadelphia%22%3A1%2C%22phoenix%22%3A2%2C%22pittsburgh%22%3A3%2C%22raleigh%22%3A2%2C%22san-diego%22%3A4%2C%22san-francisco%22%3A3%2C%22seattle%22%3A1%2C%22tampa-bay%22%3A3%2C%22toronto%22%3A2%2C%22washington-dc%22%3A1%7D",
+        "ms": 214.34
+      },
+      {
+        "url": "/api/career/seattle",
+        "ms": 4008.9
+      },
+      {
+        "url": "/api/career/seattle",
+        "ms": 65.14
+      }
+    ],
+    "signature": "62380898adaf564967f7bc3eb40f2863b3171cb98376b72e6fbcb956fc2d2ce6"
+  },
+  {
+    "fixture": "year8",
+    "trial": 1,
+    "cache": "warm",
+    "sample": 1,
+    "startup_ms": 611.94,
+    "ms": 130.36,
+    "render_ms": 50.77,
+    "requests": [
+      {
+        "url": "/api/teams",
+        "ms": 17.51
+      },
+      {
+        "url": "/api/schedule/seattle?season=8&prior_standings=%7B%22atlanta%22%3A5%2C%22baltimore%22%3A4%2C%22boston%22%3A5%2C%22chicago%22%3A1%2C%22cincinnati%22%3A5%2C%22cleveland%22%3A2%2C%22dallas%22%3A1%2C%22denver%22%3A3%2C%22detroit%22%3A5%2C%22green-bay%22%3A4%2C%22houston%22%3A4%2C%22kansas-city%22%3A5%2C%22las-vegas%22%3A2%2C%22los-angeles%22%3A5%2C%22miami%22%3A4%2C%22minneapolis%22%3A3%2C%22nashville%22%3A2%2C%22new-jersey%22%3A4%2C%22new-orleans%22%3A1%2C%22new-york%22%3A3%2C%22philadelphia%22%3A1%2C%22phoenix%22%3A2%2C%22pittsburgh%22%3A3%2C%22raleigh%22%3A2%2C%22san-diego%22%3A4%2C%22san-francisco%22%3A3%2C%22seattle%22%3A1%2C%22tampa-bay%22%3A3%2C%22toronto%22%3A2%2C%22washington-dc%22%3A1%7D",
+        "ms": 9.12
+      },
+      {
+        "url": "/api/career/seattle",
+        "ms": 11.4
+      },
+      {
+        "url": "/api/career/seattle",
+        "ms": 45.9
+      }
+    ],
+    "signature": "62380898adaf564967f7bc3eb40f2863b3171cb98376b72e6fbcb956fc2d2ce6"
+  },
+  {
+    "fixture": "year8",
+    "trial": 1,
+    "cache": "warm",
+    "sample": 2,
+    "startup_ms": 611.94,
+    "ms": 117.57,
+    "render_ms": 64.06,
+    "requests": [
+      {
+        "url": "/api/teams",
+        "ms": 3.18
+      },
+      {
+        "url": "/api/career/seattle",
+        "ms": 10.39
+      },
+      {
+        "url": "/api/schedule/seattle?season=8&prior_standings=%7B%22atlanta%22%3A5%2C%22baltimore%22%3A4%2C%22boston%22%3A5%2C%22chicago%22%3A1%2C%22cincinnati%22%3A5%2C%22cleveland%22%3A2%2C%22dallas%22%3A1%2C%22denver%22%3A3%2C%22detroit%22%3A5%2C%22green-bay%22%3A4%2C%22houston%22%3A4%2C%22kansas-city%22%3A5%2C%22las-vegas%22%3A2%2C%22los-angeles%22%3A5%2C%22miami%22%3A4%2C%22minneapolis%22%3A3%2C%22nashville%22%3A2%2C%22new-jersey%22%3A4%2C%22new-orleans%22%3A1%2C%22new-york%22%3A3%2C%22philadelphia%22%3A1%2C%22phoenix%22%3A2%2C%22pittsburgh%22%3A3%2C%22raleigh%22%3A2%2C%22san-diego%22%3A4%2C%22san-francisco%22%3A3%2C%22seattle%22%3A1%2C%22tampa-bay%22%3A3%2C%22toronto%22%3A2%2C%22washington-dc%22%3A1%7D",
+        "ms": 10.9
+      },
+      {
+        "url": "/api/career/seattle",
+        "ms": 36.7
+      }
+    ],
+    "signature": "62380898adaf564967f7bc3eb40f2863b3171cb98376b72e6fbcb956fc2d2ce6"
+  },
+  {
+    "fixture": "year8",
+    "trial": 1,
+    "cache": "warm",
+    "sample": 3,
+    "startup_ms": 611.94,
+    "ms": 116.24,
+    "render_ms": 47.88,
+    "requests": [
+      {
+        "url": "/api/teams",
+        "ms": 11.19
+      },
+      {
+        "url": "/api/schedule/seattle?season=8&prior_standings=%7B%22atlanta%22%3A5%2C%22baltimore%22%3A4%2C%22boston%22%3A5%2C%22chicago%22%3A1%2C%22cincinnati%22%3A5%2C%22cleveland%22%3A2%2C%22dallas%22%3A1%2C%22denver%22%3A3%2C%22detroit%22%3A5%2C%22green-bay%22%3A4%2C%22houston%22%3A4%2C%22kansas-city%22%3A5%2C%22las-vegas%22%3A2%2C%22los-angeles%22%3A5%2C%22miami%22%3A4%2C%22minneapolis%22%3A3%2C%22nashville%22%3A2%2C%22new-jersey%22%3A4%2C%22new-orleans%22%3A1%2C%22new-york%22%3A3%2C%22philadelphia%22%3A1%2C%22phoenix%22%3A2%2C%22pittsburgh%22%3A3%2C%22raleigh%22%3A2%2C%22san-diego%22%3A4%2C%22san-francisco%22%3A3%2C%22seattle%22%3A1%2C%22tampa-bay%22%3A3%2C%22toronto%22%3A2%2C%22washington-dc%22%3A1%7D",
+        "ms": 8.62
+      },
+      {
+        "url": "/api/career/seattle",
+        "ms": 11.86
+      },
+      {
+        "url": "/api/career/seattle",
+        "ms": 40.81
+      }
+    ],
+    "signature": "62380898adaf564967f7bc3eb40f2863b3171cb98376b72e6fbcb956fc2d2ce6"
+  },
+  {
+    "fixture": "year8",
+    "trial": 2,
+    "cache": "empty",
+    "sample": 0,
+    "startup_ms": 626.52,
+    "ms": 3910.75,
+    "render_ms": 101.69,
+    "requests": [
+      {
+        "url": "/api/teams",
+        "ms": 2.67
+      },
+      {
+        "url": "/api/schedule/seattle?season=8&prior_standings=%7B%22atlanta%22%3A5%2C%22baltimore%22%3A4%2C%22boston%22%3A5%2C%22chicago%22%3A1%2C%22cincinnati%22%3A5%2C%22cleveland%22%3A2%2C%22dallas%22%3A1%2C%22denver%22%3A3%2C%22detroit%22%3A5%2C%22green-bay%22%3A4%2C%22houston%22%3A4%2C%22kansas-city%22%3A5%2C%22las-vegas%22%3A2%2C%22los-angeles%22%3A5%2C%22miami%22%3A4%2C%22minneapolis%22%3A3%2C%22nashville%22%3A2%2C%22new-jersey%22%3A4%2C%22new-orleans%22%3A1%2C%22new-york%22%3A3%2C%22philadelphia%22%3A1%2C%22phoenix%22%3A2%2C%22pittsburgh%22%3A3%2C%22raleigh%22%3A2%2C%22san-diego%22%3A4%2C%22san-francisco%22%3A3%2C%22seattle%22%3A1%2C%22tampa-bay%22%3A3%2C%22toronto%22%3A2%2C%22washington-dc%22%3A1%7D",
+        "ms": 158.31
+      },
+      {
+        "url": "/api/career/seattle",
+        "ms": 3723.47
+      },
+      {
+        "url": "/api/career/seattle",
+        "ms": 79.73
+      }
+    ],
+    "signature": "62380898adaf564967f7bc3eb40f2863b3171cb98376b72e6fbcb956fc2d2ce6"
+  },
+  {
+    "fixture": "year8",
+    "trial": 2,
+    "cache": "warm",
+    "sample": 1,
+    "startup_ms": 626.52,
+    "ms": 224.31,
+    "render_ms": 68.43,
+    "requests": [
+      {
+        "url": "/api/teams",
+        "ms": 7.93
+      },
+      {
+        "url": "/api/schedule/seattle?season=8&prior_standings=%7B%22atlanta%22%3A5%2C%22baltimore%22%3A4%2C%22boston%22%3A5%2C%22chicago%22%3A1%2C%22cincinnati%22%3A5%2C%22cleveland%22%3A2%2C%22dallas%22%3A1%2C%22denver%22%3A3%2C%22detroit%22%3A5%2C%22green-bay%22%3A4%2C%22houston%22%3A4%2C%22kansas-city%22%3A5%2C%22las-vegas%22%3A2%2C%22los-angeles%22%3A5%2C%22miami%22%3A4%2C%22minneapolis%22%3A3%2C%22nashville%22%3A2%2C%22new-jersey%22%3A4%2C%22new-orleans%22%3A1%2C%22new-york%22%3A3%2C%22philadelphia%22%3A1%2C%22phoenix%22%3A2%2C%22pittsburgh%22%3A3%2C%22raleigh%22%3A2%2C%22san-diego%22%3A4%2C%22san-francisco%22%3A3%2C%22seattle%22%3A1%2C%22tampa-bay%22%3A3%2C%22toronto%22%3A2%2C%22washington-dc%22%3A1%7D",
+        "ms": 9.25
+      },
+      {
+        "url": "/api/career/seattle",
+        "ms": 11.13
+      },
+      {
+        "url": "/api/career/seattle",
+        "ms": 130.9
+      }
+    ],
+    "signature": "62380898adaf564967f7bc3eb40f2863b3171cb98376b72e6fbcb956fc2d2ce6"
+  },
+  {
+    "fixture": "year8",
+    "trial": 2,
+    "cache": "warm",
+    "sample": 2,
+    "startup_ms": 626.52,
+    "ms": 98.12,
+    "render_ms": 50.28,
+    "requests": [
+      {
+        "url": "/api/teams",
+        "ms": 3.21
+      },
+      {
+        "url": "/api/career/seattle",
+        "ms": 7.66
+      },
+      {
+        "url": "/api/schedule/seattle?season=8&prior_standings=%7B%22atlanta%22%3A5%2C%22baltimore%22%3A4%2C%22boston%22%3A5%2C%22chicago%22%3A1%2C%22cincinnati%22%3A5%2C%22cleveland%22%3A2%2C%22dallas%22%3A1%2C%22denver%22%3A3%2C%22detroit%22%3A5%2C%22green-bay%22%3A4%2C%22houston%22%3A4%2C%22kansas-city%22%3A5%2C%22las-vegas%22%3A2%2C%22los-angeles%22%3A5%2C%22miami%22%3A4%2C%22minneapolis%22%3A3%2C%22nashville%22%3A2%2C%22new-jersey%22%3A4%2C%22new-orleans%22%3A1%2C%22new-york%22%3A3%2C%22philadelphia%22%3A1%2C%22phoenix%22%3A2%2C%22pittsburgh%22%3A3%2C%22raleigh%22%3A2%2C%22san-diego%22%3A4%2C%22san-francisco%22%3A3%2C%22seattle%22%3A1%2C%22tampa-bay%22%3A3%2C%22toronto%22%3A2%2C%22washington-dc%22%3A1%7D",
+        "ms": 9.34
+      },
+      {
+        "url": "/api/career/seattle",
+        "ms": 34.08
+      }
+    ],
+    "signature": "62380898adaf564967f7bc3eb40f2863b3171cb98376b72e6fbcb956fc2d2ce6"
+  },
+  {
+    "fixture": "year8",
+    "trial": 2,
+    "cache": "warm",
+    "sample": 3,
+    "startup_ms": 626.52,
+    "ms": 96.41,
+    "render_ms": 46.08,
+    "requests": [
+      {
+        "url": "/api/teams",
+        "ms": 4.24
+      },
+      {
+        "url": "/api/schedule/seattle?season=8&prior_standings=%7B%22atlanta%22%3A5%2C%22baltimore%22%3A4%2C%22boston%22%3A5%2C%22chicago%22%3A1%2C%22cincinnati%22%3A5%2C%22cleveland%22%3A2%2C%22dallas%22%3A1%2C%22denver%22%3A3%2C%22detroit%22%3A5%2C%22green-bay%22%3A4%2C%22houston%22%3A4%2C%22kansas-city%22%3A5%2C%22las-vegas%22%3A2%2C%22los-angeles%22%3A5%2C%22miami%22%3A4%2C%22minneapolis%22%3A3%2C%22nashville%22%3A2%2C%22new-jersey%22%3A4%2C%22new-orleans%22%3A1%2C%22new-york%22%3A3%2C%22philadelphia%22%3A1%2C%22phoenix%22%3A2%2C%22pittsburgh%22%3A3%2C%22raleigh%22%3A2%2C%22san-diego%22%3A4%2C%22san-francisco%22%3A3%2C%22seattle%22%3A1%2C%22tampa-bay%22%3A3%2C%22toronto%22%3A2%2C%22washington-dc%22%3A1%7D",
+        "ms": 5.76
+      },
+      {
+        "url": "/api/career/seattle",
+        "ms": 6.96
+      },
+      {
+        "url": "/api/career/seattle",
+        "ms": 33.99
+      }
+    ],
+    "signature": "62380898adaf564967f7bc3eb40f2863b3171cb98376b72e6fbcb956fc2d2ce6"
+  }
+]

@@ -320,11 +320,20 @@ async function resumeProgress() {
     ];
     if (save.week) requests.push(`/api/season/${save.teamId}/week/${save.week}?season=${save.season}&run_seed=${save.runSeed}${priorStandingsQuery(save.priorStandings)}&lineup_rules=${save.lineupRules}&development_start=${save.developmentStart ?? 1}${rebuildQuery(save.rebuildTeam)}`);
     if (save.playoffRound !== null) requests.push(`/api/playoffs/${save.teamId}/round/${save.playoffRound}?season=${save.season}&run_seed=${save.runSeed}${priorStandingsQuery(save.priorStandings)}&lineup_rules=${save.lineupRules}&development_start=${save.developmentStart ?? 1}${rebuildQuery(save.rebuildTeam)}`);
+    // Warm the shared career replay once before dependent endpoints request it.
+    // lru_cache does not coalesce simultaneous misses in FastAPI's worker threads.
+    const profileRequest = save.career.length ? careerRequest("profile", {}, save) : null;
     const payloads = await Promise.all(requests.map(async url => {
-      if (save.career.length) {
-        if (url.startsWith("/api/team/")) return careerRequest("profile", {}, save);
-        if (url.startsWith("/api/season/")) return careerRequest("week", { week: save.week }, save);
-        if (url.startsWith("/api/playoffs/")) return careerRequest("playoffs", { round_number: save.playoffRound }, save);
+      if (profileRequest) {
+        if (url.startsWith("/api/team/")) return profileRequest;
+        if (url.startsWith("/api/season/")) {
+          await profileRequest;
+          return careerRequest("week", { week: save.week }, save);
+        }
+        if (url.startsWith("/api/playoffs/")) {
+          await profileRequest;
+          return careerRequest("playoffs", { round_number: save.playoffRound }, save);
+        }
       }
       const response = await fetch(url);
       if (!response.ok) throw new Error("Restore failed");
