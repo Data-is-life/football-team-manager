@@ -395,3 +395,10 @@ Save version 12 records whether contracts apply. Existing saves from versions 1â
 Restoration now warms a multi-season career's replay once before fetching its dependent weekly and playoff data. Standings reconstruction computes the exact same scores without generating independent player-stat streams for historical league games. Saved progress, roster-context cache isolation, draft replay and all gameplay rules remain unchanged. Existing saves benefit automatically; no new career is needed.
 
 Local repeated benchmarks found empty-cache Season 4 restoration fell from 6.983s to 2.225s, and Season 8 from 11.557s to 3.911s. These are medians of three fresh-server trials per revision; warm restores were broadly similar. Server startup is measured separately, and these figures do not establish a Render cold-start speedup. See [the measurement report](benchmarks/README.md) for raw samples, reproducible checkpoints, API/render timings, limitations and correctness checks.
+
+
+## Simulate the remaining season
+
+The team header offers **Simulate remaining season** alongside the existing weekly button. It simulates each remaining regular-season week through Week 17, using the same requests and results as manual weekly play. Every completed week renders normally and autosaves. Progress text shows the active week; **Stop after this week** finishes and saves the in-flight week before stopping. Reloading restores the last saved week and never resumes a batch automatically.
+
+Both simulation buttons are blocked while a week/batch is running; career replacement is blocked during a season batch. A failed or mismatched response stops the batch without committing that week; retry continues from the next unplayed week. Browser storage failures retain in-page progress and the existing save warning. Regular-season simulation stops before revealing or simulating playoffs, drafting, cuts, or next-season progression. Qualification/owner messages and GM firing rules still apply. Existing saved careers can use this immediately; no save-format change or new career is needed.
