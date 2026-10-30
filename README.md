@@ -388,3 +388,10 @@ Each season awards **only its highest extension**, added to the contract's end s
 Firing blocks further weekly/playoff simulation, drafting, cuts, and advancing seasons. Existing results, rosters, standings, scouting, and GM records remain available to view, and a new career can be started. The contract is derived from completed history plus the current season, so repeated renders, retries, and reloads cannot grant duplicate extensions. This is a browser career rule, not authentication or a server-side anti-cheat restriction.
 
 Save version 12 records whether contracts apply. Existing saves from versions 1–11 stay playable without retroactive contracts or firing, and remain exempt after future autosaves and season transitions. Start a new career to use contracts. The current first season remains a full 17 games; a proposed late-season hiring start is a separate change.
+
+
+## Saved-career restoration performance
+
+Restoration now warms a multi-season career's replay once before fetching its dependent weekly and playoff data. Standings reconstruction computes the exact same scores without generating independent player-stat streams for historical league games. Saved progress, roster-context cache isolation, draft replay and all gameplay rules remain unchanged. Existing saves benefit automatically; no new career is needed.
+
+Local repeated benchmarks found empty-cache Season 4 restoration fell from 6.983s to 2.225s, and Season 8 from 11.557s to 3.911s. These are medians of three fresh-server trials per revision; warm restores were broadly similar. Server startup is measured separately, and these figures do not establish a Render cold-start speedup. See [the measurement report](benchmarks/README.md) for raw samples, reproducible checkpoints, API/render timings, limitations and correctness checks.

@@ -395,14 +395,9 @@ def assign_possession(home_box: dict, away_box: dict) -> None:
         box["team_stats"]["time_of_possession"] = f"{duration // 60}:{duration % 60:02d}"
 
 
-def simulate_game(
-    selected_team_id: str,
-    game: ScheduledGame,
-    season: int,
-    *, allow_ties: bool = True, neutral_site: bool = False, run_seed: int = 0,
-    include_defense_and_blocking: bool = True,
-    roster_context: tuple = (),
-) -> dict[str, object]:
+def _scoring_boxes(selected_team_id, game, season, *, allow_ties=True,
+                   neutral_site=False, run_seed=0, roster_context=()):
+    """The shared scoring RNG path; usage/rotation streams cannot affect outcomes."""
     selected_team = TEAM_BY_ID[selected_team_id]
     opponent = TEAM_BY_ID[game.opponent_id]
     ordered_ids = sorted((selected_team.id, opponent.id))
@@ -415,6 +410,24 @@ def simulate_game(
     home_box = _team_box(home_team, away_team, None if neutral_site else True, rng, run_seed, roster_context)
     away_box = _team_box(away_team, home_team, None if neutral_site else False, rng, run_seed, roster_context)
     overtime = resolve_overtime(home_box, away_box, rng, allow_ties=allow_ties, neutral_site=neutral_site, run_seed=run_seed, roster_context=roster_context)
+    return home_box, away_box, overtime, seed
+
+
+def simulate_game(
+    selected_team_id: str,
+    game: ScheduledGame,
+    season: int,
+    *, allow_ties: bool = True, neutral_site: bool = False, run_seed: int = 0,
+    include_defense_and_blocking: bool = True,
+    roster_context: tuple = (),
+) -> dict[str, object]:
+    home_box, away_box, overtime, seed = _scoring_boxes(
+        selected_team_id, game, season, allow_ties=allow_ties, neutral_site=neutral_site,
+        run_seed=run_seed, roster_context=roster_context)
+    selected_team = TEAM_BY_ID[selected_team_id]
+    selected_is_home = game.venue == "Home"
+    home_team = TEAM_BY_ID[home_box["team"]["id"]]
+    away_team = TEAM_BY_ID[away_box["team"]["id"]]
     selected_box = home_box if selected_is_home else away_box
     opponent_box = away_box if selected_is_home else home_box
     # Independent usage stream keeps the existing scoring/overtime draws stable.
@@ -452,38 +465,39 @@ def simulate_game(
     }
 
 
-def simulate_league_week(season: int, week: int, run_seed: int = 0,
-                         *, include_defense_and_blocking: bool = True,
-                         prior_standings: tuple[tuple[str, int], ...] = (), roster_context: tuple = ()) -> list[dict[str, object]]:
+def _league_week_matchups(season, week, prior_standings):
     if week < 1 or week > 17:
         raise ValueError("Week must be between 1 and 17")
-    results: list[dict[str, object]] = []
     for league_game in generate_league_schedule(season=season, standings=dict(prior_standings) or None):
         if league_game.week != week:
             continue
         away = TEAM_BY_ID[league_game.away_id]
-        game = ScheduledGame(
-            week=week,
-            opponent_id=away.id,
-            opponent=away.city,
-            opponent_group=away.group,
-            venue="Home",
-            reason=league_game.reason,
-        )
-        result = simulate_game(league_game.home_id, game, season, run_seed=run_seed,
-                               include_defense_and_blocking=include_defense_and_blocking, roster_context=roster_context)
-        results.append(result)
-    return results
+        yield league_game.home_id, ScheduledGame(
+            week=week, opponent_id=away.id, opponent=away.city,
+            opponent_group=away.group, venue="Home", reason=league_game.reason)
+
+
+def simulate_league_week(season: int, week: int, run_seed: int = 0,
+                         *, include_defense_and_blocking: bool = True,
+                         prior_standings: tuple[tuple[str, int], ...] = (), roster_context: tuple = ()) -> list[dict[str, object]]:
+    return [simulate_game(home_id, game, season, run_seed=run_seed,
+                          include_defense_and_blocking=include_defense_and_blocking, roster_context=roster_context)
+            for home_id, game in _league_week_matchups(season, week, prior_standings)]
 
 
 @lru_cache(maxsize=128)
 def league_week_scores(season: int, week: int, run_seed: int = 0,
                        prior_standings: tuple[tuple[str, int], ...] = (), roster_context: tuple = ()) -> tuple[tuple[str, str, int, int], ...]:
-    """Cache only immutable standings inputs, keyed by the complete run context."""
-    return tuple((game["home"]["team"]["id"], game["away"]["team"]["id"],
-                  game["home"]["score"], game["away"]["score"])
-                 for game in simulate_league_week(season, week, run_seed, include_defense_and_blocking=False,
-                                              prior_standings=prior_standings, roster_context=roster_context))
+    """Standings need scores, not usage, kicks, possession, rotations, or player stats.
+
+    Use exactly the full game's scoring draws and overtime resolution before its
+    independent statistical streams. Retain complete immutable context cache keys.
+    """
+    scores = []
+    for home_id, game in _league_week_matchups(season, week, prior_standings):
+        home, away, _, _ = _scoring_boxes(home_id, game, season, run_seed=run_seed, roster_context=roster_context)
+        scores.append((home['team']['id'], away['team']['id'], home['score'], away['score']))
+    return tuple(scores)
 
 
 def simulate_through_week(team_id: str, season: int, week: int, run_seed: int = 0,
