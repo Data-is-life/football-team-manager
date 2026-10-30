@@ -80,8 +80,8 @@ async function checks(){
  // Starting over after firing clears old history, warnings, contract expiry, and records.
  const dead=checkpoint(missed,4,miss.slice(0,3),ranks);p=await restore(dead);
  q(p,'#change-team-button').click();q(p,'#team-select').value='seattle';q(p,'#team-form').dispatchEvent(new p.w.Event('submit',{bubbles:true,cancelable:true}));
- await until(()=>save(p).season===1&&save(p).week===0);assert.equal(save(p).contracts,true);assert.equal(save(p).version,13);assert.equal(save(p).history.length,0);
- assert.match(q(p,'#owner-feedback').textContent,/hired.*four-year/);assert.match(q(p,'#contract-status').textContent,/4 years remaining.*Season 4/);assert.equal(q(p,'#simulate-button').disabled,false);p.dom.window.close();
+ await until(()=>save(p).season===1&&save(p).week===16);assert.equal(save(p).contracts,true);assert.equal(save(p).version,14);assert.equal(save(p).history.length,0);
+ assert.match(q(p,'#owner-feedback').textContent,/hired.*four-year/);assert.match(q(p,'#contract-status').textContent,/4 years remaining.*Season 5/);assert.equal(q(p,'#simulate-button').disabled,false);p.dom.window.close();
  console.log('GM contract checks passed: hiring, highest-only rewards, ties, four-year deadline, later expiry, fourth-year qualification, guard enforcement, records after firing, reload idempotence, draft/cuts/season rollover, legacy exemption, invalid-save preservation, and new-career reset.');
 }
 (async()=>{const server=spawn(process.env.PYTHON||'python',['-m','uvicorn','app.main:app','--host','127.0.0.1','--port','8775'],{cwd:root,stdio:['ignore','pipe','pipe']});let logs='';server.stdout.on('data',d=>logs+=d);server.stderr.on('data',d=>logs+=d);try{for(let i=0;;i++){if(server.exitCode!==null)throw new Error(logs);try{if((await fetch(base+'/api/teams')).ok)break}catch{}if(i===100)throw new Error(logs);await new Promise(r=>setTimeout(r,100))}await checks()}finally{server.kill()}})().catch(e=>{console.error(e);process.exitCode=1});

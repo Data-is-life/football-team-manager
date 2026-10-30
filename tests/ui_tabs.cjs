@@ -450,10 +450,10 @@ async function checkUI() {
   d.querySelector('#team-form').dispatchEvent(new w.Event('submit',{cancelable:true}));
   await until(()=>!d.querySelector('#schedule-section').hidden);
   assert.equal(d.querySelector('#postseason-section').hidden,true);
-  assert.equal(d.querySelectorAll('#schedule .completed').length,0);
+  assert.equal(d.querySelectorAll('#schedule .completed').length,16);
   assert.equal(d.querySelector('#postseason-status').dataset.outcome,'neutral');
   assert.equal(d.querySelector('#postseason-status').textContent,'');
-  for(const record of d.querySelectorAll('#schedule .opponent-record')) assert.equal(record.textContent,'Record: 0–0');
+  assert.equal(d.querySelector('#gm-regular').textContent,'0–0–0');
   assert.equal(d.querySelector('#roster-ratings-button').getAttribute('aria-pressed'),'true');
   assert.equal(d.querySelector('#roster-competition').value,'regular');
   const freshProfile=await (await fetch(base+`/api/team/seattle?run_seed=${fixtureSeed+2}&lineup_rules=6&rebuild_team=seattle`)).json();
@@ -466,13 +466,13 @@ async function checkUI() {
   go('roster');
   // The new roster has Seattle IDs, so inspect zero totals directly after switching teams.
   d.querySelector('#roster-stats-button').click();
-  assert.match(d.querySelector('#roster-stats-status').textContent,/0 team games/);
-  assert.equal(d.querySelector('.roster-season-player[data-player-id="seattle-qb1"]').children[4].textContent,'0');
+  assert.match(d.querySelector('#roster-stats-status').textContent,/16 team games/);
+  assert.equal(d.querySelector('#career-start-note').hidden,false);
   go('schedule');
   checkView('schedule');
   assert.equal(advance.hidden,true);
-  for(const view of ['game','league','standings','race','playoffs']) assert.equal(d.querySelector(`#${view}-empty`).hidden,false);
-  assert.equal(d.querySelector('#season-status').textContent,'Ready for Week 1.');assert.equal(d.querySelector('#qualification-status').hidden,true);assert.equal(d.querySelector('#qualification-status').textContent,'');
+  for(const view of ['playoffs']) assert.equal(d.querySelector(`#${view}-empty`).hidden,false);
+  assert.match(d.querySelector('#season-status').textContent,/before Week 17/);assert.equal(d.querySelector('#qualification-status').hidden,true);assert.equal(d.querySelector('#qualification-status').textContent,'');
   checkLeagueContent();
   assert.equal(d.querySelectorAll('#schedule .game-final').length,17);
   assert.equal(start.hidden,true);
@@ -480,24 +480,26 @@ async function checkUI() {
   assert.equal(d.querySelectorAll('.roster-group').length,10);
   assert.equal(randomCalls,2,'Starting another season gets a fresh seed');
   d.querySelector('#simulate-button').click();
-  await until(()=>d.querySelector('#simulate-button').textContent==='Simulate Week 2');
+  await until(()=>d.querySelector('#simulate-button').textContent==='Regular season complete');
   assert.equal(usedSeeds.at(-1),fixtureSeed+2);
-  const freshGame=await (await fetch(base+`/api/season/seattle/week/1?run_seed=${fixtureSeed+2}&lineup_rules=6&rebuild_team=seattle`)).json();
+  const freshGame=await (await fetch(base+`/api/season/seattle/week/17?run_seed=${fixtureSeed+2}&lineup_rules=6&rebuild_team=seattle`)).json();
   assert.equal(d.querySelector('#season-record').textContent,`${freshGame.record.wins}–${freshGame.record.losses}${freshGame.record.ties?`–${freshGame.record.ties}`:''}`);
   assert.equal(d.querySelector('#schedule .game-final').textContent,`${freshGame.game_results[0].outcome} · ${freshGame.game_results[0].team_score}–${freshGame.game_results[0].opponent_score}${freshGame.game_results[0].overtime?' · OT':''}`);
   if(index===0) {
-   const oldData=await (await fetch(base+`/api/season/seattle/week/2?run_seed=${fixtureSeed+2}&lineup_rules=6&rebuild_team=seattle`)).json();
+   d.querySelector('#change-team-button').click();d.querySelector('#team-select').value='seattle';d.querySelector('#team-form').dispatchEvent(new w.Event('submit',{cancelable:true}));
+   await until(()=>!d.querySelector('#schedule-section').hidden && d.querySelector('#simulate-button').textContent==='Simulate Week 17');
+   const oldData=await (await fetch(base+`/api/season/seattle/week/17?run_seed=${fixtureSeed+3}&lineup_rules=6&rebuild_team=seattle`)).json();
    const live=w.fetch;let release;
-   w.fetch=path=>path.startsWith('/api/season/') ? Promise.resolve({ok:true,json:()=>new Promise(resolve=>{release=()=>resolve(oldData)})}) : live(path);
+   w.fetch=path=>path.startsWith('/api/season/') && new URL(path,base).pathname.endsWith('/17') ? Promise.resolve({ok:true,json:()=>new Promise(resolve=>{release=()=>resolve(oldData)})}) : live(path);
    d.querySelector('#simulate-button').click();await until(()=>Boolean(release));
    d.querySelector('#change-team-button').click();
    d.querySelector('#team-select').value='seattle';
    d.querySelector('#team-form').dispatchEvent(new w.Event('submit',{cancelable:true}));
-   await until(()=>!d.querySelector('#schedule-section').hidden && d.querySelector('#simulate-button').textContent==='Simulate Week 1');
+   await until(()=>!d.querySelector('#schedule-section').hidden && d.querySelector('#simulate-button').textContent==='Simulate Week 17');
    release();await new Promise(resolve=>setImmediate(resolve));
-   assert.equal(d.querySelector('#simulate-button').textContent,'Simulate Week 1','A late response from the old run must not overwrite the new run');
-   assert.equal(d.querySelector('#season-record').textContent,'0–0');
-   assert.equal(d.querySelectorAll('#schedule .completed').length,0);
+   assert.equal(d.querySelector('#simulate-button').textContent,'Simulate Week 17','A late response from the old run must not overwrite the new run');
+   assert.equal(d.querySelector('#gm-regular').textContent,'0–0–0');
+   assert.equal(d.querySelectorAll('#schedule .completed').length,16);
    w.fetch=live;
   }
   const zero={passing:[{player:'QB',completions:0,attempts:0,yards:0,touchdowns:0,interceptions:0,completion_percentage:null,yards_per_attempt:null,passer_rating:null}],rushing:[{player:'RB',attempts:0,yards:0,touchdowns:0,yards_per_carry:null}],receiving:[{player:'WR',receptions:0,yards:0,touchdowns:0,yards_per_reception:null}],kicking:[{player:'K',field_goals_made:0,field_goals_attempted:0,field_goal_percentage:null,longest_field_goal:null,extra_points_made:3,extra_points_attempted:3,kicking_points:3}]};

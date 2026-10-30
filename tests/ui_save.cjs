@@ -59,12 +59,12 @@ async function checks() {
  p.d.querySelector('#team-form').dispatchEvent(new p.w.Event('submit',{cancelable:true}));
  await until(()=>/Progress saved/.test(status(p)));
  assert.match(p.d.querySelector("#owner-feedback").textContent,/hired.*four-year/);
- assert.deepEqual(JSON.parse(saved(p)),{version:13,lineupChanges:[],contracts:true,teamId:id,runSeed:5678,season:1,week:0,lineupRules:6,developmentStart:1,rebuildTeam:id,priorStandings:{},history:[],draftChoices:null,dropped:[],career:[],playoffRound:null});
+ assert.deepEqual(JSON.parse(saved(p)),{version:14,careerStartWeek:17,lineupChanges:[],contracts:true,teamId:id,runSeed:5678,season:1,week:16,lineupRules:6,developmentStart:1,rebuildTeam:id,priorStandings:{},history:[],draftChoices:null,dropped:[],career:[],playoffRound:null});
  assert.equal(p.d.querySelector('#rebuild-note').hidden,false);
  for(const id of ['offense-rating','defense-rating'])assert.ok(Number(p.d.querySelector('#'+id).textContent)>=68&&Number(p.d.querySelector('#'+id).textContent)<=72);
  const first=saved(p);p.dom.window.close();
  p=await restored(first);
- assert.equal(p.d.querySelectorAll('#schedule .completed').length,0);
+ assert.equal(p.d.querySelectorAll('#schedule .completed').length,16);
  assert.equal(p.d.querySelectorAll('.roster-player').length,38);p.dom.window.close();
  for(const [week,round] of [[8,null],[17,null],[17,0],[17,1],[17,4]]) {
   const raw=checkpoint(id,week,round);
