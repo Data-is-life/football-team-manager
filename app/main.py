@@ -18,6 +18,7 @@ from .lineups import lineup_context, replace_lineup_rosters
 from .simulation import ranked_players
 from .draft import build_draft
 from .career import ROSTER_MAX, offseason, replay_career
+from .starter_choices import StarterPlan, with_starters, selected_roster, current_starters
 
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -57,9 +58,9 @@ def team_profile(team_id: str, run_seed: Annotated[int, Query(ge=0, le=429496729
     return profile_payload(team_id, players, run_seed, context)
 
 
-def profile_payload(team_id, players, run_seed, roster_context=()):
-    if getattr(roster_context, 'lineup_rules', 1) >= 2:
-        players = ranked_players(players)
+def profile_payload(team_id, players, run_seed, roster_context=(), preferred=()):
+    if preferred or getattr(roster_context, 'lineup_rules', 1) >= 2:
+        players = selected_roster(players, preferred, fill=True) if preferred else tuple(players) if isinstance(roster_context, StarterPlan) else ranked_players(players)
         rosters = dict(roster_context)
         rosters[team_id] = players
         roster_context = replace_lineup_rosters(roster_context,tuple(rosters.items()))
@@ -187,7 +188,13 @@ def rookie_draft(team_id: str, request: DraftRequest) -> dict:
     return {**draft, "profile": profile_payload(team_id, players, request.run_seed, context)}
 
 
+class LineupChange(BaseModel):
+    week: StrictInt = Field(ge=1, le=21)
+    starters: list[str] = Field(max_length=22)
+
+
 class CareerStep(BaseModel):
+    lineup_changes: list[LineupChange] = Field(default_factory=list, max_length=21)
     lineup_rules: Literal[1, 2, 3, 4, 5, 6] = 1
     season: int = Field(ge=1, le=998)
     prior_standings: dict[str, StrictInt] | None = None
@@ -196,6 +203,7 @@ class CareerStep(BaseModel):
 
 
 class CareerRequest(BaseModel):
+    lineup_changes: list[LineupChange] = Field(default_factory=list, max_length=21)
     action: Literal['profile', 'week', 'playoffs', 'draft', 'cuts']
     season: int = Field(default=1, ge=1, le=999)
     run_seed: int = Field(default=0, ge=0, le=4294967295)
@@ -227,9 +235,11 @@ def career_action(team_id: str, request: CareerRequest) -> dict:
             raise ValueError('Auto-draft is only available for an unfinished draft before roster cuts')
         if any(step.season >= request.season for step in request.career):
             raise ValueError('Past offseasons must precede the current season')
-        steps = tuple((step.season, ranks_context(step.prior_standings), tuple(step.manual_picks), tuple(step.dropped), step.lineup_rules)
+        steps = tuple((step.season, ranks_context(step.prior_standings), tuple(step.manual_picks), tuple(step.dropped), step.lineup_rules, tuple((change.week, tuple(change.starters)) for change in step.lineup_changes))
                       for step in request.career)
         context = replay_career(team_id, request.run_seed, steps, request.lineup_rules,request.season,request.development_start,request.rebuild_team)
+        changes = tuple((change.week, tuple(change.starters)) for change in request.lineup_changes)
+        context = with_starters(context, team_id, request.run_seed, changes)
         prior = ranks_context(request.prior_standings)
         viewed = request.view_team or team_id
         if request.action == 'week':
@@ -243,7 +253,7 @@ def career_action(team_id: str, request: CareerRequest) -> dict:
                 players = list(roster_for(viewed, request.run_seed, cut_context).values())
                 return {**draft, 'dropped': request.dropped, 'cuts_applied': True,
                         'can_continue': len(dict(cut_context)[team_id]) <= ROSTER_MAX,
-                        'profile': profile_payload(viewed, players, request.run_seed, cut_context)}
+                        'profile': profile_payload(viewed, players, request.run_seed, cut_context, current_starters(context) if viewed == team_id else ())}
             draft, players = build_draft(team_id, request.season, request.run_seed,
                                         tuple(request.manual_picks), prior, context, auto_pick=request.auto_draft)
             return {**draft, 'profile': profile_payload(team_id, players, request.run_seed, context)}

@@ -398,6 +398,8 @@ def assign_possession(home_box: dict, away_box: dict) -> None:
 def _scoring_boxes(selected_team_id, game, season, *, allow_ties=True,
                    neutral_site=False, run_seed=0, roster_context=()):
     """The shared scoring RNG path; usage/rotation streams cannot affect outcomes."""
+    from .starter_choices import context_for_week
+    roster_context = context_for_week(roster_context, game.week)
     selected_team = TEAM_BY_ID[selected_team_id]
     opponent = TEAM_BY_ID[game.opponent_id]
     ordered_ids = sorted((selected_team.id, opponent.id))
@@ -421,6 +423,8 @@ def simulate_game(
     include_defense_and_blocking: bool = True,
     roster_context: tuple = (),
 ) -> dict[str, object]:
+    from .starter_choices import context_for_week
+    roster_context = context_for_week(roster_context, game.week)
     home_box, away_box, overtime, seed = _scoring_boxes(
         selected_team_id, game, season, allow_ties=allow_ties, neutral_site=neutral_site,
         run_seed=run_seed, roster_context=roster_context)
@@ -502,6 +506,7 @@ def league_week_scores(season: int, week: int, run_seed: int = 0,
 
 def simulate_through_week(team_id: str, season: int, week: int, run_seed: int = 0,
                           prior_standings: tuple[tuple[str, int], ...] = (), roster_context: tuple = ()) -> dict[str, object]:
+    from .starter_choices import context_for_week
     schedule = generate_schedule(team_id=team_id, season=season, standings=dict(prior_standings) or None)
     if week < 1 or week > len(schedule):
         raise ValueError(f"Week must be between 1 and {len(schedule)}")
@@ -542,7 +547,7 @@ def simulate_through_week(team_id: str, season: int, week: int, run_seed: int = 
         "record": {"wins": wins, "losses": losses, "ties": ties},
         "result": current,
         "game_results": game_results,
-        "roster_stats": aggregate_player_stats(roster_for(team_id, run_seed, roster_context).values(),
+        "roster_stats": aggregate_player_stats(roster_for(team_id, run_seed, context_for_week(roster_context, week)).values(),
             (result["home"] if result["home"]["team"]["id"] == team_id else result["away"]
              for result in results)),
         "league_results": other_results,

@@ -31,6 +31,9 @@ let activeDraftChoices = null;
 let draftState = null;
 let activeDropped = [];
 let activeCareer = [];
+let activeLineupChanges = [];
+let lineupBusy = false;
+let playoffBusy = false;
 let cutBusy = false;
 let advancingSeason = false;
 let pendingCut = null;
@@ -75,7 +78,7 @@ function rebuildOrigin(context) {
 
 function saveProgress() {
   if (!activeTeamId || restoring) return;
-  const save = { version: 12, contracts: activeContracts, teamId: activeTeamId, runSeed: activeRunSeed,
+  const save = { version: 13, lineupChanges: activeLineupChanges, contracts: activeContracts, teamId: activeTeamId, runSeed: activeRunSeed,
     season: activeSeason, week: currentWeek, lineupRules: activeLineupRules, developmentStart: activeDevelopmentStart, rebuildTeam: activeRebuildTeam,
     priorStandings: activePriorStandings, history: careerHistory,
     draftChoices: activeDraftChoices,
@@ -95,7 +98,7 @@ function readSave() {
   if (!raw) return null;
   const save = JSON.parse(raw);
   const integer = (value, min, max) => Number.isInteger(value) && value >= min && value <= max;
-  if (!save || ![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].includes(save.version) || typeof save.teamId !== "string"
+  if (!save || ![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13].includes(save.version) || typeof save.teamId !== "string"
       || ![...select.options].some(option => option.value && option.value === save.teamId)
       || !integer(save.runSeed, 0, 4294967295) || !integer(save.season, 1, 999)
       || !integer(save.week, 0, 17)
@@ -140,6 +143,13 @@ function readSave() {
       || !validPriorStandings(save.priorStandings, save.season)) throw new Error("Invalid career save");
   if (save.version < 12) save.contracts = false;
   if (typeof save.contracts !== "boolean") throw new Error("Invalid contract save");
+  if (save.version < 13) save.lineupChanges = [];
+  const validChanges = changes => Array.isArray(changes) && changes.length <= 21
+    && changes.every((entry, i) => entry && integer(entry.week, 1, 21)
+      && (!i || entry.week > changes[i-1].week) && Array.isArray(entry.starters)
+      && [0, 22].includes(entry.starters.length) && ids(entry.starters));
+  if (!validChanges(save.lineupChanges) || save.lineupChanges.some(entry => entry.week > (save.week < 17 ? save.week + 1 : 18 + (save.playoffRound ?? 0)))
+      || !save.career.every(step => validChanges(step.lineup_changes ?? []))) throw new Error("Invalid starter save");
   return save;
 }
 
@@ -328,7 +338,7 @@ async function resumeProgress() {
     if (save.playoffRound !== null) requests.push(`/api/playoffs/${save.teamId}/round/${save.playoffRound}?season=${save.season}&run_seed=${save.runSeed}${priorStandingsQuery(save.priorStandings)}&lineup_rules=${save.lineupRules}&development_start=${save.developmentStart ?? 1}${rebuildQuery(save.rebuildTeam)}`);
     // Warm the shared career replay once before dependent endpoints request it.
     // lru_cache does not coalesce simultaneous misses in FastAPI's worker threads.
-    const profileRequest = save.career.length ? careerRequest("profile", {}, save) : null;
+    const profileRequest = hasLineupContext(save) ? careerRequest("profile", {}, save) : null;
     const payloads = await Promise.all(requests.map(async url => {
       if (profileRequest) {
         if (url.startsWith("/api/team/")) return profileRequest;
@@ -355,7 +365,7 @@ async function resumeProgress() {
       throw new Error("Restore failed");
     }
     renderTeamProfile(profile, save.season);
-    renderSchedule(schedule, save.runSeed, { priorStandings: save.priorStandings, history: save.history, career: save.career, lineupRules: save.lineupRules, developmentStart: save.developmentStart, rebuildTeam: save.rebuildTeam, contracts: save.contracts });
+    renderSchedule(schedule, save.runSeed, { priorStandings: save.priorStandings, history: save.history, career: save.career, lineupRules: save.lineupRules, developmentStart: save.developmentStart, rebuildTeam: save.rebuildTeam, contracts: save.contracts, lineupChanges: save.lineupChanges });
     if (regular) renderResult(regular);
     if (postseason) { renderPostseason(postseason); activateView("playoffs"); }
     if (savedDraft) applyDraft(savedDraft);
@@ -395,7 +405,7 @@ async function loadScoutingRoster(teamId, city) {
     let profile;
     if (activeDropped.length && draftState?.complete) {
       profile = (await careerRequest("cuts", { view_team: teamId, manual_picks: activeDraftChoices, dropped: activeDropped })).profile;
-    } else if (activeCareer.length) profile = await careerRequest("profile", { view_team: teamId });
+    } else if (hasLineupContext()) profile = await careerRequest("profile", { view_team: teamId });
     else {
       const response = await fetch(`/api/team/${teamId}?run_seed=${runSeed}&lineup_rules=${activeLineupRules}&season=${activeSeason}&development_start=${activeDevelopmentStart ?? 1}${rebuildQuery()}`);
       if (!response.ok) throw new Error("Roster could not be loaded. Please try again.");
@@ -572,6 +582,7 @@ function renderTeamProfile(profile, latestDraftSeason = activeSeason) {
   if (profile.lineup_rules >= 5) document.querySelector("#development-note").textContent += " Under-25 players outside QB/K can earn +1 from a regular rotation role, within potential.";
   rosterSection.hidden = false;
   renderRosterStats();
+  renderStarterEditor();
 }
 
 function renderRosterStats() {
@@ -670,12 +681,115 @@ document.querySelector("#roster-stats-button").addEventListener("click", () => {
 });
 rosterCompetition.addEventListener("change", renderRosterStats);
 
+function hasLineupContext(context = null) {
+  return Boolean((context?.career ?? activeCareer).length || (context?.lineupChanges ?? activeLineupChanges).length);
+}
+
+function nextLineupWeek() { return currentWeek < 17 ? currentWeek + 1 : 18 + completedPlayoffRound; }
+
+function canChooseStarters() {
+  if (!activeTeamId || !rosterProfile || lineupBusy || playoffBusy || restoring || weekSimulationBusy || advancingSeason || draftBusy || cutBusy || careerEnded()) return false;
+  if (currentWeek < 17) return true;
+  if (playoffState) return playoffState.qualified && !playoffState.eliminated && !playoffState.postseason_complete;
+  return Boolean(regularSnapshot?.standings.playoff_race.some(row => row.team.id === activeTeamId));
+}
+
+function updateStarterControls() {
+  const disabled = !canChooseStarters();
+  for (const control of document.querySelectorAll("#starter-form select, #starter-form button")) control.disabled = disabled;
+  document.querySelector("#starter-timing").textContent = careerEnded() ? "Your career has ended. This lineup is read-only."
+    : currentWeek === 17 && !canChooseStarters() && !lineupBusy && !playoffBusy && !restoring && !weekSimulationBusy
+      ? "No games remain for your team this season. Retained starter choices carry into next season."
+    : currentWeek < 17
+    ? `Changes apply from Week ${currentWeek + 1}. Completed games stay unchanged.`
+    : `Changes apply to your next playoff game. Completed rounds and playoff seeds stay unchanged.`;
+}
+
+function renderStarterEditor() {
+  if (!rosterProfile) return;
+  const fields = document.querySelector("#starter-fields");
+  fields.replaceChildren();
+  for (const rule of rosterProfile.roster_rules) {
+    const fieldset = document.createElement("fieldset");
+    const legend = document.createElement("legend"); legend.textContent = `${rule.position} · ${rule.minimum} ${rule.minimum === 1 ? "starter" : "starters"}`;
+    fieldset.append(legend);
+    const players = rosterProfile.roster.filter(p => p.position === rule.position).sort((a,b) => a.depth-b.depth);
+    for (let slot = 0; slot < rule.minimum; slot++) {
+      const label = document.createElement("label"); label.textContent = `Starter ${slot + 1}`;
+      const choice = document.createElement("select"); choice.dataset.starterPosition = rule.position;
+      choice.setAttribute("aria-label", `${rule.position} starter ${slot + 1}`);
+      for (const player of players) choice.add(new Option(`${player.name} · Current ${player.current_rating} · Age ${player.age}`, player.id));
+      choice.value = players[slot].id;
+      label.append(choice); fieldset.append(label);
+    }
+    fields.append(fieldset);
+  }
+  updateStarterControls();
+}
+
+function carriedStarters() {
+  const preferred = activeLineupChanges.at(-1)?.starters ?? [];
+  if (!preferred.length || !rosterProfile) return [];
+  return rosterProfile.roster_rules.flatMap(rule => {
+    const group = rosterProfile.roster.filter(p => p.position === rule.position).sort((a,b) => b.current_rating-a.current_rating || a.depth-b.depth || a.id.localeCompare(b.id));
+    const retained = group.filter(p => preferred.includes(p.id)).slice(0,rule.minimum);
+    return [...retained, ...group.filter(p => !retained.includes(p)).slice(0,rule.minimum-retained.length)].map(p => p.id);
+  });
+}
+
+async function saveStarters(starters) {
+  if (!canChooseStarters()) return;
+  const status = document.querySelector("#starter-status");
+  if (new Set(starters).size !== starters.length) {
+    status.textContent = "Choose a different player for each starter slot.";
+    return;
+  }
+  const week = nextLineupWeek();
+  const changes = [...activeLineupChanges.filter(entry => entry.week < week), { week, starters }];
+  lineupBusy = true;
+  status.textContent = "Saving starters…";
+  updateSimulationControls();
+  playoffsStart.disabled = true;
+  playoffSimulate.disabled = true;
+  try {
+    const profile = await careerRequest("profile", { lineup_changes: changes });
+    if (profile.team?.id !== activeTeamId || profile.run_seed !== activeRunSeed) throw new Error("Starters could not be saved.");
+    const totals = rosterTotals, mode = rosterMode, competition = rosterCompetition.value;
+    const collapsed = [...document.querySelectorAll("#roster-groups .roster-group")].filter(group => !group.open).map(group => group.dataset.position);
+    activeLineupChanges = changes;
+    renderTeamProfile(profile, rookieSeason);
+    rosterTotals = totals; rosterMode = mode; rosterCompetition.value = competition;
+    renderRosterStats();
+    for (const position of collapsed) document.querySelector(`#roster-groups [data-position="${position}"]`).open = false;
+    saveProgress();
+    status.textContent = starters.length ? `Starters saved for ${week <= 17 ? `Week ${week}` : "your next playoff game"}.` : "Best available starters selected for your next game.";
+  } catch (error) {
+    status.textContent = `${error.message} Your previous lineup is unchanged. Try again.`;
+  } finally {
+    lineupBusy = false;
+    updateSimulationControls();
+    playoffsStart.disabled = false;
+    playoffSimulate.disabled = careerEnded() || (playoffState?.postseason_complete ?? false);
+  }
+}
+
+document.querySelector("#starter-form").addEventListener("submit", event => {
+  event.preventDefault();
+  saveStarters([...document.querySelectorAll("#starter-fields select")].map(choice => choice.value));
+});
+document.querySelector("#auto-starters").addEventListener("click", () => saveStarters([]));
+document.querySelector("#cancel-starters").addEventListener("click", () => {
+  if (lineupBusy) return;
+  renderStarterEditor(); document.querySelector("#starter-editor").open = false;
+  document.querySelector("#starter-status").textContent = "";
+});
+
 function createRunSeed() {
   const candidate = crypto.getRandomValues(new Uint32Array(1))[0] || 1;
   return candidate === activeRunSeed ? (candidate % 4294967295) + 1 : candidate;
 }
 
-function renderSchedule(data, runSeed, { priorStandings = {}, history = [], career = [], lineupRules = 6, developmentStart = 1, rebuildTeam = null, contracts = true } = {}) {
+function renderSchedule(data, runSeed, { priorStandings = {}, history = [], career = [], lineupRules = 6, developmentStart = 1, rebuildTeam = null, contracts = true, lineupChanges = [] } = {}) {
   if (rosterDialog.open) rosterDialog.close();
   weekSimulationBusy = false;
   seasonSimulationActive = false;
@@ -689,7 +803,7 @@ function renderSchedule(data, runSeed, { priorStandings = {}, history = [], care
   document.querySelector("#rebuild-note").hidden = !rebuildTeam || activeSeason !== 1;
   document.querySelector("#rating-method").textContent = lineupRules >= 2
     ? "Team ratings: 80% starters + 20% bench, using current ability. Kickers are separate. Highlighted players are starters."
-    : "This saved season keeps its original lineups and ratings. Highest-rated starters and 80%/20% team ratings apply next season.";
+    : "This saved season keeps its original rating formula. Starter choices affect future games; 80%/20% team ratings apply next season.";
   activePriorStandings = priorStandings;
   careerHistory = history;
   activeContracts = contracts;
@@ -698,6 +812,9 @@ function renderSchedule(data, runSeed, { priorStandings = {}, history = [], care
   draftState = null;
   activeDropped = [];
   activeCareer = career;
+  activeLineupChanges = lineupChanges;
+  document.querySelector("#starter-editor").open = false;
+  document.querySelector("#starter-status").textContent = "";
   manageRoster.hidden = true;
   rosterManagement.hidden = true;
   document.querySelector("#cut-confirmation").hidden = true;
@@ -974,7 +1091,7 @@ async function loadTeams() {
 }
 
 document.querySelector("#change-team-button").addEventListener("click", () => {
-  if (seasonSimulationActive || restoring) return;
+  if (lineupBusy || playoffBusy || seasonSimulationActive || restoring) return;
   scheduleSection.hidden = true;
   franchiseSetup.hidden = false;
   cancelTeamChange.hidden = false;
@@ -993,7 +1110,7 @@ cancelTeamChange.addEventListener("click", () => {
 
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
-  if (seasonSimulationActive || restoring || !select.value) return;
+  if (lineupBusy || playoffBusy || seasonSimulationActive || restoring || !select.value) return;
   const submit = form.querySelector('button[type="submit"]');
   if (submit.disabled) return;
   submit.disabled = true;
@@ -1035,7 +1152,7 @@ form.addEventListener("submit", async (event) => {
 function updateSimulationControls() {
   const ended = careerEnded();
   const complete = currentWeek >= 17;
-  const disabled = weekSimulationBusy || restoring || !activeTeamId || complete || ended;
+  const disabled = lineupBusy || weekSimulationBusy || restoring || !activeTeamId || complete || ended;
   simulateButton.disabled = disabled;
   simulateSeasonButton.disabled = disabled;
   simulateButton.textContent = ended ? "Career over" : complete ? "Regular season complete"
@@ -1043,11 +1160,12 @@ function updateSimulationControls() {
   simulateSeasonButton.textContent = seasonSimulationActive ? `Simulating Week ${Math.min(17, currentWeek + 1)} of 17…` : "Simulate remaining season";
   stopSeasonButton.hidden = !seasonSimulationActive;
   stopSeasonButton.disabled = stopSeasonRequested;
-  document.querySelector("#change-team-button").disabled = seasonSimulationActive;
+  document.querySelector("#change-team-button").disabled = lineupBusy || seasonSimulationActive;
+  updateStarterControls();
 }
 
 async function simulateWeeks(wholeSeason = false) {
-  if (weekSimulationBusy || restoring || advancingSeason || careerEnded() || !activeTeamId || currentWeek >= 17
+  if (lineupBusy || weekSimulationBusy || restoring || advancingSeason || careerEnded() || !activeTeamId || currentWeek >= 17
       || form.querySelector('button[type="submit"]').disabled) return;
   weekSimulationBusy = true;
   seasonSimulationActive = wholeSeason;
@@ -1064,7 +1182,7 @@ async function simulateWeeks(wholeSeason = false) {
       updateSimulationControls();
       if (wholeSeason) seasonSimulationStatus.textContent = `Simulating Week ${nextWeek} of 17… Each completed week is saved.`;
       let data;
-      if (activeCareer.length) data = await careerRequest("week", { week: nextWeek });
+      if (hasLineupContext()) data = await careerRequest("week", { week: nextWeek });
       else {
         const response = await fetch(`/api/season/${teamId}/week/${nextWeek}?season=${season}&run_seed=${runSeed}${priorStandingsQuery()}&lineup_rules=${activeLineupRules}&development_start=${activeDevelopmentStart ?? 1}${rebuildQuery()}`);
         if (!response.ok) throw new Error("The week could not be simulated.");
@@ -1197,6 +1315,7 @@ function renderPostseason(data) {
   banner.hidden = !champion;
   banner.textContent = champion ? `Season ${data.season} champions: ${champion.team.city} · Seed #${champion.seed}` : "";
   updateOffseasonActions();
+  updateStarterControls();
   playoffSimulate.disabled = careerEnded() || data.postseason_complete;
   playoffSimulate.textContent = careerEnded() ? "Career over" : data.upcoming ? `Simulate ${data.upcoming.name}` : "Postseason complete";
 
@@ -1216,14 +1335,16 @@ function renderPostseason(data) {
 }
 
 async function loadPlayoffRound(number) {
-  if (careerEnded()) return;
+  if (playoffBusy || lineupBusy || careerEnded()) return;
+  playoffBusy = true;
+  updateStarterControls();
   errorBox.hidden = true;
   playoffsStart.disabled = true;
   playoffSimulate.disabled = true;
   document.querySelector("#change-team-button").disabled = true;
   try {
     let data;
-    if (activeCareer.length) data = await careerRequest("playoffs", { round_number: number });
+    if (hasLineupContext()) data = await careerRequest("playoffs", { round_number: number });
     else {
       const response = await fetch(`/api/playoffs/${activeTeamId}/round/${number}?season=${activeSeason}&run_seed=${activeRunSeed}${priorStandingsQuery()}&lineup_rules=${activeLineupRules}&development_start=${activeDevelopmentStart ?? 1}${rebuildQuery()}`);
       if (!response.ok) throw new Error("The playoff round could not be loaded. Please try again.");
@@ -1236,6 +1357,8 @@ async function loadPlayoffRound(number) {
     showError(error.message);
     errorBox.scrollIntoView({ behavior: "smooth", block: "center" });
   } finally {
+    playoffBusy = false;
+    updateStarterControls();
     playoffsStart.disabled = false;
     document.querySelector("#change-team-button").disabled = false;
     playoffSimulate.disabled = careerEnded() || (playoffState?.postseason_complete ?? false);
@@ -1257,7 +1380,7 @@ async function careerRequest(action, extra = {}, context = null) {
     body: JSON.stringify({ action, season: context?.season ?? activeSeason,
       run_seed: context?.runSeed ?? activeRunSeed,
       prior_standings: Object.keys(ranks).length ? ranks : null,
-      career: context?.career ?? activeCareer, lineup_rules: context?.lineupRules ?? activeLineupRules, development_start: context?.developmentStart ?? activeDevelopmentStart ?? 1, rebuild_team: rebuildOrigin(context), ...extra }),
+      career: context?.career ?? activeCareer, lineup_changes: context?.lineupChanges ?? activeLineupChanges, lineup_rules: context?.lineupRules ?? activeLineupRules, development_start: context?.developmentStart ?? activeDevelopmentStart ?? 1, rebuild_team: rebuildOrigin(context), ...extra }),
   });
   if (!response.ok) {
     let detail;
@@ -1279,7 +1402,7 @@ async function fetchDraft(choices, context = null, autoDraft = false) {
   const seed = context?.runSeed ?? activeRunSeed;
   const ranks = context?.priorStandings ?? activePriorStandings;
   const dropped = context?.dropped ?? activeDropped;
-  if ((context?.career ?? activeCareer).length || dropped.length) {
+  if (hasLineupContext(context) || dropped.length) {
     const data = await careerRequest(dropped.length ? "cuts" : "draft", { manual_picks: choices, dropped, auto_draft: autoDraft }, context);
     if (data.team.id !== teamId || data.season !== season || data.run_seed !== seed
         || !draftChoicesMatch(data, choices, autoDraft)) throw new Error("Draft could not be restored.");
@@ -1331,6 +1454,7 @@ function applyDraft(data) {
     : `Draft in progress · ${activeDraftChoices.length} of 4 picks made · ${count} players.`;
   renderDraft();
   renderCuts();
+  renderStarterEditor();
 }
 
 function renderDraft() {
@@ -1370,7 +1494,7 @@ function renderDraft() {
 }
 
 async function loadDraft(choice = null, autoDraft = false) {
-  if (careerEnded() || draftBusy || advancingSeason || !playoffState?.postseason_complete || activeSeason >= 999) return;
+  if (lineupBusy || careerEnded() || draftBusy || advancingSeason || !playoffState?.postseason_complete || activeSeason >= 999) return;
   if (autoDraft && draftState?.complete) return;
   draftBusy = true;
   draftPendingChoice = choice;
@@ -1482,7 +1606,7 @@ document.querySelector("#roster-groups").addEventListener("click", event => {
   document.querySelector("#cut-confirm").focus();
 });
 document.querySelector("#cut-confirm").addEventListener("click", async () => {
-  if (careerEnded() || !pendingCut || cutBusy || advancingSeason || !draftState?.complete) return;
+  if (lineupBusy || careerEnded() || !pendingCut || cutBusy || advancingSeason || !draftState?.complete) return;
   cutBusy = true;
   document.querySelector("#cut-confirm").disabled = true;
   document.querySelector("#cut-cancel").disabled = true;
@@ -1511,7 +1635,7 @@ document.querySelector("#cut-confirm").addEventListener("click", async () => {
 });
 
 nextSeasonButton.addEventListener("click", async () => {
-  if (careerEnded() || advancingSeason || nextSeasonButton.disabled || (activeDraftChoices?.length !== 4 || !draftState?.complete || rosterProfile.roster.length > 38) || cutBusy || draftBusy || !playoffState?.postseason_complete || !regularSnapshot || activeSeason >= 999) return;
+  if (lineupBusy || careerEnded() || advancingSeason || nextSeasonButton.disabled || (activeDraftChoices?.length !== 4 || !draftState?.complete || rosterProfile.roster.length > 38) || cutBusy || draftBusy || !playoffState?.postseason_complete || !regularSnapshot || activeSeason >= 999) return;
   advancingSeason = true;
   nextSeasonButton.disabled = true;
   manageRoster.disabled = true;
@@ -1532,9 +1656,12 @@ nextSeasonButton.addEventListener("click", async () => {
   try {
     const developmentStart = activeDevelopmentStart ?? nextSeason;
     const lineupRules = Math.max(3, activeLineupRules);
+    const carried = carriedStarters();
+    const lineupChanges = carried.length ? [{ week: 1, starters: carried }] : [];
     const career = [...activeCareer, {
       season: activeSeason, prior_standings: Object.keys(activePriorStandings).length ? activePriorStandings : null,
       manual_picks: activeDraftChoices, dropped: activeDropped, lineup_rules: activeLineupRules,
+      ...(activeLineupChanges.length ? { lineup_changes: activeLineupChanges } : {}),
     }];
     const response = await fetch(`/api/schedule/${activeTeamId}?season=${nextSeason}${priorStandingsQuery(ranks)}`);
     if (!response.ok) throw new Error("The next season could not be loaded. Please try again.");
@@ -1543,12 +1670,12 @@ nextSeasonButton.addEventListener("click", async () => {
       throw new Error("The next season could not be loaded. Please try again.");
     }
     const history = [...careerHistory, summary];
-    const profile = await careerRequest("profile", { season: nextSeason, career, lineup_rules: lineupRules, development_start: developmentStart });
+    const profile = await careerRequest("profile", { season: nextSeason, career, lineup_rules: lineupRules, development_start: developmentStart, lineup_changes: lineupChanges });
     if (profile.team?.id !== activeTeamId || profile.run_seed !== activeRunSeed || profile.lineup_rules !== lineupRules) {
       throw new Error("The next season could not be loaded. Please try again.");
     }
     renderTeamProfile(profile, nextSeason);
-    renderSchedule(schedule, activeRunSeed, { priorStandings: ranks, history, career, lineupRules, developmentStart, rebuildTeam: activeRebuildTeam, contracts: activeContracts });
+    renderSchedule(schedule, activeRunSeed, { priorStandings: ranks, history, career, lineupRules, developmentStart, rebuildTeam: activeRebuildTeam, contracts: activeContracts, lineupChanges });
     saveProgress();
   } catch (error) {
     showError(error.message);
