@@ -5,6 +5,7 @@ from functools import lru_cache
 from .draft import build_draft
 from .simulation import ROSTER_RULES, validate_roster, ranked_players
 from .lineups import lineup_context, replace_lineup_rosters
+from .starter_choices import with_starters
 
 ROSTER_MAX = 38
 
@@ -65,6 +66,7 @@ def replay_career(team_id: str, run_seed: int, steps: tuple, lineup_rules: int =
         season, prior, choices, dropped = step[:4]
         rules = step[4] if len(step) > 4 else 1
         context = lineup_context(context, run_seed, rules, season, development_start, rebuild_team)
+        context = with_starters(context, team_id, run_seed, step[5] if len(step) > 5 else ())
         if season <= previous:
             raise ValueError('Career offseason years must be in increasing order')
         _, context = offseason(team_id, season, run_seed, choices, dropped, prior, context)

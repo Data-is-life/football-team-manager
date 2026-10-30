@@ -163,6 +163,18 @@
                 <section id="cut-confirmation" class="empty-state" hidden><p id="cut-confirm-text"></p>
                   <button id="cut-confirm" type="button">Confirm drop</button><button id="cut-cancel" class="secondary-button" type="button">Cancel</button></section>
               </section>
+              <details id="starter-editor" class="starter-editor">
+                <summary>Choose starters</summary>
+                <p id="starter-timing" class="roster-note"></p>
+                <p class="roster-note">Choose the required starters at each position. Selected starters are ordered by current rating. Backups still rotate according to position and ability.</p>
+                <form id="starter-form">
+                  <div id="starter-fields" class="starter-fields"></div>
+                  <button id="save-starters" type="submit">Save starters</button>
+                  <button id="auto-starters" type="button" class="secondary-button">Auto-select best</button>
+                  <button id="cancel-starters" type="button" class="secondary-button">Cancel</button>
+                </form>
+                <p id="starter-status" class="roster-note" role="status" aria-atomic="true"></p>
+              </details>
               <div id="roster-groups" class="roster-groups"></div>
             </section>
           </div>

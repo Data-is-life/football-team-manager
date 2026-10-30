@@ -81,6 +81,7 @@ def playoffs_through_round(team_id: str, season: int, round_number: int, run_see
                           prior_standings: tuple[tuple[str, int], ...] = (), roster_context: tuple = ()) -> dict:
     if team_id not in TEAM_BY_ID:
         raise KeyError(f"Unknown team: {team_id}")
+    from .starter_choices import context_for_week
     snapshot = postseason_snapshot(season, round_number, run_seed, prior_standings, roster_context)
     qualified = any(row["team"]["id"] == team_id for row in snapshot["field"])
     alive = any(row["team"]["id"] == team_id for row in snapshot["survivors"])
@@ -96,5 +97,5 @@ def playoffs_through_round(team_id: str, season: int, round_number: int, run_see
         "next_round": round_number + 1 if round_number < 4 else None,
         "postseason_complete": round_number == 4,
         "qualified": qualified, "eliminated": qualified and not alive,
-        "roster_stats": aggregate_player_stats(roster_for(team_id, run_seed, roster_context).values(), boxes),
+        "roster_stats": aggregate_player_stats(roster_for(team_id, run_seed, context_for_week(roster_context, 17 + round_number)).values(), boxes),
     }

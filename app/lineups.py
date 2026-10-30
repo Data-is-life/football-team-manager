@@ -96,6 +96,10 @@ def lineup_context(context, run_seed, rules, season=1, development_start=1, rebu
 
 
 def replace_lineup_rosters(context, rosters):
+    from .starter_choices import StarterPlan
+    if isinstance(context, StarterPlan):
+        # Preserve its latest participation metadata, but future seasons get a new plan.
+        context = context.latest
     if getattr(context,'lineup_rules',1)>=3:
         from .development import with_rosters
         return with_rosters(context,rosters)

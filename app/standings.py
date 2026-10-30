@@ -126,6 +126,8 @@ def standings_through_week(season: int, week: int, run_seed: int = 0,
                            prior_standings: tuple[tuple[str, int], ...] = (), roster_context: tuple = ()) -> dict[str, object]:
     if week < 1 or week > 17:
         raise ValueError("Week must be between 1 and 17")
+    from .starter_choices import context_for_week
+    rating_context = context_for_week(roster_context, week)
     standings = {team.id: TeamStanding(team_id=team.id) for team in TEAMS}
 
     for completed_week in range(1, week + 1):
@@ -145,7 +147,7 @@ def standings_through_week(season: int, week: int, run_seed: int = 0,
         group_winners.append(ranked[0])
         group_tables.append({
             "group": group,
-            "teams": [_standing_payload(standings[team_id], rank, run_seed, roster_context) for rank, team_id in enumerate(ranked, 1)],
+            "teams": [_standing_payload(standings[team_id], rank, run_seed, rating_context) for rank, team_id in enumerate(ranked, 1)],
         })
 
     seeded_group_winners = _rank_teams(group_winners, standings, season, run_seed)
@@ -154,7 +156,7 @@ def standings_through_week(season: int, week: int, run_seed: int = 0,
     playoff_ids = [*seeded_group_winners, *wildcards]
     playoff_race = []
     for seed, team_id in enumerate(playoff_ids, start=1):
-        row = _standing_payload(standings[team_id], seed, run_seed, roster_context)
+        row = _standing_payload(standings[team_id], seed, run_seed, rating_context)
         row.update({
             "seed": seed,
             "qualification": "Group winner" if seed <= 6 else "Wildcard",
