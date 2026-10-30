@@ -4,6 +4,12 @@ const scheduleSection = document.querySelector("#schedule-section");
 const scheduleGrid = document.querySelector("#schedule");
 const errorBox = document.querySelector("#error");
 const simulateButton = document.querySelector("#simulate-button");
+const simulateSeasonButton = document.querySelector("#simulate-season");
+const stopSeasonButton = document.querySelector("#stop-season");
+const seasonSimulationStatus = document.querySelector("#season-simulation-status");
+let weekSimulationBusy = false;
+let seasonSimulationActive = false;
+let stopSeasonRequested = false;
 const resultPanel = document.querySelector("#result-panel");
 const leagueResultsSection = document.querySelector("#league-results-section");
 const standingsSection = document.querySelector("#standings-section");
@@ -299,7 +305,7 @@ function renderSeasonHistory() {
 }
 
 async function resumeProgress() {
-  if (restoring) return;
+  if (restoring || weekSimulationBusy) return;
   let save;
   try { save = readSave(); }
   catch {
@@ -361,6 +367,7 @@ async function resumeProgress() {
     resumeButton.hidden = false;
   } finally {
     restoring = false;
+    updateSimulationControls();
     submit.disabled = false;
     select.disabled = false;
     resumeButton.disabled = false;
@@ -670,6 +677,9 @@ function createRunSeed() {
 
 function renderSchedule(data, runSeed, { priorStandings = {}, history = [], career = [], lineupRules = 6, developmentStart = 1, rebuildTeam = null, contracts = true } = {}) {
   if (rosterDialog.open) rosterDialog.close();
+  weekSimulationBusy = false;
+  seasonSimulationActive = false;
+  stopSeasonRequested = false;
   activeTeamId = data.team.id;
   activeRunSeed = runSeed;
   activeSeason = data.season;
@@ -759,6 +769,9 @@ function renderSchedule(data, runSeed, { priorStandings = {}, history = [], care
   scheduleSection.hidden = false;
   document.querySelector("#team-name").focus({ preventScroll: true });
   scheduleSection.scrollIntoView({ behavior: "smooth", block: "start" });
+  seasonSimulationStatus.textContent = "";
+  seasonSimulationStatus.hidden = true;
+  updateSimulationControls();
 }
 
 function statTable(title, rows, columns) {
@@ -940,6 +953,7 @@ function renderResult(data) {
     `Week ${data.week} final: ${own.team.city} ${own.score}–${opponent.score} ${opponent.team.city}${latestResult.overtime ? " · OT" : ""}.`;
   renderQualification(data);
   renderGMRecords();
+  updateSimulationControls();
   if (data.season_complete) {
     document.querySelector("#playoffs-empty p").textContent =
       "The playoff field is set. Choose View playoffs above to reveal the bracket.";
@@ -960,6 +974,7 @@ async function loadTeams() {
 }
 
 document.querySelector("#change-team-button").addEventListener("click", () => {
+  if (seasonSimulationActive || restoring) return;
   scheduleSection.hidden = true;
   franchiseSetup.hidden = false;
   cancelTeamChange.hidden = false;
@@ -978,7 +993,7 @@ cancelTeamChange.addEventListener("click", () => {
 
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
-  if (!select.value) return;
+  if (seasonSimulationActive || restoring || !select.value) return;
   const submit = form.querySelector('button[type="submit"]');
   if (submit.disabled) return;
   submit.disabled = true;
@@ -1017,33 +1032,76 @@ form.addEventListener("submit", async (event) => {
   }
 });
 
-simulateButton.addEventListener("click", async () => {
-  if (careerEnded() || !activeTeamId || currentWeek >= 17) return;
-  simulateButton.disabled = true;
-  simulateButton.textContent = "Simulating…";
+function updateSimulationControls() {
+  const ended = careerEnded();
+  const complete = currentWeek >= 17;
+  const disabled = weekSimulationBusy || restoring || !activeTeamId || complete || ended;
+  simulateButton.disabled = disabled;
+  simulateSeasonButton.disabled = disabled;
+  simulateButton.textContent = ended ? "Career over" : complete ? "Regular season complete"
+    : weekSimulationBusy ? "Simulating…" : `Simulate Week ${currentWeek + 1}`;
+  simulateSeasonButton.textContent = seasonSimulationActive ? `Simulating Week ${Math.min(17, currentWeek + 1)} of 17…` : "Simulate remaining season";
+  stopSeasonButton.hidden = !seasonSimulationActive;
+  stopSeasonButton.disabled = stopSeasonRequested;
+  document.querySelector("#change-team-button").disabled = seasonSimulationActive;
+}
+
+async function simulateWeeks(wholeSeason = false) {
+  if (weekSimulationBusy || restoring || advancingSeason || careerEnded() || !activeTeamId || currentWeek >= 17
+      || form.querySelector('button[type="submit"]').disabled) return;
+  weekSimulationBusy = true;
+  seasonSimulationActive = wholeSeason;
+  stopSeasonRequested = false;
+  seasonSimulationStatus.textContent = "";
+  seasonSimulationStatus.hidden = !wholeSeason;
   errorBox.hidden = true;
-  const teamId = activeTeamId;
-  const runSeed = activeRunSeed;
-  const season = activeSeason;
+  const teamId = activeTeamId, runSeed = activeRunSeed, season = activeSeason;
+  const sameCareer = () => teamId === activeTeamId && runSeed === activeRunSeed && season === activeSeason;
   try {
-    const nextWeek = currentWeek + 1;
-    let data;
-    if (activeCareer.length) data = await careerRequest("week", { week: nextWeek });
-    else {
-      const response = await fetch(`/api/season/${teamId}/week/${nextWeek}?season=${activeSeason}&run_seed=${runSeed}${priorStandingsQuery()}&lineup_rules=${activeLineupRules}&development_start=${activeDevelopmentStart ?? 1}${rebuildQuery()}`);
-      if (!response.ok) throw new Error("The week could not be simulated.");
-      data = await response.json();
-    }
-    if (teamId === activeTeamId && runSeed === activeRunSeed && season === activeSeason) {
+    do {
+      if (!sameCareer() || careerEnded() || stopSeasonRequested || currentWeek >= 17) break;
+      const nextWeek = currentWeek + 1;
+      updateSimulationControls();
+      if (wholeSeason) seasonSimulationStatus.textContent = `Simulating Week ${nextWeek} of 17… Each completed week is saved.`;
+      let data;
+      if (activeCareer.length) data = await careerRequest("week", { week: nextWeek });
+      else {
+        const response = await fetch(`/api/season/${teamId}/week/${nextWeek}?season=${season}&run_seed=${runSeed}${priorStandingsQuery()}&lineup_rules=${activeLineupRules}&development_start=${activeDevelopmentStart ?? 1}${rebuildQuery()}`);
+        if (!response.ok) throw new Error("The week could not be simulated.");
+        data = await response.json();
+      }
+      if (!sameCareer()) return;
+      if (data.team?.id !== teamId || data.run_seed !== runSeed || data.season !== season || data.week !== nextWeek) {
+        throw new Error("The week could not be loaded correctly. Please try again.");
+      }
       renderResult(data);
       saveProgress();
-    }
+    } while (wholeSeason);
+    if (wholeSeason && sameCareer()) seasonSimulationStatus.textContent = careerEnded()
+      ? "Regular season complete. Your GM career has ended; you can review your results and records."
+      : currentWeek === 17 ? "Regular season complete. Review your results, then choose View playoffs to continue."
+      : `Stopped after Week ${currentWeek}. Continue one week at a time or simulate the remaining season.`;
   } catch (error) {
-    if (teamId !== activeTeamId || runSeed !== activeRunSeed || season !== activeSeason) return;
-    simulateButton.disabled = false;
-    simulateButton.textContent = `Simulate Week ${currentWeek + 1}`;
+    if (!sameCareer()) return;
+    if (wholeSeason) seasonSimulationStatus.textContent = `Stopped after Week ${currentWeek}. Your completed weeks are kept. Try again to continue with Week ${currentWeek + 1}.`;
     showError(error.message);
+  } finally {
+    if (sameCareer()) {
+      weekSimulationBusy = false;
+      seasonSimulationActive = false;
+      stopSeasonRequested = false;
+      updateSimulationControls();
+    }
   }
+}
+
+simulateButton.addEventListener("click", () => simulateWeeks());
+simulateSeasonButton.addEventListener("click", () => simulateWeeks(true));
+stopSeasonButton.addEventListener("click", () => {
+  if (!seasonSimulationActive) return;
+  stopSeasonRequested = true;
+  stopSeasonButton.disabled = true;
+  seasonSimulationStatus.textContent = "Stopping after the current week finishes…";
 });
 
 document.querySelector("#away-tab").addEventListener("click", () => selectBoxScore("away"));

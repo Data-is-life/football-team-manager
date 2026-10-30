@@ -69,12 +69,15 @@
             </div>
             <div class="season-actions">
               <button id="simulate-button" type="button">Simulate Week 1</button>
+              <button id="simulate-season" type="button">Simulate remaining season</button>
+              <button id="stop-season" type="button" hidden>Stop after this week</button>
               <button id="playoffs-start" type="button" hidden>View playoffs</button>
               <button id="playoff-simulate" type="button" hidden></button>
               <button id="draft-button" type="button" hidden>Start rookie draft</button>
               <button id="next-season" type="button" hidden></button>
             </div>
           </div>
+          <p id="season-simulation-status" class="roster-note" role="status" aria-atomic="true" hidden></p>
           <p id="season-status" class="season-status" role="status">Ready for Week 1.</p>
           <section id="gm-contract" class="contract-panel" aria-labelledby="contract-title" hidden>
             <h2 id="contract-title">Your GM contract</h2>
