@@ -21,7 +21,7 @@ let activeTeamId = null;
 let activeRunSeed = 0;
 let activeSeason = 1;
 let activeCareerStartWeek = 1;
-let activeLineupRules = 6;
+let activeLineupRules = 7;
 let activeDevelopmentStart = 1;
 let activeRebuildTeam = null;
 let activePriorStandings = {};
@@ -79,7 +79,7 @@ function rebuildOrigin(context) {
 
 function saveProgress() {
   if (!activeTeamId || restoring) return;
-  const save = { version: 14, careerStartWeek: activeCareerStartWeek, lineupChanges: activeLineupChanges, contracts: activeContracts, teamId: activeTeamId, runSeed: activeRunSeed,
+  const save = { version: 15, careerStartWeek: activeCareerStartWeek, lineupChanges: activeLineupChanges, contracts: activeContracts, teamId: activeTeamId, runSeed: activeRunSeed,
     season: activeSeason, week: currentWeek, lineupRules: activeLineupRules, developmentStart: activeDevelopmentStart, rebuildTeam: activeRebuildTeam,
     priorStandings: activePriorStandings, history: careerHistory,
     draftChoices: activeDraftChoices,
@@ -99,7 +99,7 @@ function readSave() {
   if (!raw) return null;
   const save = JSON.parse(raw);
   const integer = (value, min, max) => Number.isInteger(value) && value >= min && value <= max;
-  if (!save || ![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14].includes(save.version) || typeof save.teamId !== "string"
+  if (!save || ![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15].includes(save.version) || typeof save.teamId !== "string"
       || ![...select.options].some(option => option.value && option.value === save.teamId)
       || !integer(save.runSeed, 0, 4294967295) || !integer(save.season, 1, 999)
       || !integer(save.week, 0, 17)
@@ -128,7 +128,7 @@ function readSave() {
         && ids(step.manual_picks) && step.manual_picks.length === 4 && ids(step.dropped)
         && validPriorStandings(step.prior_standings ?? {}, step.season))) throw new Error("Invalid roster save");
   if (save.version < 5) save.lineupRules = 1;
-  if (![1, 2, 3, 4, 5, 6].includes(save.lineupRules)) throw new Error("Invalid lineup rules");
+  if (![1, 2, 3, 4, 5, 6, 7].includes(save.lineupRules)) throw new Error("Invalid lineup rules");
   if (save.lineupRules < 3) save.developmentStart = null;
   if (save.lineupRules >= 3 && !integer(save.developmentStart, 1, save.season)) throw new Error("Invalid development start");
   if (save.version < 8) save.rebuildTeam = null;
@@ -537,6 +537,18 @@ function addRookieBadge(cell, player) {
   cell.append(document.createTextNode(" "), badge);
 }
 
+function addPotentialArrow(cell, player) {
+  const delta = player.potential_change ?? 0;
+  if (!delta) return;
+  const trend = document.createElement("span");
+  trend.className = `potential-change ${delta > 0 ? "improved" : "declined"}`;
+  trend.textContent = ` ${delta > 0 ? "↑ +" : "↓ "}${delta}`;
+  const origin = player.rookie_outcome ? "draft estimate" : "previous season";
+  trend.title = `Potential change from ${origin}`;
+  trend.setAttribute("aria-label", `Potential ${delta > 0 ? "increased" : "decreased"} by ${Math.abs(delta)}, from ${player.potential_rating-delta} to ${player.potential_rating}`);
+  cell.append(trend);
+}
+
 function createRosterGroups(profile, includeStats = true) {
   return profile.roster_rules.map((rule) => {
     const players = profile.roster.filter(player => player.position === rule.position);
@@ -572,12 +584,13 @@ function createRosterGroups(profile, includeStats = true) {
         row.append(cell);
       }
       addRookieBadge(row.children[1], player);
+      addPotentialArrow(row.children[4], player);
       const delta = player.rating_change ?? 0;
       if (delta) {
         const trend = document.createElement("span");
         trend.className = `rating-change ${delta > 0 ? "improved" : "declined"}`;
         trend.textContent = ` ${delta > 0 ? "↑ +" : "↓ "}${delta}`;
-        trend.title = "Change since last offseason";
+        trend.title = player.rookie_outcome ? "Current rating change from draft estimate" : "Change since last offseason";
         row.children[3].append(trend);
       }
       body.append(row);
@@ -610,6 +623,7 @@ function renderTeamProfile(profile, latestDraftSeason = activeSeason) {
     : "This saved season keeps its original ratings. Position-specific development and aging begin next season.";
   document.querySelector("#roster-title").textContent = `Roster · ${profile.roster.length} players`;
   if (profile.lineup_rules >= 5) document.querySelector("#development-note").textContent += " Under-25 players outside QB/K can earn +1 from a regular rotation role, within potential.";
+  if (profile.lineup_rules >= 7) document.querySelector("#development-note").textContent += " At their first season start, rookies have a 15% boom / 15% bust / 70% normal reassessment. Potential arrows show changes from draft estimates or the previous season.";
   rosterSection.hidden = false;
   renderRosterStats();
   renderStarterEditor();
@@ -819,7 +833,7 @@ function createRunSeed() {
   return candidate === activeRunSeed ? (candidate % 4294967295) + 1 : candidate;
 }
 
-function renderSchedule(data, runSeed, { priorStandings = {}, history = [], career = [], lineupRules = 6, developmentStart = 1, rebuildTeam = null, contracts = true, lineupChanges = [], careerStartWeek = 1 } = {}) {
+function renderSchedule(data, runSeed, { priorStandings = {}, history = [], career = [], lineupRules = 7, developmentStart = 1, rebuildTeam = null, contracts = true, lineupChanges = [], careerStartWeek = 1 } = {}) {
   if (rosterDialog.open) rosterDialog.close();
   weekSimulationBusy = false;
   seasonSimulationActive = false;
@@ -1159,8 +1173,8 @@ form.addEventListener("submit", async (event) => {
     const runSeed = createRunSeed();
     const [scheduleResponse, profileResponse, regularResponse] = await Promise.all([
       fetch(`/api/schedule/${teamId}?season=1`),
-      fetch(`/api/team/${teamId}?run_seed=${runSeed}&lineup_rules=6&season=1&development_start=1${rebuildQuery(teamId)}`),
-      fetch(`/api/season/${teamId}/week/16?run_seed=${runSeed}&lineup_rules=6&season=1&development_start=1${rebuildQuery(teamId)}`),
+      fetch(`/api/team/${teamId}?run_seed=${runSeed}&lineup_rules=7&season=1&development_start=1${rebuildQuery(teamId)}`),
+      fetch(`/api/season/${teamId}/week/16?run_seed=${runSeed}&lineup_rules=7&season=1&development_start=1${rebuildQuery(teamId)}`),
     ]);
     if (!scheduleResponse.ok || !profileResponse.ok || !regularResponse.ok) {
       throw new Error("Your team could not be loaded. Please try again.");
@@ -1168,7 +1182,7 @@ form.addEventListener("submit", async (event) => {
     const [schedule, profile, regular] = await Promise.all([
       scheduleResponse.json(), profileResponse.json(), regularResponse.json(),
     ]);
-    if (profile.run_seed !== runSeed || profile.team.id !== teamId || profile.lineup_rules !== 6 || profile.rebuild_team !== teamId
+    if (profile.run_seed !== runSeed || profile.team.id !== teamId || profile.lineup_rules !== 7 || profile.rebuild_team !== teamId
         || schedule.team?.id !== teamId || schedule.season !== 1 || regular.team?.id !== teamId
         || regular.season !== 1 || regular.week !== 16 || regular.run_seed !== runSeed) {
       throw new Error("Your team could not be loaded. Please try again.");
@@ -1695,7 +1709,7 @@ nextSeasonButton.addEventListener("click", async () => {
       : !playoffState.qualified ? "Missed playoffs" : `Lost in ${lastOwnRound.name}` };
   try {
     const developmentStart = activeDevelopmentStart ?? nextSeason;
-    const lineupRules = Math.max(3, activeLineupRules);
+    const lineupRules = 7;
     const carried = carriedStarters();
     const lineupChanges = carried.length ? [{ week: 1, starters: carried }] : [];
     const career = [...activeCareer, {
