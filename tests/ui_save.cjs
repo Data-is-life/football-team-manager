@@ -59,7 +59,7 @@ async function checks() {
  p.d.querySelector('#team-form').dispatchEvent(new p.w.Event('submit',{cancelable:true}));
  await until(()=>/Progress saved/.test(status(p)));
  assert.match(p.d.querySelector("#owner-feedback").textContent,/hired.*four-year/);
- assert.deepEqual(JSON.parse(saved(p)),{version:15,careerStartWeek:17,lineupChanges:[],contracts:true,teamId:id,runSeed:5678,season:1,week:16,lineupRules:7,developmentStart:1,rebuildTeam:id,priorStandings:{},history:[],draftChoices:null,dropped:[],career:[],playoffRound:null});
+ assert.deepEqual(JSON.parse(saved(p)),{version:16,draftRounds:6,careerStartWeek:17,lineupChanges:[],contracts:true,teamId:id,runSeed:5678,season:1,week:16,lineupRules:7,developmentStart:1,rebuildTeam:id,priorStandings:{},history:[],draftChoices:null,dropped:[],career:[],playoffRound:null});
  assert.equal(p.d.querySelector('#rebuild-note').hidden,false);
  for(const id of ['offense-rating','defense-rating'])assert.ok(Number(p.d.querySelector('#'+id).textContent)>=68&&Number(p.d.querySelector('#'+id).textContent)<=72);
  const first=saved(p);p.dom.window.close();

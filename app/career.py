@@ -44,10 +44,10 @@ def cpu_cuts(players):
     return arrange_depth(remaining)
 
 
-def offseason(team_id, season, run_seed, choices, dropped, prior=(), roster_context=()):
-    draft, rosters = build_draft(team_id, season, run_seed, choices, prior, roster_context, return_league=True)
+def offseason(team_id, season, run_seed, choices, dropped, prior=(), roster_context=(), draft_rounds=4):
+    draft, rosters = build_draft(team_id, season, run_seed, choices, prior, roster_context, return_league=True, draft_rounds=draft_rounds)
     if not draft['complete']:
-        raise ValueError('Complete all four draft picks before dropping players')
+        raise ValueError('Complete all draft picks before dropping players')
     rosters[team_id] = arrange_depth(drop_players(rosters[team_id], dropped))
     for other in rosters:
         if other != team_id:
@@ -69,7 +69,7 @@ def replay_career(team_id: str, run_seed: int, steps: tuple, lineup_rules: int =
         context = with_starters(context, team_id, run_seed, step[5] if len(step) > 5 else ())
         if season <= previous:
             raise ValueError('Career offseason years must be in increasing order')
-        _, context = offseason(team_id, season, run_seed, choices, dropped, prior, context)
+        _, context = offseason(team_id, season, run_seed, choices, dropped, prior, context, step[6] if len(step) > 6 else 4)
         if len(dict(context)[team_id]) > ROSTER_MAX:
             raise ValueError('Finalize each past roster at 38 players or fewer')
         previous = season

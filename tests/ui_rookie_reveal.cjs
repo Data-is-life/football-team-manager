@@ -30,7 +30,7 @@ async function checks(){
  while(p.d.querySelectorAll('#roster-groups .roster-player').length>38){const count=save(p).dropped.length;const button=[...p.d.querySelectorAll('#roster-groups [data-drop-id]:not([disabled])')].find(b=>!picks.includes(b.dataset.dropId));assert.ok(button);button.click();q(p,'#cut-confirm').click();await until(()=>save(p).dropped.length===count+1)}
  assert.equal(save(p).lineupRules,6);const frozen=save(p);p.dom.window.close();p=await restore(frozen);
  for(const player of estimates)assert.equal(row(p,player.id).children[4].textContent,String(player.potential_rating));
- q(p,'#next-season').click();await until(()=>save(p).season===2);assert.equal(save(p).lineupRules,7);assert.equal(save(p).version,15);assert.equal(save(p).career[0].lineup_rules,6);
+ q(p,'#next-season').click();await until(()=>save(p).season===2);assert.equal(save(p).lineupRules,7);assert.equal(save(p).version,16);assert.equal(save(p).career[0].lineup_rules,6);
  const current=await api('/api/career/seattle',body(save(p)));const byId=new Map(current.roster.map(player=>[player.id,player]));
  for(let i=0;i<estimates.length;i++){
   const original=estimates[i],player=byId.get(original.id),view=row(p,original.id),delta=player.potential_rating-original.potential_rating;

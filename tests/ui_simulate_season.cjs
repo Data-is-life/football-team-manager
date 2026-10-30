@@ -61,8 +61,8 @@ async function checks(){
  // Career requests preserve all drafted/cut rosters and use the current season's actual context.
  const later=JSON.parse(fs.readFileSync(path.join(root,'benchmarks/year8.json'),'utf8'));p=await restore(later);q(p,'#simulate-season').click();await finished(p);
  assert.deepEqual(p.state.weeks.map(r=>r.week),[9,10,11,12,13,14,15,16,17]);
- for(const r of p.state.weeks){assert.equal(r.body.action,'week');assert.equal(r.body.season,8);assert.equal(r.body.lineup_rules,6);assert.deepEqual(r.body.career,later.career)}
- assert.equal(save(p).season,8);assert.equal(save(p).playoffRound,null);assert.deepEqual(save(p).career,later.career);p.dom.window.close();
+ for(const r of p.state.weeks){assert.equal(r.body.action,'week');assert.equal(r.body.season,8);assert.equal(r.body.lineup_rules,6);assert.deepEqual(r.body.career,later.career.map(step=>({...step,draft_rounds:4})))}
+ assert.equal(save(p).season,8);assert.equal(save(p).playoffRound,null);assert.deepEqual(save(p).career,later.career.map(step=>({...step,draft_rounds:4})));p.dom.window.close();
  // New contract careers still show qualification/owner feedback; fourth-year failure ends play.
  const modern={version:12,contracts:true,teamId:'seattle',runSeed:1234,season:1,week:16,playoffRound:null,lineupRules:6,developmentStart:1,rebuildTeam:'seattle',priorStandings:{},history:[],career:[],draftChoices:null,dropped:[]};
  p=await restore(modern);q(p,'#simulate-season').click();await finished(p);assert.equal(q(p,'#qualification-status').hidden,false);assert.ok(q(p,'#owner-feedback').textContent);p.dom.window.close();
