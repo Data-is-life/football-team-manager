@@ -47,8 +47,9 @@ async function checks(){
  assert.equal(p.state.last.class_size,200);assert.equal(p.state.last.order.length,30);
  assert.equal(p.state.last.next_pick,30,'Champion drafts last');
  assert.equal(q(p,'#next-season').disabled,true);
+ assert.equal(save(p).draftRounds,6);assert.equal(p.state.last.rounds,6);
  let selectedIds=[],previousPicks=[];
- for(let turn=1;turn<=4;turn++){
+ for(let turn=1;turn<=6;turn++){
   q(p,'#roster-groups [data-position="QB"]').open=false;
   const filter=q(p,'#draft-position');filter.value='QB';filter.dispatchEvent(new p.w.Event('change'));
   assert.ok([...p.d.querySelectorAll('#draft-prospects tr')].every(r=>r.children[2].textContent==='QB'));
@@ -80,16 +81,16 @@ async function checks(){
   assert.match(q(p,'#save-status').textContent,/restored/);assert.equal(JSON.stringify(p.state.last.picks),picks);
   assert.equal(p.d.querySelectorAll('#roster-groups .roster-player').length,38+turn);
   assert.deepEqual(oldStats(p),before);
-  assert.equal(q(p,'#next-season').disabled,true);assert.equal(q(p,'#next-season').hidden,turn<4);
+  assert.equal(q(p,'#next-season').disabled,true);assert.equal(q(p,'#next-season').hidden,turn<6);if(turn<6)assert.equal(q(p,'#manage-roster').hidden,true);
   q(p,'#draft-button').click();
  }
- assert.equal(p.state.last.complete,true);assert.equal(p.state.last.picks.length,120);assert.equal(p.state.last.available.length,80);
- assert.equal(q(p,'#draft-board').hidden,true);assert.equal(q(p,'#draft-picks').children.length,120);
- assert.equal(p.d.querySelectorAll('.your-draft-pick').length,4);assert.match(q(p,'#draft-summary').textContent,/42\/38 players/);
+ assert.equal(p.state.last.complete,true);assert.equal(p.state.last.picks.length,180);assert.equal(p.state.last.available.length,20);
+ assert.equal(q(p,'#draft-board').hidden,true);assert.equal(q(p,'#draft-picks').children.length,180);
+ assert.equal(p.d.querySelectorAll('.your-draft-pick').length,6);assert.match(q(p,'#draft-summary').textContent,/44\/38 players/);
  const complete=raw(p);q(p,'#draft-close').click();
  const other=p.state.last.picks.find(pick=>pick.team.id!==owner).team.id;
- q(p,`.team-roster-link[data-team-id="${other}"]`).click();await until(()=>q(p,'#scout-status').textContent.includes('42 players'));
- assert.equal(p.d.querySelectorAll('#scout-groups .roster-player').length,42);assert.equal(p.d.querySelectorAll('#scout-groups .rookie-badge').length,4);
+ q(p,`.team-roster-link[data-team-id="${other}"]`).click();await until(()=>q(p,'#scout-status').textContent.includes('44 players'));
+ assert.equal(p.d.querySelectorAll('#scout-groups .roster-player').length,44);assert.equal(p.d.querySelectorAll('#scout-groups .rookie-badge').length,6);
  q(p,'#scout-close').click();
  q(p,'#change-team-button').click();q(p,'#team-select').value='seattle';
  q(p,'#team-form').dispatchEvent(new p.w.Event('submit',{cancelable:true}));await until(()=>save(p).runSeed===5678);
@@ -99,7 +100,7 @@ async function checks(){
  const invalid=JSON.stringify(damaged);p=await restore(invalid);
  assert.match(q(p,'#save-status').textContent,/could not be loaded/);assert.equal(raw(p),invalid);assert.equal(q(p,'#schedule-section').hidden,true);p.dom.window.close();
  // Auto-draft can finish from any user turn, preserves manual choices, and uses ordinary saved IDs.
- for(const manualCount of [0,1,2,3]){
+ for(const manualCount of [0,1,2,3,4,5]){
   p=await restore(legacy);const previousStats=oldStats(p);
   q(p,'#draft-button').click();await until(()=>save(p).draftChoices?.length===0);
   for(let turn=1;turn<=manualCount;turn++){q(p,'#draft-prospects [data-draft-id]').click();await until(()=>save(p).draftChoices.length===turn)}
@@ -112,14 +113,35 @@ async function checks(){
    const count=p.state.calls;q(p,'#auto-draft').click();q(p,'#auto-draft').click();assert.equal(p.state.calls,count+1,'Auto-draft double click makes one request');
    assert.equal(q(p,'#auto-draft').disabled,true);assert.ok([...p.d.querySelectorAll('#draft-prospects [data-draft-id]')].every(button=>button.disabled));
   }
-  await until(()=>save(p).draftChoices.length===4);
+  await until(()=>save(p).draftChoices.length===6);
   assert.deepEqual(save(p).draftChoices.slice(0,manualCount),prefix);
   assert.deepEqual(p.state.last.picks.slice(0,priorPicks.length),priorPicks);
-  assert.equal(p.state.last.picks.length,120);assert.equal(p.state.last.complete,true);
-  assert.equal(p.d.querySelectorAll('#roster-groups .roster-player').length,42);assert.equal(q(p,'#next-season').disabled,true);
+  assert.equal(p.state.last.picks.length,180);assert.equal(p.state.last.complete,true);
+  assert.equal(p.d.querySelectorAll('#roster-groups .roster-player').length,44);assert.equal(q(p,'#next-season').disabled,true);
   assert.equal(q(p,'#draft-board').hidden,true);assert.deepEqual(oldStats(p),previousStats);
   const allPicks=structuredClone(p.state.last.picks),saved=raw(p);p.dom.window.close();p=await restore(saved);
   assert.deepEqual(p.state.last.picks,allPicks);assert.equal(raw(p),saved);p.dom.window.close();
+ }
+ // Started legacy four-round drafts retain their format, including a saved empty board.
+ const post=body=>api(`/api/draft/${owner}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({season:1,run_seed:1234,...body})});
+ const oldDraft=await post({auto_draft:true});
+ for(const count of [0,2,4]){
+  const oldSave={...JSON.parse(legacy),version:15,careerStartWeek:1,lineupChanges:[],contracts:false,
+   lineupRules:1,developmentStart:null,rebuildTeam:null,career:[],dropped:[],draftChoices:oldDraft.manual_picks.slice(0,count)};
+  const expected=await post({manual_picks:oldSave.draftChoices});
+  p=await restore(JSON.stringify(oldSave));assert.equal(p.state.last.rounds,4);assert.deepEqual(p.state.last.picks,expected.picks);
+  q(p,'#draft-button').click();assert.match(q(p,'#draft-format').textContent,/4 rounds/);
+  if(count<4){
+   q(p,'#auto-draft').click();await until(()=>save(p).draftChoices.length===4);
+   assert.equal(save(p).version,16);assert.equal(save(p).draftRounds,4);
+   assert.deepEqual(p.state.last.picks,oldDraft.picks);
+   const frozen=raw(p);p.dom.window.close();p=await restore(frozen);assert.equal(p.state.last.rounds,4);assert.deepEqual(p.state.last.picks,oldDraft.picks);
+  }
+  assert.equal(p.d.querySelectorAll('#roster-groups .roster-player').length,42);p.dom.window.close();
+ }
+ for(const rounds of [5,null,undefined]){
+  const invalid=JSON.stringify({...JSON.parse(complete),draftRounds:rounds});p=await restore(invalid);
+  assert.match(q(p,'#save-status').textContent,/could not be read/);assert.equal(raw(p),invalid);p.dom.window.close();
  }
  // Validate real POST requests and ensure unavailable/duplicate picks never commit.
  const first=await api(`/api/draft/${owner}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({season:1,run_seed:1234})});
@@ -127,7 +149,7 @@ async function checks(){
   const response=await fetch(base+`/api/draft/${owner}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({season:1,run_seed:1234,...body})});
   assert.equal(response.status,422);
  }
- console.log('Draft UI checks passed: all four user turns and 120 picks, CPU replay, permanent IDs, filters/current/potential, failed request/retry, duplicate clicks, reload every round, 42-player own/scouting rosters, preserved stats, regular-season gate, legacy save, new-career reset, and invalid API/save data.');
+ console.log('Draft UI checks passed: all six user turns and 180 picks, CPU replay, permanent IDs, filters/current/potential, failed request/retry, duplicate clicks, reload every round, 44-player own/scouting rosters, preserved stats, regular-season gate, legacy save, new-career reset, and invalid API/save data.');
 }
 (async()=>{
  const server=spawn(process.env.PYTHON||'python',['-m','uvicorn','app.main:app','--host','127.0.0.1','--port','8771'],{cwd:root,stdio:['ignore','pipe','pipe']});

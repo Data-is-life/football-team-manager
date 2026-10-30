@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Annotated, Literal
 
 from fastapi import FastAPI, HTTPException, Query
-from pydantic import BaseModel, Field, StrictInt, StrictBool
+from pydantic import BaseModel, Field, StrictInt, StrictBool, model_validator
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -162,13 +162,14 @@ def playoff_round(
 
 
 class DraftRequest(BaseModel):
+    draft_rounds: Literal[4, 6] = 4
     season: int = Field(default=1, ge=1, le=998)
     run_seed: int = Field(default=0, ge=0, le=4294967295)
     lineup_rules: Literal[1, 2, 3, 4, 5, 6, 7] = 1
     development_start: int = Field(default=1, ge=1, le=999)
     rebuild_team: str | None = Field(default=None, max_length=40)
     prior_standings: dict[str, StrictInt] | None = None
-    manual_picks: list[str] = Field(default_factory=list, max_length=4)
+    manual_picks: list[str] = Field(default_factory=list, max_length=6)
     auto_draft: StrictBool = False
 
 
@@ -182,7 +183,7 @@ def rookie_draft(team_id: str, request: DraftRequest) -> dict:
             raise ValueError('Rebuild team must match the managed team')
         context = lineup_context((), request.run_seed, request.lineup_rules,request.season,request.development_start,request.rebuild_team)
         draft, players = build_draft(team_id, request.season, request.run_seed,
-                                    tuple(request.manual_picks), prior, context, auto_pick=request.auto_draft)
+                                    tuple(request.manual_picks), prior, context, auto_pick=request.auto_draft, draft_rounds=request.draft_rounds)
     except ValueError as error:
         raise HTTPException(status_code=422, detail=str(error)) from error
     return {**draft, "profile": profile_payload(team_id, players, request.run_seed, context)}
@@ -194,15 +195,23 @@ class LineupChange(BaseModel):
 
 
 class CareerStep(BaseModel):
+    draft_rounds: Literal[4, 6] = 4
     lineup_changes: list[LineupChange] = Field(default_factory=list, max_length=21)
     lineup_rules: Literal[1, 2, 3, 4, 5, 6, 7] = 1
     season: int = Field(ge=1, le=998)
     prior_standings: dict[str, StrictInt] | None = None
-    manual_picks: list[str] = Field(min_length=4, max_length=4)
-    dropped: list[str] = Field(default_factory=list, max_length=42)
+    manual_picks: list[str] = Field(min_length=4, max_length=6)
+    dropped: list[str] = Field(default_factory=list, max_length=44)
+
+    @model_validator(mode='after')
+    def complete_draft(self):
+        if len(self.manual_picks) != self.draft_rounds:
+            raise ValueError('Past offseason must contain one pick per draft round')
+        return self
 
 
 class CareerRequest(BaseModel):
+    draft_rounds: Literal[4, 6] = 4
     lineup_changes: list[LineupChange] = Field(default_factory=list, max_length=21)
     action: Literal['profile', 'week', 'playoffs', 'draft', 'cuts']
     season: int = Field(default=1, ge=1, le=999)
@@ -212,9 +221,9 @@ class CareerRequest(BaseModel):
     rebuild_team: str | None = Field(default=None, max_length=40)
     prior_standings: dict[str, StrictInt] | None = None
     career: list[CareerStep] = Field(default_factory=list, max_length=998)
-    manual_picks: list[str] = Field(default_factory=list, max_length=4)
+    manual_picks: list[str] = Field(default_factory=list, max_length=6)
     auto_draft: StrictBool = False
-    dropped: list[str] = Field(default_factory=list, max_length=42)
+    dropped: list[str] = Field(default_factory=list, max_length=44)
     week: int = Field(default=1, ge=1, le=17)
     round_number: int = Field(default=0, ge=0, le=4)
     view_team: str | None = None
@@ -235,7 +244,7 @@ def career_action(team_id: str, request: CareerRequest) -> dict:
             raise ValueError('Auto-draft is only available for an unfinished draft before roster cuts')
         if any(step.season >= request.season for step in request.career):
             raise ValueError('Past offseasons must precede the current season')
-        steps = tuple((step.season, ranks_context(step.prior_standings), tuple(step.manual_picks), tuple(step.dropped), step.lineup_rules, tuple((change.week, tuple(change.starters)) for change in step.lineup_changes))
+        steps = tuple((step.season, ranks_context(step.prior_standings), tuple(step.manual_picks), tuple(step.dropped), step.lineup_rules, tuple((change.week, tuple(change.starters)) for change in step.lineup_changes), step.draft_rounds)
                       for step in request.career)
         context = replay_career(team_id, request.run_seed, steps, request.lineup_rules,request.season,request.development_start,request.rebuild_team)
         changes = tuple((change.week, tuple(change.starters)) for change in request.lineup_changes)
@@ -249,13 +258,13 @@ def career_action(team_id: str, request: CareerRequest) -> dict:
         if request.action in ('draft', 'cuts'):
             if request.action == 'cuts':
                 draft, cut_context = offseason(team_id, request.season, request.run_seed,
-                    tuple(request.manual_picks), tuple(request.dropped), prior, context)
+                    tuple(request.manual_picks), tuple(request.dropped), prior, context, request.draft_rounds)
                 players = list(roster_for(viewed, request.run_seed, cut_context).values())
                 return {**draft, 'dropped': request.dropped, 'cuts_applied': True,
                         'can_continue': len(dict(cut_context)[team_id]) <= ROSTER_MAX,
                         'profile': profile_payload(viewed, players, request.run_seed, cut_context, current_starters(context) if viewed == team_id else ())}
             draft, players = build_draft(team_id, request.season, request.run_seed,
-                                        tuple(request.manual_picks), prior, context, auto_pick=request.auto_draft)
+                                        tuple(request.manual_picks), prior, context, auto_pick=request.auto_draft, draft_rounds=request.draft_rounds)
             return {**draft, 'profile': profile_payload(team_id, players, request.run_seed, context)}
         return profile_payload(viewed, list(roster_for(viewed, request.run_seed, context).values()), request.run_seed, context)
     except ValueError as error:

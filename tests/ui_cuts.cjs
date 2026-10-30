@@ -76,11 +76,11 @@ async function checks(){
  // A second offseason must draft from the already modified league, then preserve that career on another rollover.
  q(p,'#draft-button').click();await until(()=>save(p).draftChoices?.length===0);
  q(p,'#draft-prospects [data-draft-id]').click();await until(()=>save(p).draftChoices.length===1);
- const manualPick=save(p).draftChoices[0];q(p,'#auto-draft').click();await until(()=>save(p).draftChoices.length===4);assert.equal(save(p).draftChoices[0],manualPick,'Career auto-draft preserves the earlier manual pick');
+ const manualPick=save(p).draftChoices[0];q(p,'#auto-draft').click();await until(()=>save(p).draftChoices.length===save(p).draftRounds);assert.equal(save(p).draftChoices[0],manualPick,'Career auto-draft preserves the earlier manual pick');
  q(p,'#draft-close').click();q(p,'#manage-roster').click();
- for(let count=1;count<=4;count++){q(p,'#roster-groups [data-drop-id]:not([disabled])').click();q(p,'#cut-confirm').click();await until(()=>save(p).dropped.length===count)}
+ for(let count=1;count<=save(p).draftRounds;count++){q(p,'#roster-groups [data-drop-id]:not([disabled])').click();q(p,'#cut-confirm').click();await until(()=>save(p).dropped.length===count)}
  q(p,'#next-season').click();await until(()=>save(p).season===3);
- assert.equal(save(p).rebuildTeam,owner);assert.equal(save(p).lineupRules,7);assert.equal(save(p).career.length,2);saved=raw(p);p.dom.window.close();p=await restore(saved);assert.equal(p.d.querySelectorAll('#roster-groups .roster-player').length,38);assert.equal(save(p).career.length,2);
+ assert.equal(save(p).rebuildTeam,owner);assert.equal(save(p).lineupRules,7);assert.equal(save(p).career.length,2);assert.equal(save(p).draftRounds,6);assert.deepEqual(save(p).career.map(step=>step.draft_rounds),[4,6]);saved=raw(p);p.dom.window.close();p=await restore(saved);assert.equal(p.d.querySelectorAll('#roster-groups .roster-player').length,38);assert.equal(save(p).career.length,2);
  for(const row of p.d.querySelectorAll('#roster-groups .roster-player')){const entry=Number(row.dataset.playerId.split('-').at(-2));assert.equal(Boolean(row.querySelector('.rookie-badge')),row.dataset.playerId.startsWith('rookie-')&&entry===3);}
  p.dom.window.close();
  console.log('Inline roster-cut UI checks passed: direct Roster controls, Manage roster navigation, no dialog, collapsed groups, in-season cut controls removed, confirmation/cancel/retry, server and UI minimum protection, duplicate clicks, saved cuts, 42 to 38, retained rookie QB/RB in game stats, full next season/playoffs, second draft/cuts, and Season 3 restore.');

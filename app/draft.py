@@ -1,4 +1,4 @@
-"""Deterministic four-round offseason drafts, replayed from the user's four choices."""
+"""Deterministic versioned offseason drafts, replayed from user choices."""
 from dataclasses import asdict, replace
 from functools import lru_cache
 import random
@@ -11,7 +11,7 @@ from .playoffs import postseason_snapshot
 from .simulation import Player, ROSTER_RULES, ROSTER_SLOTS, _run_number, roster_for
 from .standings import standings_through_week
 
-ROUNDS = 4
+ROUNDS = 6
 CLASS_SIZE = 200
 
 
@@ -74,15 +74,16 @@ def cpu_pick(available, current, additions):
 
 
 def build_draft(team_id: str, season: int, run_seed: int, choices: tuple[str, ...] = (),
-                prior_standings: tuple = (), roster_context: tuple = (), return_league: bool = False, auto_pick: bool = False) -> tuple[dict, list[Player]]:
-    """Auto-pick up to the user's next turn, or finish after their fourth pick.
+                prior_standings: tuple = (), roster_context: tuple = (), return_league: bool = False, auto_pick: bool = False, draft_rounds: int = 4) -> tuple[dict, list[Player]]:
+    """Auto-pick up to the user's next turn, or finish after their final pick.
 
     With auto_pick, fill remaining user turns using the same CPU policy and return
     all resolved user picks, so ordinary manual replay reproduces the whole draft.
     Replaying all choices validates availability at the actual pick, including CPU picks.
     Neither the cached class nor the base rosters is mutated.
+    The omitted round count retains legacy four-round API behavior; new UI drafts pass six.
     """
-    if team_id not in TEAM_BY_ID or not 1 <= season < 999 or len(choices) > ROUNDS:
+    if team_id not in TEAM_BY_ID or not 1 <= season < 999 or draft_rounds not in (4, ROUNDS) or len(choices) > draft_rounds:
         raise ValueError('Invalid draft context')
     if len(set(choices)) != len(choices):
         raise ValueError('A prospect cannot be selected twice')
@@ -96,7 +97,7 @@ def build_draft(team_id: str, season: int, run_seed: int, choices: tuple[str, ..
     picks = []
     resolved_choices = list(choices)
     consumed = 0
-    for overall in range(1, ROUNDS * len(order) + 1):
+    for overall in range(1, draft_rounds * len(order) + 1):
         owner = order[(overall - 1) % len(order)]['team']['id']
         if owner == team_id and consumed < len(choices):
             choice = choices[consumed]
@@ -117,9 +118,9 @@ def build_draft(team_id: str, season: int, run_seed: int, choices: tuple[str, ..
         additions[owner][signed.position] = additions[owner].get(signed.position, 0) + 1
         picks.append({'overall': overall, 'round': (overall - 1) // len(order) + 1,
                       'team': asdict(TEAM_BY_ID[owner]), 'player': player_payload(signed,roster_context)})
-    complete = len(picks) == ROUNDS * len(order)
+    complete = len(picks) == draft_rounds * len(order)
     return ({'season': season, 'draft_season': season + 1, 'run_seed': run_seed,
-             'team': asdict(TEAM_BY_ID[team_id]), 'rounds': ROUNDS, 'total_picks': ROUNDS * len(order),
+             'team': asdict(TEAM_BY_ID[team_id]), 'rounds': draft_rounds, 'total_picks': draft_rounds * len(order),
              'class_size': CLASS_SIZE, 'order': order, 'picks': picks,
              'available': [player_payload(player,roster_context) for player in prospects if player.id in available],
              'manual_picks': resolved_choices, 'complete': complete,

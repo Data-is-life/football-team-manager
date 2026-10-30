@@ -101,7 +101,7 @@ Current is the ability rating used by roster decisions and simulation. Potential
 
 Legacy career rules retain the earlier age-band display until upgrading at a season boundary. New careers use development rules immediately.
 
-Player API payloads add `current_rating` and `potential_rating`. The existing `rating`, experience, and generated attribute data remain available for API/save compatibility and existing usage logic; attributes are no longer displayed and still do not affect gameplay. Save version 15 reconstructs the displayed ratings from seeded player state and offseason history.
+Player API payloads add `current_rating` and `potential_rating`. The existing `rating`, experience, and generated attribute data remain available for API/save compatibility and existing usage logic; attributes are no longer displayed and still do not affect gameplay. Save version 16 reconstructs the displayed ratings from seeded player state and offseason history.
 
 ## Run locally
 
@@ -236,25 +236,25 @@ Same-place opponents use the previous season's actual final group ranks. The bro
 
 Save version 10 includes prior ranks, history summaries with exact playoff records for newly completed seasons, draft choices, drops, past offseason decisions, lineup/rating rules, and the season development was enabled. Version 2 and 3 career/draft saves remain supported. Version 1 saves from the saved-progress PR still restore with identical first-season results and upgrade on the next successful save. Refreshing in later seasons restores the correct schedule, standings, season totals, and postseason without mixing seasons.
 
-## Four-round rookie draft
+## Six-round rookie draft
 
-After the league championship (including seasons where your team is eliminated or misses qualification), choose **Start rookie draft**. The draft is for the upcoming season and contains 200 rookies and four rounds of 30 picks: 120 total selections. Prospects have unique permanent player IDs, names, positions, ages 21–24, zero experience, current ratings 45–90, and potential ratings. Filter by position to compare prospects.
+After the league championship (including seasons where your team is eliminated or misses qualification), choose **Start rookie draft**. The draft is for the upcoming season and contains 200 rookies and six rounds of 30 picks: 180 total selections. Prospects have unique permanent player IDs, names, positions, ages 21–24, zero experience, current ratings 45–90, and potential ratings. Filter by position to compare prospects.
 
 Non-playoff teams pick first, followed by teams eliminated in the Wild Card, Quarterfinals, Semifinals, and Championship. The champion picks last. Within each finish group, order is worst regular-season record, then lower point differential, fewer points scored, and a deterministic seeded draw. Every round uses the same order, without snaking or pick trades.
 
-CPU teams select automatically up to your next turn. Their score balances prospect quality against current position quality, with a penalty for repeatedly drafting the same position. Your four picks are manual. After your fourth pick the remaining CPU selections complete automatically; all 30 teams receive four rookies. Selections are shown in a scrollable log and your team's picks are highlighted.
+CPU teams select automatically up to your next turn. Their score balances prospect quality against current position quality, with a penalty for repeatedly drafting the same position. Your six picks are manual. After your sixth pick the remaining CPU selections complete automatically; all 30 teams receive six rookies. Selections are shown in a scrollable log and your team's picks are highlighted.
 
-Each rookie is added without replacing a player: the offseason roster grows from 38 to 42. Your Roster includes the rookies, and scouting shows other teams' drafted players. Completed-season stats are preserved; rookies have zero production. Team ratings, depth leaders, and finished-season game outcomes do not change during the draft.
+Each rookie is added without replacing a player: the offseason roster grows from 38 to 44. Your Roster includes the rookies, and scouting shows other teams' drafted players. Completed-season stats are preserved; rookies have zero production. Team ratings, depth leaders, and finished-season game outcomes do not change during the draft.
 
 After the draft, drop players directly from **Roster → Ratings**. **Manage roster** is a shortcut to this view. Next-season continuation unlocks when the roster is at most 38 and every position minimum is satisfied. The draft is mandatory before every future season transition, including restored legacy careers. Salary caps, contracts, retirement, and trades are later work.
 
-Draft choices autosave after each successful turn. Save version 4 stores up to four prospect IDs for the current draft plus cut and past offseason decisions; the API deterministically replays CPU decisions and validates that each chosen prospect was available at the user's actual pick. Reloads preserve the class, selection history, permanent IDs, and enlarged roster. Failed loads/picks preserve the last checkpoint and offer Retry; duplicate clicks cannot select twice. Versions 1 and 2 restore without a draft, and version 3 restores its saved draft; all upgrade on the next save. Starting a new career clears the draft. Drafts are available through the Season 998 offseason because the next season must fit the API's Season 999 limit.
+Draft choices autosave after each successful turn. Save version 16 stores the current draft round count and each past offseason's round count alongside prospect IDs, cuts and prior decisions; the API deterministically replays CPU decisions and validates that each chosen prospect was available at the user's actual pick. Reloads preserve the class, selection history, permanent IDs, and enlarged roster. Failed loads/picks preserve the last checkpoint and offer Retry; duplicate clicks cannot select twice. Versions 1 and 2 restore without a draft, and version 3 restores its saved draft; all upgrade on the next save. Starting a new career clears the draft. Drafts are available through the Season 998 offseason because the next season must fit the API's Season 999 limit.
 
-`POST /api/draft/{team_id}` takes `season`, `run_seed`, optional `prior_standings`, and `manual_picks` (0–4 prospect IDs). It returns the selection order, completed picks, remaining prospects, the next user pick, completion state, and the updated managed-team profile. This endpoint is stateless and does not store server-side progress.
+`POST /api/draft/{team_id}` takes `season`, `run_seed`, optional `prior_standings`, `draft_rounds` (4 or 6, default 4 for legacy clients), and `manual_picks` (up to the declared round count). It returns the selection order, completed picks, remaining prospects, the next user pick, completion state, and the updated managed-team profile. This endpoint is stateless and does not store server-side progress.
 
 ## Offseason player cuts and roster carryover
 
-Complete the four-round draft, then open **Roster → Ratings** (or choose **Manage roster** to jump there). Drop controls appear beside each player, together with age, current/potential ratings, rookie badges, and starter highlights. Each position heading shows its player count and minimum, and the roster displays its total against the 38-player maximum. Choose Drop, then Confirm drop in the inline confirmation; Cancel leaves the save unchanged. There is no separate roster-management dialog. You can reduce a position to its minimum, but the next cut is disabled and the API rejects it too. For example, QB can go from two to one, but not from one to zero. All ten existing position minimums are preserved. The regular-season maximum is 38, not a requirement to fill exactly 38 slots.
+Complete the six-round draft, then open **Roster → Ratings** (or choose **Manage roster** to jump there). Drop controls appear beside each player, together with age, current/potential ratings, rookie badges, and starter highlights. Each position heading shows its player count and minimum, and the roster displays its total against the 38-player maximum. Choose Drop, then Confirm drop in the inline confirmation; Cancel leaves the save unchanged. There is no separate roster-management dialog. You can reduce a position to its minimum, but the next cut is disabled and the API rejects it too. For example, QB can go from two to one, but not from one to zero. All ten existing position minimums are preserved. The regular-season maximum is 38, not a requirement to fill exactly 38 slots.
 
 Successful cuts autosave. Failed cuts leave the previous roster/checkpoint intact and can be retried. Once the roster is at most 38, Continue to next season unlocks. CPU teams also cut to 38, removing the lowest-rated eligible player while protecting every minimum. Cuts are available in the post-draft offseason only; released players are not yet part of free agency and cannot be re-signed in this version.
 
@@ -262,9 +262,9 @@ All retained players are ordered by descending current rating within their posit
 
 Under the current lineup rules, each position starts its highest-current-rated players. Offense/defense ratings are 80% average starter rating plus 20% average bench rating, rounded to the nearest integer. If a unit has no bench, its starter average is used for the full rating. Kickers are excluded from both units and K1 is the highest-rated kicker. This affects scoring, usage, overtime, standings ratings, and postseason; potential is not used. Older saved seasons keep their original rating formula until the next season so completed results and draft availability cannot be rerolled.
 
-Save version 15 stores the managed team's completed draft choices, cuts, and each offseason's schedule context. The server replays those decisions to reconstruct all 30 rosters, rather than accepting arbitrary player attributes from the browser. Bounded caches include the immutable roster context so distinct rosters cannot share scores or standings accidentally. Later drafts start from the modified league; surviving rookies retain their IDs across further seasons and reloads. A failed next-season load preserves the completed offseason save.
+Save version 16 stores the managed team's completed draft choices, cuts, and each offseason's schedule context. The server replays those decisions to reconstruct all 30 rosters, rather than accepting arbitrary player attributes from the browser. Bounded caches include the immutable roster context so distinct rosters cannot share scores or standings accidentally. Later drafts start from the modified league; surviving rookies retain their IDs across further seasons and reloads. A failed next-season load preserves the completed offseason save.
 
-`POST /api/career/{team_id}` supports profile, week, playoffs, draft, and cuts actions with the run seed, current season/prior ranks, and completed offseason decisions. Each past offseason must be in increasing year order, precede the current season, include four valid picks and legal drops, and finish at 38 players or fewer. Existing seed-only GET APIs remain available for their original deterministic worlds; the UI uses career requests after roster changes.
+`POST /api/career/{team_id}` supports profile, week, playoffs, draft, and cuts actions with the run seed, current season/prior ranks, and completed offseason decisions. Each past offseason must be in increasing year order, precede the current season, include a full draft (six picks, or four for a saved legacy draft) and legal drops, and finish at 38 players or fewer. Existing seed-only GET APIs remain available for their original deterministic worlds; the UI uses career requests after roster changes.
 
 ## Automatic starters and team strength
 
@@ -307,7 +307,7 @@ Players from the most recent draft have an **R** badge beside their names in ros
 
 ## Initial starter and backup hierarchy
 
-New careers use lineup rules 7 (save version 15). Every team's initial roster is ranked by current ability, then backups are lowered relative to the weakest starter at that position. Starter counts remain QB 1, WR 2, TE 1, RB 1, OL 5, K 1, DL 4, LB 3, CB 2, and S 2.
+New careers use lineup rules 7 (save version 16). Every team's initial roster is ranked by current ability, then backups are lowered relative to the weakest starter at that position. Starter counts remain QB 1, WR 2, TE 1, RB 1, OL 5, K 1, DL 4, LB 3, CB 2, and S 2.
 
 If the weakest starter is rated 70 or higher, each backup has a seeded ceiling 8–14 points below that starter. If the weakest starter is below 70, the ceiling is only 1–4 points lower, allowing closer competition on weak units. These are minimum separations: an already weaker backup stays weaker. Initial QB and K backups are also capped at 74. The adjustment never improves or lowers the selected starters, and preserves player identities, names, ages, experience, roster sizes, and position minimums. Backup attributes and potential are initialized from their adjusted ability.
 
@@ -325,7 +325,7 @@ Save version 8 stores `rebuildTeam`, the managed city at career creation. Team/w
 
 ## Rating-based rotations and youth development
 
-New careers use lineup rules 7 and save version 15; playing-time rules are unchanged from rules 5. Existing saves keep their current-season playing-time model and draft estimates, then adopt rules 7 at their next season transition. Past offseasons replay under their saved rules, and existing roster generation is not reapplied.
+New careers use lineup rules 7 and save version 16; playing-time rules are unchanged from rules 5. Existing saves keep their current-season playing-time model and draft estimates, then adopt rules 7 at their next season transition. Past offseasons replay under their saved rules, and existing roster generation is not reapplied.
 
 QB1 handles all passing and K1 all kicking; youth development does not force their backups into games. Starting OL receive nearly all pass/run blocking snaps, with a small reserve role. RB carries favor the stronger starter while keeping a rotation. WR/TE targets combine their current ability with their assigned role; the existing 60% WR / 22% TE / 18% RB receiving mix remains. DL rotate most, LB next, with lighter CB/S rotations. Depth is automatically ranked by current rating as before. Potential does not influence playing time.
 
@@ -340,9 +340,9 @@ Rules 5 boxes include participation, and Season Stats adds Snaps for all positio
 
 ## Mandatory offseason draft
 
-After the league championship, **Start rookie draft** is the next step. The next-season button stays hidden until all four user picks and all 120 league picks are complete. A completed draft with more than 38 players shows a disabled **Roster limit: 38** button; finish cuts in Roster to enable **Continue to Season N**. Position minimums remain enforced by the cut API.
+After the league championship, **Start rookie draft** is the next step. The next-season button stays hidden until all six user picks and all 180 league picks are complete. A completed draft with more than 38 players shows a disabled **Roster limit: 38** button; finish cuts in Roster to enable **Continue to Season N**. Position minimums remain enforced by the cut API.
 
-Closing the draft, reloading midway, or a failed first draft load cannot enable a season skip. The transition handler independently requires a completed four-pick draft, even if button visibility is changed. A failed next-season load preserves the completed draft/cuts and allows retry. At season 999 no draft or transition is offered.
+Closing the draft, reloading midway, or a failed first draft load cannot enable a season skip. The transition handler independently requires a completed draft matching its saved round count, even if button visibility is changed. A failed next-season load preserves the completed draft/cuts and allows retry. At season 999 no draft or transition is offered.
 
 Existing saves still load, including past seasons that skipped drafts. Their next transition must follow the current mandatory draft flow; past results are not replayed under new rules. The save format and simulation rules are unchanged. Players may make picks manually or use Auto-draft remaining picks; either path completes the required draft.
 
@@ -351,7 +351,7 @@ Existing saves still load, including past seasons that skipped drafts. Their nex
 
 Open **Start rookie draft** (or **Resume draft**) and choose **Auto-draft remaining picks**. It fills only your remaining turns using the same current-quality, position-need, and repeat-position penalty as CPU teams. Earlier manual choices and all previous league picks are preserved. You can start with auto-draft or switch after one, two, or three manual picks.
 
-The completed draft still adds four rookies without releasing anyone. Review the roster and make cuts to reach the 38-player maximum before continuing. Auto-draft does not automatically cut players or advance the season.
+The completed draft still adds six rookies without releasing anyone. Review the roster and make cuts to reach the 38-player maximum before continuing. Auto-draft does not automatically cut players or advance the season.
 
 Draft/career POST requests accept a strict boolean `auto_draft` flag. The response's existing `manual_picks` field contains all resolved user selections, including auto-picks; the browser saves those IDs normally. Reloading uses ordinary replay without another automated selection, so no save-format change is needed. Failed requests retain the previous checkpoint and Retry preserves whether the failed action was auto-drafting. Repeated identical requests produce identical picks, and duplicate UI clicks are blocked. Career auto-draft uses the actual retained rosters and original season/rules context; it cannot be requested as a cut, profile, week, or playoff action.
 
@@ -374,9 +374,9 @@ Older saves remain supported. Their completed-season summaries store a finishing
 
 ## Manageable starting balance
 
-New careers use lineup rules 7 and save version 15. The selected team's initial offense and defense are each within **70 ± 2**. Seeded starter ratings of 71–73 and reserves of 57–64 after the existing hierarchy caps guarantee the target under the current 80% starter/20% bench team-rating formula. QB2/K2 remain clearly weaker than QB1/K1. Ratings vary by player and run; other teams keep their normal rosters.
+New careers use lineup rules 7 and save version 16. The selected team's initial offense and defense are each within **70 ± 2**. Seeded starter ratings of 71–73 and reserves of 57–64 after the existing hierarchy caps guarantee the target under the current 80% starter/20% bench team-rating formula. QB2/K2 remain clearly weaker than QB1/K1. Ratings vary by player and run; other teams keep their normal rosters.
 
-This replaces the much weaker starting balance for new careers without changing the four-round draft, playing-time model, potential rules, or offseason growth. The balance is applied once: later draft picks and development can raise the team beyond the starting target, while aging can lower it. Existing saves retain their original roster generation, draft availability, and results through future seasons. Start a new career to use the more manageable rebuild.
+This replaces the much weaker starting balance for new careers without changing the playing-time model, potential rules, or offseason growth. The balance is applied once: later draft picks and development can raise the team beyond the starting target, while aging can lower it. Existing saves retain their original roster generation, draft availability, and results through future seasons. Start a new career to use the more manageable rebuild.
 
 
 ## GM contracts
@@ -423,7 +423,7 @@ Your GM W–L–T starts at **0–0–0** and counts only Week 17 in the introdu
 
 Season 1 is an introduction: **no contract year is consumed, no extension is earned, and introductory playoff qualification does not satisfy the full-season contract requirement**. Four full contract seasons cover Seasons 2–5; reach the playoffs at least once during those seasons or be fired at the end of Season 5. The existing highest-reward extension and later expiry rules apply from Season 2 onward. The owner explains this grace period instead of judging you on inherited results.
 
-The final regular-season game, playoffs, mandatory four-round draft and legal cuts keep their usual flow. Surviving starter preferences carry over. **Season 2 and every later season start at Week 1**, with the existing development and rookie class rules. No ratings, ages or statistics are rerolled on hiring, and drafts cannot be skipped.
+The final regular-season game, playoffs, mandatory six-round draft and legal cuts keep their usual flow. Surviving starter preferences carry over. **Season 2 and every later season start at Week 1**, with the existing development and rookie class rules. No ratings, ages or statistics are rerolled on hiring, and drafts cannot be skipped.
 
 Save version 14 stores `careerStartWeek` (17 for new late starts, 1 for older careers), plus the introductory history's one-game `gmRecord`. Versions 1–13 retain their existing progress, GM records and contract deadline after migration and future saves. Starting a new career is required to get the late-season introduction. Failed initialization preserves the previous career and save.
 
@@ -438,4 +438,13 @@ Kickers also receive one rookie boom/bust assessment, but keep **potential equal
 
 Ratings tables in your roster and read-only scouting show green **↑ +N** or red **↓ −N** potential arrows. Tooltips distinguish changes from draft estimates from later season-to-season changes, and accessible labels state the old and new potential. Zero changes have no arrow. Current-rating arrows remain separate. Rookie arrows last through the rookie season and are replaced by the next offseason's actual changes. Automatic lineups use reassessed current ability; explicit starter preferences remain your choices.
 
-Existing careers preserve their current season and draft under their saved rules, then adopt rules 7 on the next season transition. Only rookies entering their first season at that transition are reassessed; already-playing rookies are never reassessed retroactively. Past offseason steps retain their original rules so old scores, draft order and availability remain reproducible. Save version 15 records rules 7 and continues reading versions 1–14. Reassessment state is reconstructed server-side from permanent rookie IDs, the run seed and chronological offseason history, rather than trusted player data from the browser. No new career is needed for the next rookie class.
+Existing careers preserve their current season and draft under their saved rules, then adopt rules 7 on the next season transition. Only rookies entering their first season at that transition are reassessed; already-playing rookies are never reassessed retroactively. Past offseason steps retain their original rules so old scores, draft order and availability remain reproducible. Save version 16 records rules 7 and continues reading versions 1–15. Reassessment state is reconstructed server-side from permanent rookie IDs, the run seed and chronological offseason history, rather than trusted player data from the browser. No new career is needed for the next rookie class.
+
+
+## Six-round drafts and saved-career compatibility
+
+New drafts have **six rounds, 30 picks per round, 180 selections** from the existing 200-player class. Each team adds six rookies; a full 38-player roster reaches **44 players** before legal cuts back to at most 38. Position minimums, draft order, prospect generation, rookie booms/busts and auto-pick policy are unchanged. Manual selection and auto-draft both require all six picks before cuts/continuation.
+
+Save version 16 stores `draftRounds` and each completed career step's `draft_rounds`. Versions 1–15 remain readable. A legacy draft already started (including an empty saved choices array) stays at four rounds through cuts and reloads; its next offseason uses six. A career without a started draft uses six immediately. Past four-round drafts retain their original CPU picks, availability, player IDs and resulting rosters. No new career is required.
+
+Draft and career APIs accept `draft_rounds: 4 | 6`; omission defaults to four for compatibility with existing API clients and historical career steps. The UI explicitly sends six for new drafts. Each past step must contain exactly its declared number of picks. Current draft format does not change weekly or playoff results.
