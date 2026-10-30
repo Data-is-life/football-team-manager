@@ -22,7 +22,7 @@
         <div class="intro">
           <p class="eyebrow">Franchise setup</p>
           <h1 id="page-title">Choose your city.</h1>
-          <p>Every team plays 17 games. Pick a franchise to reveal its first-season schedule.</p>
+          <p>Take over a franchise before Week 17. Play the final regular-season game, then shape your team in your first draft. Later seasons begin at Week 1.</p>
         </div>
 
         <form id="team-form" class="selector-card">
@@ -61,6 +61,7 @@
             </div>
           </section>
           <p id="rating-method" class="roster-note"></p>
+          <p id="career-start-note" class="roster-note" hidden>You were hired before Week 17. The first 16 games are inherited team history; your GM record starts with the final regular-season game. Season 1 is introductory, followed by four full contract seasons (Seasons 2–5).</p>
           <p id="rebuild-note" class="roster-note" hidden>Rebuild challenge: build a contender through the draft and player development.</p>
           <div class="week-control">
             <div>
@@ -84,7 +85,7 @@
             <p id="contract-status" class="contract-status"></p>
             <p id="owner-feedback" role="status" aria-atomic="true"></p>
             <details><summary>Contract rules</summary>
-              <p>Make the playoffs at least once in your first four seasons or lose the job, even if winning records earn extensions. Each season earns only the highest reward: championship +5 years; otherwise playoffs +2; otherwise a winning record (more wins than losses) +1; otherwise no extension. Extensions add to your remaining contract. After the opening deadline, an expired contract ends your career.</p>
+              <p id="contract-rules">Make the playoffs at least once in your first four seasons or lose the job, even if winning records earn extensions. Each season earns only the highest reward: championship +5 years; otherwise playoffs +2; otherwise a winning record (more wins than losses) +1; otherwise no extension. Extensions add to your remaining contract. After the opening deadline, an expired contract ends your career.</p>
             </details>
           </section>
           <p id="qualification-status" role="status" aria-atomic="true" data-outcome="neutral" hidden></p>
@@ -103,6 +104,7 @@
             <section aria-labelledby="gm-title">
               <p class="eyebrow" id="gm-team"></p><h2 id="gm-title">GM Records</h2>
               <p class="roster-note">Career totals include the current season. Playoff appearances count when the final field is set; byes do not count as wins.</p>
+              <p id="gm-tenure-note" class="roster-note" hidden>Your tenure began in Season 1, Week 17. The first 16 inherited games count toward team standings and player stats, but not your GM W–L–T.</p>
               <dl class="gm-records-grid">
                 <div><dt>Regular season W–L–T</dt><dd id="gm-regular">0–0–0</dd></div>
                 <div><dt>Playoff appearances</dt><dd id="gm-appearances">0</dd></div>

@@ -20,6 +20,7 @@ const cancelTeamChange = document.querySelector("#cancel-team-change");
 let activeTeamId = null;
 let activeRunSeed = 0;
 let activeSeason = 1;
+let activeCareerStartWeek = 1;
 let activeLineupRules = 6;
 let activeDevelopmentStart = 1;
 let activeRebuildTeam = null;
@@ -78,7 +79,7 @@ function rebuildOrigin(context) {
 
 function saveProgress() {
   if (!activeTeamId || restoring) return;
-  const save = { version: 13, lineupChanges: activeLineupChanges, contracts: activeContracts, teamId: activeTeamId, runSeed: activeRunSeed,
+  const save = { version: 14, careerStartWeek: activeCareerStartWeek, lineupChanges: activeLineupChanges, contracts: activeContracts, teamId: activeTeamId, runSeed: activeRunSeed,
     season: activeSeason, week: currentWeek, lineupRules: activeLineupRules, developmentStart: activeDevelopmentStart, rebuildTeam: activeRebuildTeam,
     priorStandings: activePriorStandings, history: careerHistory,
     draftChoices: activeDraftChoices,
@@ -98,7 +99,7 @@ function readSave() {
   if (!raw) return null;
   const save = JSON.parse(raw);
   const integer = (value, min, max) => Number.isInteger(value) && value >= min && value <= max;
-  if (!save || ![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13].includes(save.version) || typeof save.teamId !== "string"
+  if (!save || ![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14].includes(save.version) || typeof save.teamId !== "string"
       || ![...select.options].some(option => option.value && option.value === save.teamId)
       || !integer(save.runSeed, 0, 4294967295) || !integer(save.season, 1, 999)
       || !integer(save.week, 0, 17)
@@ -150,6 +151,12 @@ function readSave() {
       && [0, 22].includes(entry.starters.length) && ids(entry.starters));
   if (!validChanges(save.lineupChanges) || save.lineupChanges.some(entry => entry.week > (save.week < 17 ? save.week + 1 : 18 + (save.playoffRound ?? 0)))
       || !save.career.every(step => validChanges(step.lineup_changes ?? []))) throw new Error("Invalid starter save");
+  if (save.version < 14) save.careerStartWeek = 1;
+  if (![1, 17].includes(save.careerStartWeek) || (save.careerStartWeek === 17 && save.season === 1 && save.week < 16)) throw new Error("Invalid career start");
+  const oneGame = record => record && [record.wins, record.losses, record.ties].every(value => integer(value, 0, 1))
+    && record.wins + record.losses + record.ties === 1;
+  if (!save.history.every(entry => save.careerStartWeek === 17 && entry.season === 1 ? oneGame(entry.gmRecord) : entry.gmRecord === undefined)
+      || (save.careerStartWeek === 17 && (save.season === 1 ? save.lineupChanges : save.career.find(step => step.season === 1)?.lineup_changes ?? []).some(entry => entry.week < 17))) throw new Error("Invalid managed history");
   return save;
 }
 
@@ -206,24 +213,25 @@ function currentPlayoffRecord() {
 }
 
 // Contract state is derived from completed seasons, never incremented by a render or reload.
-function contractStatus(history, season, current = null) {
-  let end = 4, appeared = false, reward = 0, last = null;
+function contractStatus(history, season, current = null, startSeason = 1) {
+  let end = startSeason + 3, appeared = false, reward = 0, last = null;
   const completed = [...history];
   if (current?.complete) completed.push({ season, ...current });
   for (const entry of completed) {
+    if (entry.season < startSeason) continue;
     const qualified = entry.qualified ?? entry.playoffFinish !== "Missed playoffs";
     const champion = entry.champion ?? entry.playoffFinish === "Champions";
     appeared ||= qualified;
     reward = champion ? 5 : qualified ? 2 : entry.wins > entry.losses ? 1 : 0;
     // The opening playoff deadline takes priority over extensions earned for winning records.
-    if (entry.season >= 4 && !appeared) {
+    if (entry.season >= startSeason + 3 && !appeared) {
       return { end, remaining: 0, fired: true, reason: "deadline", reward: 0, last: entry };
     }
     end += reward;
     last = entry;
     if (end <= entry.season) return { end, remaining: 0, fired: true, reason: "expired", reward, last };
   }
-  const consumed = current?.complete ? season : season - 1;
+  const consumed = Math.max(startSeason - 1, current?.complete ? season : season - 1);
   return { end, remaining: Math.max(0, end - consumed), fired: false, reward, last };
 }
 
@@ -234,7 +242,7 @@ function currentContract() {
   return contractStatus(careerHistory, activeSeason, complete ? {
     complete, qualified, champion: playoffState?.champion?.team.id === activeTeamId,
     ...regularSnapshot.record,
-  } : null);
+  } : null, activeCareerStartWeek === 17 ? 2 : 1);
 }
 
 function careerEnded() { return Boolean(currentContract()?.fired); }
@@ -244,14 +252,20 @@ function renderContract() {
   panel.hidden = !activeContracts;
   if (!activeContracts) return;
   const state = currentContract();
+  const intro = activeCareerStartWeek === 17 && activeSeason === 1;
+  document.querySelector("#contract-rules").textContent = activeCareerStartWeek === 17
+    ? "Season 1 is introductory: it uses no contract year and earns no extension. Reach the playoffs at least once in Seasons 2–5 or lose the job. Each full season earns only the highest reward: championship +5 years; otherwise playoffs +2; otherwise a winning record +1; otherwise no extension. Extensions add to the contract. After the opening deadline, an expired contract ends your career."
+    : "Make the playoffs at least once in your first four seasons or lose the job, even if winning records earn extensions. Each season earns only the highest reward: championship +5 years; otherwise playoffs +2; otherwise a winning record +1; otherwise no extension. Extensions add to the contract. After the opening deadline, an expired contract ends your career.";
   const status = document.querySelector("#contract-status");
   const feedback = document.querySelector("#owner-feedback");
   status.textContent = state.fired ? "Fired · Career over"
-    : `${state.remaining} ${state.remaining === 1 ? "year" : "years"} remaining · Contract through Season ${state.end}${regularSnapshot?.season_complete ? " (after this season)" : ""}`;
+    : `${intro ? "Introductory season · " : ""}${state.remaining} ${state.remaining === 1 ? "year" : "years"} remaining · Contract through Season ${state.end}${regularSnapshot?.season_complete ? " (after this season)" : ""}`;
   panel.dataset.outcome = state.fired ? "loss" : state.last && !(state.last.qualified ?? state.last.playoffFinish !== "Missed playoffs") ? "warning" : "neutral";
-  if (state.fired) {
+  if (intro) {
+    feedback.textContent = "You're hired as General Manager on a four-year contract covering Seasons 2–5! This introductory season uses no contract year and earns no extension. Learn your team in Week 17, then build through your first draft. The owner will evaluate your four full seasons starting next year.";
+  } else if (state.fired) {
     feedback.textContent = state.reason === "deadline"
-      ? "The owner has fired you: the team failed to make the playoffs in your first four seasons. Your career is over. You can review your team and records or start a new career."
+      ? `The owner has fired you: the team failed to make the playoffs in your ${activeCareerStartWeek === 17 ? "first four full contract seasons" : "first four seasons"}. Your career is over. You can review your team and records or start a new career.`
       : "The owner has not renewed your contract. You have been fired and your career is over. You can review your team and records or start a new career.";
     simulateButton.disabled = true;
     simulateButton.textContent = "Career over";
@@ -262,7 +276,9 @@ function renderContract() {
     nextSeasonButton.hidden = true;
     manageRoster.hidden = true;
   } else if (!state.last) {
-    feedback.textContent = "You're hired as General Manager on a four-year contract! The owner expects improvement: reach the playoffs at least once in your first four seasons or be fired. Build a contender to earn more time.";
+    feedback.textContent = activeCareerStartWeek === 17
+      ? "Your first full contract season begins. The owner expects improvement: reach the playoffs at least once in Seasons 2–5 or be fired. Build a contender to earn more time."
+      : "You're hired as General Manager on a four-year contract! The owner expects improvement: reach the playoffs at least once in your first four seasons or be fired. Build a contender to earn more time.";
   } else {
     const qualified = state.last.qualified ?? state.last.playoffFinish !== "Missed playoffs";
     const champion = state.last.champion ?? state.last.playoffFinish === "Champions";
@@ -276,22 +292,34 @@ function renderContract() {
   }
 }
 
+function managedRecord(snapshot, season = activeSeason) {
+  const result = { wins: 0, losses: 0, ties: 0 };
+  if (!snapshot) return result;
+  if (activeCareerStartWeek !== 17 || season !== 1) return { ...snapshot.record };
+  for (const game of snapshot.game_results) {
+    if (game.week < 17) continue;
+    result[game.outcome === "W" ? "wins" : game.outcome === "L" ? "losses" : "ties"]++;
+  }
+  return result;
+}
+
 function renderGMRecords() {
   renderContract();
   const current = currentPlayoffRecord();
   const record = { minimum: current.wins, maximum: current.wins, losses: current.losses };
-  const regular = { wins: 0, losses: 0, ties: 0, ...(regularSnapshot?.record ?? {}) };
+  const regular = managedRecord(regularSnapshot);
   let appearances = regularSnapshot?.season_complete
     && regularSnapshot.standings.playoff_race.some(row => row.team.id === activeTeamId) ? 1 : 0;
   let championships = playoffState?.champion?.team.id === activeTeamId ? 1 : 0;
   for (const entry of careerHistory) {
-    for (const key of ["wins", "losses", "ties"]) regular[key] += entry[key];
+    for (const key of ["wins", "losses", "ties"]) regular[key] += (entry.gmRecord ?? entry)[key];
     if (entry.playoffFinish !== "Missed playoffs") appearances++;
     if (entry.playoffFinish === "Champions") championships++;
     const past = historicalPlayoffRecord(entry);
     record.minimum += past.minimum; record.maximum += past.maximum; record.losses += past.losses;
   }
   const city = [...select.options].find(option => option.value === activeTeamId)?.textContent ?? "";
+  document.querySelector("#gm-tenure-note").hidden = activeCareerStartWeek !== 17;
   document.querySelector("#gm-team").textContent = `${city} · Season ${activeSeason}`;
   document.querySelector("#gm-regular").textContent = `${regular.wins}–${regular.losses}–${regular.ties}`;
   document.querySelector("#gm-appearances").textContent = appearances;
@@ -306,7 +334,9 @@ function renderSeasonHistory() {
   const rows = careerHistory.map(entry => {
     const row = document.createElement("tr");
     const champion = [...select.options].find(option => option.value === entry.championId)?.textContent;
-    for (const value of [entry.season, `${entry.wins}–${entry.losses}${entry.ties ? `–${entry.ties}` : ""}`, entry.playoffFinish, formatPlayoffRecord(historicalPlayoffRecord(entry)), champion]) {
+    const managed = entry.gmRecord ?? entry;
+    const record = `${managed.wins}–${managed.losses}${managed.ties ? `–${managed.ties}` : ""}${entry.gmRecord ? ` (team ${entry.wins}–${entry.losses}${entry.ties ? `–${entry.ties}` : ""})` : ""}`;
+    for (const value of [entry.season, record, entry.playoffFinish, formatPlayoffRecord(historicalPlayoffRecord(entry)), champion]) {
       const cell = document.createElement("td"); cell.textContent = value; row.append(cell);
     }
     return row;
@@ -365,7 +395,7 @@ async function resumeProgress() {
       throw new Error("Restore failed");
     }
     renderTeamProfile(profile, save.season);
-    renderSchedule(schedule, save.runSeed, { priorStandings: save.priorStandings, history: save.history, career: save.career, lineupRules: save.lineupRules, developmentStart: save.developmentStart, rebuildTeam: save.rebuildTeam, contracts: save.contracts, lineupChanges: save.lineupChanges });
+    renderSchedule(schedule, save.runSeed, { priorStandings: save.priorStandings, history: save.history, career: save.career, lineupRules: save.lineupRules, developmentStart: save.developmentStart, rebuildTeam: save.rebuildTeam, contracts: save.contracts, lineupChanges: save.lineupChanges, careerStartWeek: save.careerStartWeek });
     if (regular) renderResult(regular);
     if (postseason) { renderPostseason(postseason); activateView("playoffs"); }
     if (savedDraft) applyDraft(savedDraft);
@@ -789,7 +819,7 @@ function createRunSeed() {
   return candidate === activeRunSeed ? (candidate % 4294967295) + 1 : candidate;
 }
 
-function renderSchedule(data, runSeed, { priorStandings = {}, history = [], career = [], lineupRules = 6, developmentStart = 1, rebuildTeam = null, contracts = true, lineupChanges = [] } = {}) {
+function renderSchedule(data, runSeed, { priorStandings = {}, history = [], career = [], lineupRules = 6, developmentStart = 1, rebuildTeam = null, contracts = true, lineupChanges = [], careerStartWeek = 1 } = {}) {
   if (rosterDialog.open) rosterDialog.close();
   weekSimulationBusy = false;
   seasonSimulationActive = false;
@@ -797,6 +827,8 @@ function renderSchedule(data, runSeed, { priorStandings = {}, history = [], care
   activeTeamId = data.team.id;
   activeRunSeed = runSeed;
   activeSeason = data.season;
+  activeCareerStartWeek = careerStartWeek;
+  document.querySelector("#career-start-note").hidden = careerStartWeek !== 17 || activeSeason !== 1;
   activeLineupRules = lineupRules;
   activeDevelopmentStart = developmentStart;
   activeRebuildTeam = rebuildTeam;
@@ -955,7 +987,7 @@ function renderResult(data) {
   document.querySelector("#away-score").textContent = away.score;
   document.querySelector("#home-name").textContent = home.team.city;
   document.querySelector("#home-score").textContent = home.score;
-  document.querySelector("#result-week").textContent = `Week ${data.week} final${latestResult.overtime ? " · OT" : ""}`;
+  document.querySelector("#result-week").textContent = `Week ${data.week} final${activeCareerStartWeek === 17 && activeSeason === 1 && data.week < 17 ? " · Before your hiring" : ""}${latestResult.overtime ? " · OT" : ""}`;
   const badge = document.querySelector("#result-badge");
   badge.textContent = latestResult.outcome === "W" ? "WIN" : latestResult.outcome === "L" ? "LOSS" : "TIE";
   badge.dataset.outcome = latestResult.outcome;
@@ -1068,6 +1100,9 @@ function renderResult(data) {
   const opponent = own === home ? away : home;
   document.querySelector("#season-status").textContent =
     `Week ${data.week} final: ${own.team.city} ${own.score}–${opponent.score} ${opponent.team.city}${latestResult.overtime ? " · OT" : ""}.`;
+  if (activeCareerStartWeek === 17 && activeSeason === 1 && data.week === 16) {
+    document.querySelector("#season-status").textContent = "You take over before Week 17. One regular-season game remains before your first offseason.";
+  }
   renderQualification(data);
   renderGMRecords();
   updateSimulationControls();
@@ -1122,21 +1157,25 @@ form.addEventListener("submit", async (event) => {
   try {
     const teamId = select.value;
     const runSeed = createRunSeed();
-    const [scheduleResponse, profileResponse] = await Promise.all([
+    const [scheduleResponse, profileResponse, regularResponse] = await Promise.all([
       fetch(`/api/schedule/${teamId}?season=1`),
       fetch(`/api/team/${teamId}?run_seed=${runSeed}&lineup_rules=6&season=1&development_start=1${rebuildQuery(teamId)}`),
+      fetch(`/api/season/${teamId}/week/16?run_seed=${runSeed}&lineup_rules=6&season=1&development_start=1${rebuildQuery(teamId)}`),
     ]);
-    if (!scheduleResponse.ok || !profileResponse.ok) {
+    if (!scheduleResponse.ok || !profileResponse.ok || !regularResponse.ok) {
       throw new Error("Your team could not be loaded. Please try again.");
     }
-    const [schedule, profile] = await Promise.all([
-      scheduleResponse.json(), profileResponse.json(),
+    const [schedule, profile, regular] = await Promise.all([
+      scheduleResponse.json(), profileResponse.json(), regularResponse.json(),
     ]);
-    if (profile.run_seed !== runSeed || profile.team.id !== teamId || profile.lineup_rules !== 6 || profile.rebuild_team !== teamId) {
+    if (profile.run_seed !== runSeed || profile.team.id !== teamId || profile.lineup_rules !== 6 || profile.rebuild_team !== teamId
+        || schedule.team?.id !== teamId || schedule.season !== 1 || regular.team?.id !== teamId
+        || regular.season !== 1 || regular.week !== 16 || regular.run_seed !== runSeed) {
       throw new Error("Your team could not be loaded. Please try again.");
     }
     renderTeamProfile(profile, 1);
-    renderSchedule(schedule, runSeed, { rebuildTeam: teamId });
+    renderSchedule(schedule, runSeed, { rebuildTeam: teamId, careerStartWeek: 17 });
+    renderResult(regular);
     saveProgress();
   } catch (error) {
     showError(error.message);
@@ -1649,6 +1688,7 @@ nextSeasonButton.addEventListener("click", async () => {
   const lastOwnRound = playoffState.rounds.filter(round => round.games.some(game =>
     game.home.team.id === activeTeamId || game.away.team.id === activeTeamId)).at(-1);
   const summary = { season: activeSeason, ...regularSnapshot.record,
+    ...(activeCareerStartWeek === 17 && activeSeason === 1 ? { gmRecord: managedRecord(regularSnapshot) } : {}),
     championId: playoffState.champion.team.id,
     playoffWins: currentPlayoffRecord().wins, playoffLosses: currentPlayoffRecord().losses,
     playoffFinish: playoffState.champion.team.id === activeTeamId ? "Champions"
@@ -1675,7 +1715,7 @@ nextSeasonButton.addEventListener("click", async () => {
       throw new Error("The next season could not be loaded. Please try again.");
     }
     renderTeamProfile(profile, nextSeason);
-    renderSchedule(schedule, activeRunSeed, { priorStandings: ranks, history, career, lineupRules, developmentStart, rebuildTeam: activeRebuildTeam, contracts: activeContracts, lineupChanges });
+    renderSchedule(schedule, activeRunSeed, { priorStandings: ranks, history, career, lineupRules, developmentStart, rebuildTeam: activeRebuildTeam, contracts: activeContracts, lineupChanges, careerStartWeek: activeCareerStartWeek });
     saveProgress();
   } catch (error) {
     showError(error.message);

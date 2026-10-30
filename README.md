@@ -101,7 +101,7 @@ Current is the ability rating used by roster decisions and simulation. Potential
 
 Legacy career rules retain the earlier age-band display until upgrading at a season boundary. New careers use development rules immediately.
 
-Player API payloads add `current_rating` and `potential_rating`. The existing `rating`, experience, and generated attribute data remain available for API/save compatibility and existing usage logic; attributes are no longer displayed and still do not affect gameplay. Save version 13 reconstructs the displayed ratings from seeded player state and offseason history.
+Player API payloads add `current_rating` and `potential_rating`. The existing `rating`, experience, and generated attribute data remain available for API/save compatibility and existing usage logic; attributes are no longer displayed and still do not affect gameplay. Save version 14 reconstructs the displayed ratings from seeded player state and offseason history.
 
 ## Run locally
 
@@ -262,7 +262,7 @@ All retained players are ordered by descending current rating within their posit
 
 Under the current lineup rules, each position starts its highest-current-rated players. Offense/defense ratings are 80% average starter rating plus 20% average bench rating, rounded to the nearest integer. If a unit has no bench, its starter average is used for the full rating. Kickers are excluded from both units and K1 is the highest-rated kicker. This affects scoring, usage, overtime, standings ratings, and postseason; potential is not used. Older saved seasons keep their original rating formula until the next season so completed results and draft availability cannot be rerolled.
 
-Save version 13 stores the managed team's completed draft choices, cuts, and each offseason's schedule context. The server replays those decisions to reconstruct all 30 rosters, rather than accepting arbitrary player attributes from the browser. Bounded caches include the immutable roster context so distinct rosters cannot share scores or standings accidentally. Later drafts start from the modified league; surviving rookies retain their IDs across further seasons and reloads. A failed next-season load preserves the completed offseason save.
+Save version 14 stores the managed team's completed draft choices, cuts, and each offseason's schedule context. The server replays those decisions to reconstruct all 30 rosters, rather than accepting arbitrary player attributes from the browser. Bounded caches include the immutable roster context so distinct rosters cannot share scores or standings accidentally. Later drafts start from the modified league; surviving rookies retain their IDs across further seasons and reloads. A failed next-season load preserves the completed offseason save.
 
 `POST /api/career/{team_id}` supports profile, week, playoffs, draft, and cuts actions with the run seed, current season/prior ranks, and completed offseason decisions. Each past offseason must be in increasing year order, precede the current season, include four valid picks and legal drops, and finish at 38 players or fewer. Existing seed-only GET APIs remain available for their original deterministic worlds; the UI uses career requests after roster changes.
 
@@ -307,7 +307,7 @@ Players from the most recent draft have an **R** badge beside their names in ros
 
 ## Initial starter and backup hierarchy
 
-New careers use lineup rules 6 (save version 13). Every team's initial roster is ranked by current ability, then backups are lowered relative to the weakest starter at that position. Starter counts remain QB 1, WR 2, TE 1, RB 1, OL 5, K 1, DL 4, LB 3, CB 2, and S 2.
+New careers use lineup rules 6 (save version 14). Every team's initial roster is ranked by current ability, then backups are lowered relative to the weakest starter at that position. Starter counts remain QB 1, WR 2, TE 1, RB 1, OL 5, K 1, DL 4, LB 3, CB 2, and S 2.
 
 If the weakest starter is rated 70 or higher, each backup has a seeded ceiling 8–14 points below that starter. If the weakest starter is below 70, the ceiling is only 1–4 points lower, allowing closer competition on weak units. These are minimum separations: an already weaker backup stays weaker. Initial QB and K backups are also capped at 74. The adjustment never improves or lowers the selected starters, and preserves player identities, names, ages, experience, roster sizes, and position minimums. Backup attributes and potential are initialized from their adjusted ability.
 
@@ -325,7 +325,7 @@ Save version 8 stores `rebuildTeam`, the managed city at career creation. Team/w
 
 ## Rating-based rotations and youth development
 
-New careers use lineup rules 6 and save version 13; playing-time rules are unchanged from rules 5. Existing saves keep their current-season playing-time model and remain on their existing rules in later seasons (the earlier rules 1/2 development migration is unchanged). Start a new career for the new rotations.
+New careers use lineup rules 6 and save version 14; playing-time rules are unchanged from rules 5. Existing saves keep their current-season playing-time model and remain on their existing rules in later seasons (the earlier rules 1/2 development migration is unchanged). Start a new career for the new rotations.
 
 QB1 handles all passing and K1 all kicking; youth development does not force their backups into games. Starting OL receive nearly all pass/run blocking snaps, with a small reserve role. RB carries favor the stronger starter while keeping a rotation. WR/TE targets combine their current ability with their assigned role; the existing 60% WR / 22% TE / 18% RB receiving mix remains. DL rotate most, LB next, with lighter CB/S rotations. Depth is automatically ranked by current rating as before. Potential does not influence playing time.
 
@@ -374,20 +374,20 @@ Older saves remain supported. Their completed-season summaries store a finishing
 
 ## Manageable starting balance
 
-New careers use lineup rules 6 and save version 13. The selected team's initial offense and defense are each within **70 ± 2**. Seeded starter ratings of 71–73 and reserves of 57–64 after the existing hierarchy caps guarantee the target under the current 80% starter/20% bench team-rating formula. QB2/K2 remain clearly weaker than QB1/K1. Ratings vary by player and run; other teams keep their normal rosters.
+New careers use lineup rules 6 and save version 14. The selected team's initial offense and defense are each within **70 ± 2**. Seeded starter ratings of 71–73 and reserves of 57–64 after the existing hierarchy caps guarantee the target under the current 80% starter/20% bench team-rating formula. QB2/K2 remain clearly weaker than QB1/K1. Ratings vary by player and run; other teams keep their normal rosters.
 
 This replaces the much weaker starting balance for new careers without changing the four-round draft, playing-time model, potential rules, or offseason growth. The balance is applied once: later draft picks and development can raise the team beyond the starting target, while aging can lower it. Existing saves retain their original roster generation, draft availability, and results through future seasons. Start a new career to use the more manageable rebuild.
 
 
 ## GM contracts
 
-New careers start with a four-year GM contract. A persistent contract panel explains the hiring expectations, shows the contract's final season and years remaining, and gives owner feedback. Missing the playoffs triggers a disappointed-owner warning and closer monitoring next season. Failing to reach the playoffs in **all four opening seasons** ends the career, even if winning-record extensions would leave time on the contract.
+New careers start with a four-year GM contract. A persistent contract panel explains the hiring expectations, shows the contract's final season and years remaining, and gives owner feedback. Missing the playoffs triggers a disappointed-owner warning and closer monitoring next season. Failing to reach the playoffs in **all four full contract seasons** ends the career, even if winning-record extensions would leave time on the contract. New late-start careers evaluate Seasons 2–5 and exclude the introductory season; older full-season careers retain their original Seasons 1–4 deadline.
 
-Each season awards **only its highest extension**, added to the contract's end season: championship +5 years; otherwise playoff appearance +2; otherwise a winning record (wins greater than losses, including tie-containing records) +1; otherwise no extension. A .500 record earns nothing. A playoff extension is secured when the Week 17 field is set; winning the championship upgrades that season's award from two to five years, rather than stacking the awards. After the opening playoff requirement is satisfied, contract expiration ends the career.
+Each evaluated contract season awards **only its highest extension**, added to the contract's end season: championship +5 years; otherwise playoff appearance +2; otherwise a winning record (wins greater than losses, including tie-containing records) +1; otherwise no extension. A .500 record earns nothing. A playoff extension is secured when the Week 17 field is set; winning the championship upgrades that season's award from two to five years, rather than stacking the awards. After the opening playoff requirement is satisfied, contract expiration ends the career.
 
 Firing blocks further weekly/playoff simulation, drafting, cuts, and advancing seasons. Existing results, rosters, standings, scouting, and GM records remain available to view, and a new career can be started. The contract is derived from completed history plus the current season, so repeated renders, retries, and reloads cannot grant duplicate extensions. This is a browser career rule, not authentication or a server-side anti-cheat restriction.
 
-Save version 12 records whether contracts apply. Existing saves from versions 1–11 stay playable without retroactive contracts or firing, and remain exempt after future autosaves and season transitions. Start a new career to use contracts. The current first season remains a full 17 games; a proposed late-season hiring start is a separate change.
+Save version 12 records whether contracts apply. Existing saves from versions 1–11 stay playable without retroactive contracts or firing, and remain exempt after future autosaves and season transitions. Start a new career to use contracts. New careers now include the late-season introduction described below; existing saves retain their original full-season starting point and contract rules.
 
 
 ## Saved-career restoration performance
@@ -413,3 +413,16 @@ Choices apply from the next unplayed week, or the next unplayed playoff round. E
 Save version 13 stores current-season `lineupChanges` and each past offseason's `lineup_changes` so restoration and historical draft replay use the correct lineups. Existing versions 1–12 adopt empty histories and keep their results until you choose a lineup. Drafts and cuts remain mandatory. Surviving manually chosen starters carry into the next season; released players are replaced with the best remaining players at that position. New careers clear all choices. Player development retains its existing role-based estimate; the final active lineup supplies the participation role for the offseason youth bonus.
 
 The career API accepts bounded, immutable, effective-week starter events. Score caches retain the complete timeline in their context keys, and regular-season/playoff games resolve the correct event for their actual week. No arbitrary player ratings or rosters are accepted from the client. Existing no-choice simulation payloads remain reproducible.
+
+
+## Late-season career introduction
+
+New careers take over **before Week 17**, with exactly one regular-season game remaining. Weeks 1–16 are generated using the same seeded rosters, ratings, schedule and simulation as the final game. They appear as inherited team history in Schedule, Standings and player Season Stats. Game Stats labels Week 16 as before your hiring, and a tenure note explains the starting point. Team ratings remain the existing 68–72 rebuild.
+
+Your GM W–L–T starts at **0–0–0** and counts only Week 17 in the introductory regular season. If the team qualifies, you manage the playoffs and those appearances/results/championships count toward GM records. The inherited team record still determines playoff qualification, draft order and next season's schedule. Archived introductory history shows your managed record alongside the full team record.
+
+Season 1 is an introduction: **no contract year is consumed, no extension is earned, and introductory playoff qualification does not satisfy the full-season contract requirement**. Four full contract seasons cover Seasons 2–5; reach the playoffs at least once during those seasons or be fired at the end of Season 5. The existing highest-reward extension and later expiry rules apply from Season 2 onward. The owner explains this grace period instead of judging you on inherited results.
+
+The final regular-season game, playoffs, mandatory four-round draft and legal cuts keep their usual flow. Surviving starter preferences carry over. **Season 2 and every later season start at Week 1**, with the existing development and rookie class rules. No ratings, ages or statistics are rerolled on hiring, and drafts cannot be skipped.
+
+Save version 14 stores `careerStartWeek` (17 for new late starts, 1 for older careers), plus the introductory history's one-game `gmRecord`. Versions 1–13 retain their existing progress, GM records and contract deadline after migration and future saves. Starting a new career is required to get the late-season introduction. Failed initialization preserves the previous career and save.

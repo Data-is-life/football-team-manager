@@ -40,7 +40,7 @@ async function checks(){
  assert.equal(q(p,'#simulate-button').disabled,true);assert.equal(q(p,'#simulate-season').disabled,true);assert.equal(q(p,'#change-team-button').disabled,true);
  const calls=p.state.requests.length;q(p,'#save-starters').disabled=false;q(p,'#starter-form').dispatchEvent(new p.w.Event('submit',{cancelable:true}));q(p,'#simulate-button').disabled=false;q(p,'#simulate-button').click();assert.equal(p.state.requests.length,calls);
  p.state.hold=false;p.state.release();await until(()=>/saved for/.test(q(p,'#starter-status').textContent)&&!q(p,'#save-starters').disabled);
- assert.equal(save(p).version,13);assert.equal(save(p).lineupChanges[0].week,1);assert.equal(save(p).lineupChanges[0].starters.length,22);assert.deepEqual(starter(p,'QB'),[reserve]);assert.ok(Number(q(p,'#offense-rating').textContent)<=beforeRating);
+ assert.equal(save(p).version,14);assert.equal(save(p).lineupChanges[0].week,1);assert.equal(save(p).lineupChanges[0].starters.length,22);assert.deepEqual(starter(p,'QB'),[reserve]);assert.ok(Number(q(p,'#offense-rating').textContent)<=beforeRating);
  const selected=raw(p);p.dom.window.close();p=await restore(JSON.parse(selected));assert.deepEqual(starter(p,'QB'),[reserve]);assert.equal(raw(p),selected);
  q(p,'#simulate-button').click();await until(()=>save(p).week===1&&!q(p,'#simulate-button').disabled);
  const weekOne=raw(p),box=q(p,'#player-stats').textContent,record=q(p,'#season-record').textContent;
@@ -62,7 +62,7 @@ async function checks(){
  assert.deepEqual(save(p).career[0].lineup_changes,oldEvents);assert.equal(save(p).lineupChanges[0].week,1);
  for(const id of preferred.filter(id=>retained.has(id)))assert.ok(save(p).lineupChanges[0].starters.includes(id));
  const yearTwo=raw(p),depths=[...p.d.querySelectorAll('#roster-groups .is-starter')].map(r=>r.dataset.playerId);p.dom.window.close();p=await restore(JSON.parse(yearTwo));assert.deepEqual([...p.d.querySelectorAll('#roster-groups .is-starter')].map(r=>r.dataset.playerId),depths);
- q(p,'#change-team-button').click();q(p,'#team-select').value='seattle';q(p,'#team-form').dispatchEvent(new p.w.Event('submit',{cancelable:true}));await until(()=>save(p).season===1&&save(p).week===0);
+ q(p,'#change-team-button').click();q(p,'#team-select').value='seattle';q(p,'#team-form').dispatchEvent(new p.w.Event('submit',{cancelable:true}));await until(()=>save(p).season===1&&save(p).week===16);
  assert.deepEqual(save(p).lineupChanges,[]);assert.equal(save(p).career.length,0);p.dom.window.close();
  // A qualified team can choose its playoff starter without reseeding or replaying completed rounds.
  const bracket=await (await fetch(base+'/api/playoffs/seattle/round/0?run_seed=1234')).json();const wildcard=bracket.field.find(team=>!team.bye).team.id;

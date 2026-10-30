@@ -66,7 +66,7 @@ async function checks() {
  assert.equal(q(p,'#season-display').textContent,'2');
  assert.deepEqual([...p.d.querySelectorAll('.roster-player')].map(row=>[row.dataset.playerId,row.children[1].textContent]).sort(),roster,'Player IDs and names survive offseason aging');
  assert.equal(save(p).runSeed,1234);assert.deepEqual(save(p).priorStandings,ranks);
- assert.equal(save(p).version,13);assert.equal(save(p).contracts,false);assert.equal(q(p,"#gm-contract").hidden,true);assert.equal(save(p).week,0);assert.equal(save(p).playoffRound,null);
+ assert.equal(save(p).version,14);assert.equal(save(p).contracts,false);assert.equal(q(p,"#gm-contract").hidden,true);assert.equal(save(p).week,0);assert.equal(save(p).playoffRound,null);
  assert.equal(q(p,'#qualification-status').hidden,true);assert.equal(q(p,'#qualification-status').textContent,'');
  assert.equal(q(p,'#season-record').textContent,'0–0');assert.equal(q(p,'#next-season').hidden,true);
  assert.equal(q(p,'#postseason-section').hidden,true);
