@@ -60,7 +60,9 @@
               <button id="change-team-button" class="secondary-button" type="button">Choose another team</button>
             </div>
           </section>
-          <p id="rating-method" class="roster-note"></p>
+          <details id="team-ratings-info" class="info-control"><summary><span aria-hidden="true">ⓘ</span> Team ratings</summary>
+            <p id="rating-method" class="roster-note"></p>
+          </details>
           <p id="career-start-note" class="roster-note" hidden>You were hired before Week 17. The first 16 games are inherited team history; your GM record starts with the final regular-season game. Season 1 is introductory, followed by four full contract seasons (Seasons 2–5).</p>
           <p id="rebuild-note" class="roster-note" hidden>Rebuild challenge: build a contender through the draft and player development.</p>
           <div class="week-control">
@@ -103,7 +105,9 @@
           <div id="panel-gm" class="view-panel" role="tabpanel" aria-labelledby="view-gm" tabindex="0" hidden>
             <section aria-labelledby="gm-title">
               <p class="eyebrow" id="gm-team"></p><h2 id="gm-title">GM Records</h2>
-              <p class="roster-note">Career totals include the current season. Playoff appearances count when the final field is set; byes do not count as wins.</p>
+              <details id="career-records-info" class="info-control"><summary><span aria-hidden="true">ⓘ</span> How records are counted</summary>
+                <p class="roster-note">Career totals include the current season. Playoff appearances count when the final field is set; byes do not count as wins.</p>
+              </details>
               <p id="gm-tenure-note" class="roster-note" hidden>Your tenure began in Season 1, Week 17. The first 16 inherited games count toward team standings and player stats, but not your GM W–L–T.</p>
               <dl class="gm-records-grid">
                 <div><dt>Regular season W–L–T</dt><dd id="gm-regular">0–0–0</dd></div>
@@ -156,12 +160,20 @@
               </div>
               <p id="roster-stats-status" class="roster-note" role="status" hidden></p>
               <p id="roster-stats-note" class="roster-note" hidden>Defense and line stats are aggregate estimates. Tackles include sacks; pass snaps include sacks.</p>
-              <p class="roster-note">Current is ability today; potential is a possible ceiling. Both are out of 99. Growth and decline follow position-specific age curves. Kickers have seasonal form changes.</p>
-              <p id="development-note" class="roster-note"></p>
-              <p class="roster-note">Regular-season maximum: 38 players. Offseason draft picks may temporarily increase the roster. Position minimums appear above each group.</p>
+              <div class="info-controls">
+                <details id="player-development-info" class="info-control"><summary><span aria-hidden="true">ⓘ</span> Ratings and development</summary>
+                  <p class="roster-note">Current is ability today; potential is a possible ceiling. Both are out of 99. Growth and decline follow position-specific age curves. Kickers have seasonal form changes.</p>
+                  <p id="development-note" class="roster-note"></p>
+                </details>
+                <details id="roster-limits-info" class="info-control"><summary><span aria-hidden="true">ⓘ</span> Roster limits</summary>
+                  <p class="roster-note">Regular-season maximum: 38 players. Offseason draft picks may temporarily increase the roster. Position minimums appear above each group.</p>
+                </details>
+              </div>
               <section id="roster-management" aria-label="Offseason roster management" hidden>
                 <p id="cut-count" class="roster-note" role="status"></p>
-                <p class="roster-note">Use Drop beside a player in Ratings, then confirm. Keep players by leaving them on the roster. Position minimums are protected.</p>
+                <details id="roster-cuts-info" class="info-control"><summary><span aria-hidden="true">ⓘ</span> How to make cuts</summary>
+                  <p class="roster-note">Use Drop beside a player in Ratings, then confirm. Keep players by leaving them on the roster. Position minimums are protected.</p>
+                </details>
                 <p id="cut-error" class="error" role="alert" hidden></p>
                 <section id="cut-confirmation" class="empty-state" hidden><p id="cut-confirm-text"></p>
                   <button id="cut-confirm" type="button">Confirm drop</button><button id="cut-cancel" class="secondary-button" type="button">Cancel</button></section>
@@ -169,7 +181,9 @@
               <details id="starter-editor" class="starter-editor">
                 <summary>Choose starters</summary>
                 <p id="starter-timing" class="roster-note"></p>
-                <p class="roster-note">Choose the required starters at each position. Selected starters are ordered by current rating. Backups still rotate according to position and ability.</p>
+                <details id="starter-selection-info" class="info-control"><summary><span aria-hidden="true">ⓘ</span> How starters work</summary>
+                  <p class="roster-note">Choose the required starters at each position. Selected starters are ordered by current rating. Backups still rotate according to position and ability.</p>
+                </details>
                 <form id="starter-form">
                   <div id="starter-fields" class="starter-fields"></div>
                   <button id="save-starters" type="submit">Save starters</button>
@@ -264,8 +278,10 @@
               <h2 id="postseason-title" tabindex="-1">Playoffs</h2>
               <p id="postseason-status" role="status"></p>
               <div id="champion-banner" class="champion-banner" hidden></div>
-              <p id="bracket-format" class="roster-note">Reseeded after every round: highest remaining seed plays lowest. Higher seeds host; the championship is at a neutral site.</p>
-              <p id="bracket-scroll-hint" class="roster-note">Scroll sideways to follow all four rounds. Future matchups appear after reseeding.</p>
+              <details id="playoff-format-info" class="info-control"><summary><span aria-hidden="true">ⓘ</span> Playoff format</summary>
+                <p id="bracket-format" class="roster-note">Reseeded after every round: highest remaining seed plays lowest. Higher seeds host; the championship is at a neutral site.</p>
+                <p id="bracket-scroll-hint" class="roster-note">Scroll sideways to follow all four rounds. Future matchups appear after reseeding.</p>
+              </details>
               <div class="bracket-scroll" role="region" aria-label="Playoff bracket" aria-describedby="bracket-format bracket-scroll-hint" tabindex="0">
                 <div id="playoff-bracket" class="playoff-bracket"></div>
               </div>
@@ -303,7 +319,10 @@
       <div class="scout-heading"><div><p class="eyebrow">Offseason</p><h2 id="draft-title">Rookie draft</h2></div>
         <button id="draft-close" class="secondary-button" type="button" autofocus>Close draft</button></div>
       <p id="draft-status" class="roster-note" role="status"></p>
-      <p id="draft-format" class="roster-note">Six rounds · Same order each round · CPU teams balance player quality and position needs. Rookies join your roster without replacing anyone. The regular-season limit is 38.</p>
+      <details id="draft-format-info" class="info-control"><summary><span aria-hidden="true">ⓘ</span> Draft rules</summary>
+        <p id="draft-format" class="roster-note">Six rounds · Same order each round · CPU teams balance player quality and position needs. Rookies join your roster without replacing anyone. The regular-season limit is 38.</p>
+        <p class="roster-note">Keep your earlier picks and let the CPU finish the draft using player quality and position needs. Review roster cuts afterward.</p>
+      </details>
       <p id="draft-error" class="error" role="alert" hidden></p>
       <button id="draft-retry" class="secondary-button" type="button" hidden>Retry</button>
       <section id="draft-recap" class="draft-recap" aria-labelledby="draft-recap-title" hidden>
@@ -319,7 +338,6 @@
       </section>
       <section id="draft-board" hidden>
         <button id="auto-draft" class="secondary-button" type="button">Auto-draft remaining picks</button>
-        <p class="roster-note">Keep your earlier picks and let the CPU finish the draft using player quality and position needs. Review roster cuts afterward.</p>
         <label for="draft-position">Position</label>
         <select id="draft-position"><option value="">All positions</option>
           <option>QB</option><option>WR</option><option>TE</option><option>RB</option><option>OL</option>

@@ -464,3 +464,10 @@ After a successful new-season transition, a **Player development** window opens 
 Reopen **Development recap** from Roster throughout the season and offseason. It compares veterans with the previous season and new rookies with draft-day estimates; kicker changes reflect their existing seasonal-form model. Draft additions, later cuts, scouting and starter changes do not replace this season-start snapshot. Reload reconstructs the same recap from the already-fetched season profile, without reopening the window automatically. A later season replaces it; a new career clears it. Initial hiring has no prior-season recap. Saved development seasons without recorded potential changes explicitly show that information as unavailable rather than inventing a change.
 
 This is a read-only presentation change: no extra API calls, save fields, growth rules, boom/bust probabilities or future rookie disclosures. Historical development browsing is outside this change.
+
+
+## Compact mechanics help
+
+Longer explanations for team ratings, player development, roster limits, cuts, starter selection, career records, playoff format and draft/auto-draft rules now sit behind labeled **ⓘ info controls**. Each native details/summary control starts collapsed, expands in place on click or tap, and supports keyboard Enter/Space with a visible focus outline. Screen readers receive the native disclosure state; the decorative icon is hidden from assistive technology. Controls have a 44px minimum height and the expanded help uses readable text. No hover-only content or new navigation is required.
+
+Live progress, errors, roster counts, action timing, qualification/outcome messages and data limitations stay visible. Dynamic text inside help (including legacy rating formulas, development rules and saved four-round draft rules) continues to update normally. Opening help is read-only and does not change saves, requests or gameplay.
