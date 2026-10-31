@@ -63,7 +63,7 @@ async function checks() {
  const count=p.state.urls.length;q(p,'#next-season').click();q(p,'#next-season').click();
  assert.equal(p.state.urls.length,count+1);assert.equal(q(p,'#change-team-button').disabled,true);
  release();await until(()=>save(p).season===2);
- assert.equal(q(p,'#season-display').textContent,'2');
+ assert.equal(q(p,'#season-display').textContent,'2');assert.equal(q(p,'#draft-recap').hidden,true);assert.equal(q(p,'#draft-recap-rows').children.length,0);
  assert.deepEqual([...p.d.querySelectorAll('.roster-player')].map(row=>[row.dataset.playerId,row.children[1].textContent]).sort(),roster,'Player IDs and names survive offseason aging');
  assert.equal(save(p).runSeed,1234);assert.deepEqual(save(p).priorStandings,ranks);
  assert.equal(save(p).version,16);assert.equal(save(p).contracts,false);assert.equal(q(p,"#gm-contract").hidden,true);assert.equal(save(p).week,0);assert.equal(save(p).playoffRound,null);
@@ -80,7 +80,7 @@ async function checks() {
  q(p,'#roster-competition').value='playoffs';q(p,'#roster-competition').dispatchEvent(new p.w.Event('change'));
  assert.match(q(p,'#roster-stats-status').textContent,/0 team games/);
  let raw=rawSave(p);p.dom.window.close();p=await restore(raw);
- assert.equal(q(p,'#season-display').textContent,'2');assert.deepEqual(save(p).priorStandings,ranks);
+ assert.equal(q(p,'#season-display').textContent,'2');assert.equal(q(p,'#draft-recap').hidden,true);assert.equal(q(p,'#draft-recap-rows').children.length,0);assert.deepEqual(save(p).priorStandings,ranks);
  const expectedSchedule=await api(`/api/schedule/${id}?season=2&prior_standings=${encodeURIComponent(JSON.stringify(ranks))}`);
  assert.deepEqual([...p.d.querySelectorAll('#schedule .game-card')].map(c=>c.dataset.opponentId),expectedSchedule.games.map(g=>g.opponent_id));
  const history=save(p).history;

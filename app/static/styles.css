@@ -303,3 +303,11 @@ tr.selected-team td { color: var(--cyan); background: rgba(72,230,210,0.07); }
 .potential-change { white-space: nowrap; font-size: .85em; }
 .potential-change.improved { color: #6ee7a0; }
 .potential-change.declined { color: var(--danger); }
+
+.draft-recap { margin: 18px 0; padding: 16px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px; }
+.draft-recap h3 { margin: 0 0 10px; font-size: 1.15rem; }
+.draft-recap-table { font-size: 1rem; }
+.draft-recap-table caption { text-align: left; color: var(--muted); padding-bottom: 10px; font-size: 0.9rem; }
+.draft-recap-table th:nth-child(3), .draft-recap-table td:nth-child(3),
+.draft-recap-table th:nth-child(4), .draft-recap-table td:nth-child(4) { text-align: left; }
+#draft-recap-table-wrap:focus-visible { outline: 2px solid var(--cyan); outline-offset: 3px; }

@@ -448,3 +448,10 @@ New drafts have **six rounds, 30 picks per round, 180 selections** from the exis
 Save version 16 stores `draftRounds` and each completed career step's `draft_rounds`. Versions 1–15 remain readable. A legacy draft already started (including an empty saved choices array) stays at four rounds through cuts and reloads; its next offseason uses six. A career without a started draft uses six immediately. Past four-round drafts retain their original CPU picks, availability, player IDs and resulting rosters. No new career is required.
 
 Draft and career APIs accept `draft_rounds: 4 | 6`; omission defaults to four for compatibility with existing API clients and historical career steps. The UI explicitly sends six for new drafts. Each past step must contain exactly its declared number of picks. Current draft format does not change weekly or playoff results.
+
+
+## Your draft class recap
+
+The draft window shows **Your draft class** above the prospect board: round, overall pick, player name, position, current rating and potential together, in selection order. It includes only your team's picks, updates after every manual or automatic selection, and supports six-round drafts and saved four-round drafts. Before your first selection it shows an empty-state prompt.
+
+Use **Review draft** to revisit the recap during the offseason, including after cuts and reloads. Ratings are labeled **Draft-day ratings** and remain tied to the original picks, including a rookie you later release. This view does not reveal future rookie outcomes. Starting the next season or a new career clears this offseason's recap; historical draft browsing is outside this change. The league selection log remains available below. No new save fields or API requests are needed.
