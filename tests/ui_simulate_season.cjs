@@ -33,24 +33,24 @@ function snapshot(p){return ['#season-record','#schedule','#roster-groups','#sta
 async function checks(){
  let p=await restore(legacy());q(p,'#view-roster').click();q(p,'#simulate-season').click();q(p,'#simulate-season').click();q(p,'#simulate-button').click();
  await finished(p);assert.deepEqual(p.state.weeks.map(r=>r.week),Array.from({length:17},(_,i)=>i+1));assert.deepEqual(p.state.saved,Array.from({length:17},(_,i)=>i+1));assert.equal(p.state.maxActive,1);
- assert.equal(q(p,'#view-roster').getAttribute('aria-selected'),'true');assert.equal(q(p,'#simulate-season').disabled,true);assert.equal(q(p,'#simulate-button').disabled,true);
+ assert.equal(q(p,'#view-roster').getAttribute('aria-selected'),'true');assert.equal(q(p,'#simulate-season').disabled,true);assert.equal(q(p,'#simulate-button').disabled,true);assert.equal(q(p,'#simulate-button').hidden,true);assert.equal(q(p,'#simulate-season').hidden,true);
  assert.equal(save(p).playoffRound,null);assert.equal(save(p).draftChoices,null);assert.equal(save(p).season,1);assert.equal(q(p,'#next-season').hidden,true);assert.equal(q(p,'#playoffs-start').hidden,false);assert.equal(p.state.other.length,0,'Batch must not reveal/simulate postseason, draft, or new season');
  const whole=snapshot(p);p.dom.window.close();p=await restore(legacy());
  for(let week=1;week<=17;week++){q(p,'#simulate-button').click();await until(()=>save(p).week===week&&!q(p,'#simulate-button').textContent.includes('Simulating'))}
  assert.deepEqual(snapshot(p),whole,'Whole-season and manual-week results/stats/standings must match');p.dom.window.close();
  p=await restore(legacy(8));q(p,'#simulate-season').click();await finished(p);assert.deepEqual(p.state.weeks.map(r=>r.week),[9,10,11,12,13,14,15,16,17]);p.dom.window.close();
  // Stop waits for the current response/save; forced duplicate actions cannot create a second loop or replace the career.
- p=await restore(legacy(),{holdWeek:3});q(p,'#simulate-season').click();await until(()=>Boolean(p.state.release));assert.equal(save(p).week,2);assert.equal(q(p,'#change-team-button').disabled,true);
+ p=await restore(legacy(),{holdWeek:3});q(p,'#simulate-season').click();await until(()=>Boolean(p.state.release));assert.equal(save(p).week,2);assert.equal(q(p,'#change-team-button').disabled,true);assert.equal(q(p,'#simulate-button').hidden,true);assert.equal(q(p,'#simulate-season').hidden,true);assert.equal(q(p,'#stop-season').hidden,false);
  q(p,'#simulate-season').disabled=false;q(p,'#simulate-season').click();q(p,'#simulate-button').disabled=false;q(p,'#simulate-button').click();
  q(p,'#change-team-button').disabled=false;q(p,'#change-team-button').click();assert.equal(q(p,'#franchise-setup').hidden,true);
  q(p,'#team-select').value='miami';q(p,'#team-form').dispatchEvent(new p.w.Event('submit',{cancelable:true}));assert.equal(p.state.other.length,0);
  q(p,'#stop-season').click();assert.match(q(p,'#season-simulation-status').textContent,/Stopping/);p.state.release();await finished(p,3);
- assert.deepEqual(p.state.weeks.map(r=>r.week),[1,2,3]);assert.deepEqual(p.state.saved,[1,2,3]);assert.equal(q(p,'#simulate-season').disabled,false);assert.equal(q(p,'#change-team-button').disabled,false);
+ assert.deepEqual(p.state.weeks.map(r=>r.week),[1,2,3]);assert.deepEqual(p.state.saved,[1,2,3]);assert.equal(q(p,'#simulate-season').disabled,false);assert.equal(q(p,'#simulate-season').hidden,false);assert.equal(q(p,'#simulate-button').hidden,false);assert.equal(q(p,'#change-team-button').disabled,false);
  const stopped=save(p);p.dom.window.close();p=await restore(stopped);assert.equal(p.state.weeks.length,0,'Reload must not resume a batch automatically');assert.equal(q(p,'#stop-season').hidden,true);assert.equal(q(p,'#season-simulation-status').textContent,'');
  q(p,'#simulate-season').click();await finished(p);assert.equal(p.state.weeks[0].week,4);p.dom.window.close();
  for(const failure of ['failWeek','mismatchWeek']){
   p=await restore(legacy(),{[failure]:4});q(p,'#simulate-season').click();await until(()=>!q(p,'#error').hidden&&q(p,'#stop-season').hidden);
-  assert.equal(save(p).week,3);assert.deepEqual(p.state.saved,[1,2,3]);assert.match(q(p,'#season-simulation-status').textContent,/Week 4/);assert.equal(q(p,'#simulate-season').disabled,false);
+  assert.equal(save(p).week,3);assert.deepEqual(p.state.saved,[1,2,3]);assert.match(q(p,'#season-simulation-status').textContent,/Week 4/);assert.equal(q(p,'#simulate-season').disabled,false);assert.equal(q(p,'#simulate-season').hidden,false);assert.equal(q(p,'#simulate-button').hidden,false);
   p.state[failure]=null;q(p,'#simulate-season').click();await finished(p);assert.deepEqual(p.state.weeks.map(r=>r.week),[1,2,3,4,...Array.from({length:14},(_,i)=>i+4)]);p.dom.window.close();
  }
  // A storage failure keeps in-page progress moving and preserves the last durable checkpoint.

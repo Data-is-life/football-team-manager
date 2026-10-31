@@ -95,7 +95,7 @@ async function checks(){
   assert.match(q(p,'#save-status').textContent,/restored/);assert.equal(JSON.stringify(p.state.last.picks),picks);checkRecap(p,p.state.last.picks);
   assert.equal(p.d.querySelectorAll('#roster-groups .roster-player').length,38+turn);
   assert.deepEqual(oldStats(p),before);
-  assert.equal(q(p,'#next-season').disabled,true);assert.equal(q(p,'#next-season').hidden,turn<6);if(turn<6)assert.equal(q(p,'#manage-roster').hidden,true);
+  assert.equal(q(p,'#next-season').disabled,true);assert.equal(q(p,'#next-season').hidden,true);if(turn<6)assert.equal(q(p,'#manage-roster').hidden,true);
   q(p,'#draft-button').click();
  }
  assert.equal(p.state.last.complete,true);assert.equal(p.state.last.picks.length,180);assert.equal(p.state.last.available.length,20);

@@ -471,3 +471,12 @@ This is a read-only presentation change: no extra API calls, save fields, growth
 Longer explanations for team ratings, player development, roster limits, cuts, starter selection, career records, playoff format and draft/auto-draft rules now sit behind labeled **ⓘ info controls**. Each native details/summary control starts collapsed, expands in place on click or tap, and supports keyboard Enter/Space with a visible focus outline. Screen readers receive the native disclosure state; the decorative icon is hidden from assistive technology. Controls have a 44px minimum height and the expanded help uses readable text. No hover-only content or new navigation is required.
 
 Live progress, errors, roster counts, action timing, qualification/outcome messages and data limitations stay visible. Dynamic text inside help (including legacy rating formulas, development rules and saved four-round draft rules) continues to update normally. Opening help is read-only and does not change saves, requests or gameplay.
+
+
+## Actions follow the season phase
+
+Regular-season simulation buttons appear only while games remain. During a full-season simulation, **Stop after this week** replaces both simulation choices; stopping or a failed request restores them at the last completed week. After Week 17, **View playoffs** is the next action. Only the next playoff-round simulation remains visible while the postseason is running, including for eliminated/nonqualifying teams following the league to the draft. It disappears after the championship.
+
+The completed postseason offers **Start/Resume draft**, then **Review draft** and **Manage roster** once the draft is complete. **Continue to Season N** appears only after the roster reaches at most 38 players; the existing draft summary and roster counts explain required cuts. Starter editing is shown only while your team has games remaining, stays visible but disabled during temporary requests, and returns next season. A fired career has no simulation/draft/cut/continuation actions, while results, records and starting a new career remain available. Season 999 remains terminal after its postseason.
+
+Visibility derives from the existing restored career state; there are no new save fields or gameplay changes. Existing request guards remain, with playoff actions additionally rejecting attempts to replay an earlier round or start before Week 17.
