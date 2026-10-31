@@ -223,6 +223,8 @@ async function checkUI() {
   go('schedule');
   const start=d.querySelector('#playoffs-start'), advance=d.querySelector('#playoff-simulate');
   assert.equal(start.hidden,true);
+  assert.equal(d.querySelector('#simulate-button').hidden,false);assert.equal(d.querySelector('#simulate-season').hidden,false);assert.equal(advance.hidden,true);assert.equal(d.querySelector('#draft-button').hidden,true);
+  let invalidCalls=0;const phaseFetch=w.fetch;w.fetch=(...args)=>{invalidCalls++;return phaseFetch(...args)};await w.loadPlayoffRound(0);assert.equal(invalidCalls,0,'Playoffs cannot start before Week 17');w.fetch=phaseFetch;
   for(let week=1;week<=17;week++) {
    const selected=views[(week-1)%views.length];go(selected);
    if (week===1 && index===0) {
@@ -235,6 +237,8 @@ async function checkUI() {
    d.querySelector('#simulate-button').click();
    await until(()=>d.querySelector('#simulate-button').textContent===(week===17?'Regular season complete':`Simulate Week ${week+1}`));
    assert.equal(start.hidden,week!==17);
+   assert.equal(d.querySelector('#simulate-button').hidden,week===17);assert.equal(d.querySelector('#simulate-season').hidden,week===17);
+   assert.equal(d.querySelector('#draft-button').hidden,true);
    checkView(selected);
    assert.match(d.querySelector('#season-status').textContent,new RegExp(`Week ${week} final:`));
    for(const name of ['game','league','standings','race']) assert.equal(d.querySelector(`#${name}-empty`).hidden,true);
@@ -362,6 +366,8 @@ async function checkUI() {
   start.click();
   await until(()=>!d.querySelector('#postseason-section').hidden);
   assert.equal(start.hidden,true);
+  const checkpointBeforeReplay=w.localStorage.getItem('arcade-league-save');let replayCalls=0;const afterFieldFetch=w.fetch;w.fetch=(...args)=>{replayCalls++;return afterFieldFetch(...args)};
+  start.hidden=false;start.click();start.hidden=true;await w.loadPlayoffRound(0);assert.equal(replayCalls,0,'A hidden reveal action cannot rewind the bracket');assert.equal(w.localStorage.getItem('arcade-league-save'),checkpointBeforeReplay);w.fetch=afterFieldFetch;
   assert.equal(advance.textContent,'Simulate Wild Card');
   checkView('playoffs');assert.equal(advance.hidden,false);
   assert.equal(d.querySelector('#playoffs-empty').hidden,true);
@@ -426,6 +432,10 @@ async function checkUI() {
    checkView('playoffs');
    const state=await (await fetch(base+`/api/playoffs/${id}/round/${round}?run_seed=${fixtureSeed}`)).json();
    checkPlayoffHighlight(state);
+   assert.equal(advance.hidden,state.postseason_complete);assert.equal(start.hidden,true);
+   assert.equal(d.querySelector('#simulate-button').hidden,true);assert.equal(d.querySelector('#simulate-season').hidden,true);
+   assert.equal(d.querySelector('#draft-button').hidden,!state.postseason_complete);
+   assert.equal(d.querySelector('#starter-editor').hidden,!state.qualified||state.eliminated||state.postseason_complete);
    go('roster');checkRoster(state.roster_stats,'playoffs');checkRoster(regularFinal,'regular');checkRoster(state.roster_stats,'playoffs');go('playoffs');
    const latest=state.rounds.at(-1);
    const own=latest.games.find(g=>g.home.team.id===id||g.away.team.id===id);
@@ -538,7 +548,7 @@ async function checkUI() {
   assert.doesNotMatch(fixture.textContent,/NaN|Infinity|null|undefined/);
   dom.window.close();
  }
- console.log('UI checks passed: eight tabs, keyboard navigation, empty states, unchanged views across weeks, roster collapse state, always-expanded league content, efficiency/kicking/roster season stats, full seasons/playoffs, retry, team reset/cancel, and labeled native info disclosures with focus/click toggling, unchanged saves, live dynamic help and visible statuses.');
+ console.log('UI checks passed: eight tabs, keyboard navigation, empty states, unchanged views across weeks, roster collapse state, always-expanded league content, efficiency/kicking/roster season stats, full seasons/playoffs, retry, team reset/cancel, phase-correct simulation/draft/starter actions and playoff replay guards, and labeled native info disclosures with focus/click toggling, unchanged saves, live dynamic help and visible statuses.');
  }
 (async()=>{
  const server=spawn(process.env.PYTHON || 'python',['-m','uvicorn','app.main:app','--host','127.0.0.1','--port','8767'],{cwd:root,stdio:['ignore','pipe','pipe']});
