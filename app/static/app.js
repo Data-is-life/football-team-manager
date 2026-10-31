@@ -884,6 +884,9 @@ function renderSchedule(data, runSeed, { priorStandings = {}, history = [], care
   document.querySelector("#draft-board").hidden = true;
   document.querySelector("#draft-prospects").replaceChildren();
   document.querySelector("#draft-picks").replaceChildren();
+  document.querySelector("#draft-recap").hidden = true;
+  document.querySelector("#draft-recap-rows").replaceChildren();
+  document.querySelector("#draft-recap-caption").textContent = "";
   document.querySelector("#draft-title").textContent = "Rookie draft";
   document.querySelector("#draft-status").textContent = "";
   document.querySelector("#draft-position").value = "";
@@ -1518,8 +1521,29 @@ function applyDraft(data) {
   renderStarterEditor();
 }
 
+function renderDraftRecap() {
+  // Use the immutable selection log, not the retained roster: cuts must not
+  // erase picks or replace their draft-day estimates with later ratings.
+  const ownPicks = draftState.picks.filter(pick => pick.team.id === activeTeamId);
+  const rows = ownPicks.map(pick => {
+    const row = document.createElement("tr");
+    row.dataset.playerId = pick.player.id;
+    for (const value of [pick.round, pick.overall, pick.player.name, pick.player.position,
+      pick.player.current_rating, pick.player.potential_rating]) {
+      const cell = document.createElement("td"); cell.textContent = value; row.append(cell);
+    }
+    return row;
+  });
+  document.querySelector("#draft-recap-rows").replaceChildren(...rows);
+  document.querySelector("#draft-recap-caption").textContent = `Season ${draftState.draft_season} · Draft-day ratings`;
+  document.querySelector("#draft-recap-empty").hidden = ownPicks.length > 0;
+  document.querySelector("#draft-recap-table-wrap").hidden = ownPicks.length === 0;
+  document.querySelector("#draft-recap").hidden = false;
+}
+
 function renderDraft() {
   if (!draftState) return;
+  renderDraftRecap();
   autoDraftButton.disabled = draftBusy || draftState.complete;
   document.querySelector("#draft-title").textContent = `Season ${draftState.draft_season} rookie draft`;
   document.querySelector("#draft-status").textContent = draftState.complete

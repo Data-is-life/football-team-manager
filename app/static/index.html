@@ -290,6 +290,17 @@
       <p id="draft-format" class="roster-note">Six rounds · Same order each round · CPU teams balance player quality and position needs. Rookies join your roster without replacing anyone. The regular-season limit is 38.</p>
       <p id="draft-error" class="error" role="alert" hidden></p>
       <button id="draft-retry" class="secondary-button" type="button" hidden>Retry</button>
+      <section id="draft-recap" class="draft-recap" aria-labelledby="draft-recap-title" hidden>
+        <h3 id="draft-recap-title">Your draft class</h3>
+        <p id="draft-recap-empty" class="roster-note">Your selections will appear here after your first pick.</p>
+        <div id="draft-recap-table-wrap" class="table-wrap" tabindex="0" role="region" aria-labelledby="draft-recap-title" hidden>
+          <table class="draft-recap-table">
+            <caption id="draft-recap-caption"></caption>
+            <thead><tr><th scope="col">Round</th><th scope="col">Pick</th><th scope="col">Player</th><th scope="col">Position</th><th scope="col">Current</th><th scope="col">Potential</th></tr></thead>
+            <tbody id="draft-recap-rows"></tbody>
+          </table>
+        </div>
+      </section>
       <section id="draft-board" hidden>
         <button id="auto-draft" class="secondary-button" type="button">Auto-draft remaining picks</button>
         <p class="roster-note">Keep your earlier picks and let the CPU finish the draft using player quality and position needs. Review roster cuts afterward.</p>
