@@ -311,3 +311,13 @@ tr.selected-team td { color: var(--cyan); background: rgba(72,230,210,0.07); }
 .draft-recap-table th:nth-child(3), .draft-recap-table td:nth-child(3),
 .draft-recap-table th:nth-child(4), .draft-recap-table td:nth-child(4) { text-align: left; }
 #draft-recap-table-wrap:focus-visible { outline: 2px solid var(--cyan); outline-offset: 3px; }
+
+.development-filter { display: flex; align-items: center; gap: 8px; margin: 16px 0; }
+.development-filter input { width: auto; }
+.development-recap-table { font-size: 1rem; }
+.development-recap-table th:nth-child(2), .development-recap-table td:nth-child(2),
+.development-recap-table th:nth-child(3), .development-recap-table td:nth-child(3) { text-align: left; }
+.development-recap-table caption { text-align: left; color: var(--muted); padding-bottom: 12px; font-size: .9rem; }
+.development-improved { color: #6ee7a0; }
+.development-declined { color: var(--danger); }
+#development-recap-scroll:focus-visible { outline: 2px solid var(--cyan); outline-offset: 3px; }

@@ -59,6 +59,8 @@ const viewTabs = [...document.querySelectorAll(".view-tab")];
 const rosterCompetition = document.querySelector("#roster-competition");
 let rosterProfile = null;
 let rookieSeason = 1;
+let developmentRecap = null;
+const developmentDialog = document.querySelector("#development-dialog");
 let rosterMode = "ratings";
 let rosterTotals = null;
 const rosterDialog = document.querySelector("#team-roster-dialog");
@@ -402,6 +404,7 @@ async function resumeProgress() {
     }
     renderTeamProfile(profile, save.season);
     renderSchedule(schedule, save.runSeed, { priorStandings: save.priorStandings, history: save.history, career: save.career, lineupRules: save.lineupRules, developmentStart: save.developmentStart, rebuildTeam: save.rebuildTeam, contracts: save.contracts, lineupChanges: save.lineupChanges, careerStartWeek: save.careerStartWeek, draftRounds: save.draftRounds });
+    setDevelopmentRecap(profile, save.season);
     if (regular) renderResult(regular);
     if (postseason) { renderPostseason(postseason); activateView("playoffs"); }
     if (savedDraft) applyDraft(savedDraft);
@@ -613,6 +616,69 @@ function createRosterGroups(profile, includeStats = true) {
     return group;
   });
 }
+
+function clearDevelopmentRecap() {
+  developmentRecap = null;
+  if (developmentDialog.open) developmentDialog.close();
+  document.querySelector("#development-recap-button").hidden = true;
+  document.querySelector("#development-recap-rows").replaceChildren();
+  document.querySelector("#development-recap-summary").textContent = "";
+  document.querySelector("#development-show-unchanged").checked = false;
+}
+
+function setDevelopmentRecap(profile, season) {
+  if (season < 2 || profile.lineup_rules < 3) return;
+  // Capture the season-start profile before draft additions/cuts or scouting.
+  // Restore already fetches this same profile before replaying the current draft.
+  developmentRecap = { season, players: profile.roster.map(player => ({ ...player })) };
+  document.querySelector("#development-recap-button").hidden = false;
+  renderDevelopmentRecap();
+}
+
+function renderDevelopmentRecap() {
+  if (!developmentRecap) return;
+  const players = developmentRecap.players;
+  const improved = players.filter(p => p.rating_change > 0).length;
+  const declined = players.filter(p => p.rating_change < 0).length;
+  const booms = players.filter(p => p.rookie_outcome === "boom").length;
+  const busts = players.filter(p => p.rookie_outcome === "bust").length;
+  const changed = p => Boolean(p.rating_change || p.potential_change);
+  const unchanged = players.filter(p => !changed(p)).length;
+  const potentialOnly = players.filter(p => !p.rating_change && p.potential_change).length;
+  const knownPotential = players.every(p => Number.isFinite(p.potential_change));
+  document.querySelector("#development-recap-title").textContent = `Season ${developmentRecap.season} player development`;
+  document.querySelector("#development-recap-summary").textContent =
+    `${improved} improved · ${declined} declined in current rating · ${potentialOnly} potential-only changes · ${unchanged} ${knownPotential ? "unchanged in both ratings" : "with no recorded change"}. Rookies: ${booms} boom · ${busts} bust.`;
+  document.querySelector("#development-recap-legacy").hidden = knownPotential;
+  const showUnchanged = document.querySelector("#development-show-unchanged").checked;
+  const rows = players.filter(p => showUnchanged || changed(p) || ["boom", "bust"].includes(p.rookie_outcome)).map(player => {
+    const row = document.createElement("tr"); row.dataset.playerId = player.id;
+    const current = player.rating_change ?? 0, potential = player.potential_change;
+    const outcome = player.rookie_outcome === "boom" ? "Boom" : player.rookie_outcome === "bust" ? "Bust"
+      : current > 0 ? "Improved" : current < 0 ? "Declined" : potential > 0 ? "Potential increased"
+      : potential < 0 ? "Potential decreased" : player.rookie_outcome === "normal" ? "Rookie · Unchanged" : "Unchanged";
+    for (const value of [player.name, player.position, outcome]) {
+      const cell = document.createElement("td"); cell.textContent = value; row.append(cell);
+    }
+    for (const [value, delta] of [[player.current_rating, current], [player.potential_rating, potential]]) {
+      const cell = document.createElement("td");
+      cell.textContent = Number.isFinite(delta)
+        ? `${value - delta} → ${value} (${delta > 0 ? "+" : ""}${delta})` : `${value} (change unavailable)`;
+      if (delta) cell.className = delta > 0 ? "development-improved" : "development-declined";
+      row.append(cell);
+    }
+    return row;
+  });
+  document.querySelector("#development-recap-rows").replaceChildren(...rows);
+  document.querySelector("#development-recap-empty").hidden = rows.length > 0;
+  document.querySelector("#development-recap-scroll").hidden = rows.length === 0;
+}
+
+document.querySelector("#development-recap-button").addEventListener("click", () => {
+  if (developmentRecap && !developmentDialog.open) developmentDialog.showModal();
+});
+document.querySelector("#development-close").addEventListener("click", () => developmentDialog.close());
+document.querySelector("#development-show-unchanged").addEventListener("change", renderDevelopmentRecap);
 
 function renderTeamProfile(profile, latestDraftSeason = activeSeason) {
   rookieSeason = latestDraftSeason;
@@ -847,6 +913,7 @@ function renderSchedule(data, runSeed, { priorStandings = {}, history = [], care
   activeTeamId = data.team.id;
   activeRunSeed = runSeed;
   activeSeason = data.season;
+  clearDevelopmentRecap();
   activeCareerStartWeek = careerStartWeek;
   activeDraftRounds = draftRounds;
   document.querySelector("#career-start-note").hidden = careerStartWeek !== 17 || activeSeason !== 1;
@@ -1763,7 +1830,9 @@ nextSeasonButton.addEventListener("click", async () => {
     }
     renderTeamProfile(profile, nextSeason);
     renderSchedule(schedule, activeRunSeed, { priorStandings: ranks, history, career, lineupRules, developmentStart, rebuildTeam: activeRebuildTeam, contracts: activeContracts, lineupChanges, careerStartWeek: activeCareerStartWeek });
+    setDevelopmentRecap(profile, nextSeason);
     saveProgress();
+    if (developmentRecap) developmentDialog.showModal();
   } catch (error) {
     showError(error.message);
   } finally {
