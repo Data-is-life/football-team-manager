@@ -455,3 +455,12 @@ Draft and career APIs accept `draft_rounds: 4 | 6`; omission defaults to four fo
 The draft window shows **Your draft class** above the prospect board: round, overall pick, player name, position, current rating and potential together, in selection order. It includes only your team's picks, updates after every manual or automatic selection, and supports six-round drafts and saved four-round drafts. Before your first selection it shows an empty-state prompt.
 
 Use **Review draft** to revisit the recap during the offseason, including after cuts and reloads. Ratings are labeled **Draft-day ratings** and remain tied to the original picks, including a rookie you later release. This view does not reveal future rookie outcomes. Starting the next season or a new career clears this offseason's recap; historical draft browsing is outside this change. The league selection log remains available below. No new save fields or API requests are needed.
+
+
+## Player development recap
+
+After a successful new-season transition, a **Player development** window opens with the season-start roster's current and potential ratings before → after, signed changes, and rookie **Boom**/**Bust** labels. The summary counts current-rating improvements/declines, potential-only changes, unchanged players and rookie outcomes. Only changed players appear by default (including any boom/bust with capped zero changes); **Include unchanged players** shows everyone. If nobody changed, an empty-state message replaces the table.
+
+Reopen **Development recap** from Roster throughout the season and offseason. It compares veterans with the previous season and new rookies with draft-day estimates; kicker changes reflect their existing seasonal-form model. Draft additions, later cuts, scouting and starter changes do not replace this season-start snapshot. Reload reconstructs the same recap from the already-fetched season profile, without reopening the window automatically. A later season replaces it; a new career clears it. Initial hiring has no prior-season recap. Saved development seasons without recorded potential changes explicitly show that information as unavailable rather than inventing a change.
+
+This is a read-only presentation change: no extra API calls, save fields, growth rules, boom/bust probabilities or future rookie disclosures. Historical development browsing is outside this change.

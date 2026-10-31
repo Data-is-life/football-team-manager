@@ -140,6 +140,7 @@
             <section id="roster-section" class="roster-section" aria-labelledby="roster-title">
               <p class="eyebrow">Your players</p>
               <h2 id="roster-title" tabindex="-1">Roster</h2>
+              <button id="development-recap-button" class="secondary-button" type="button" aria-haspopup="dialog" aria-controls="development-dialog" hidden>Development recap</button>
               <div class="roster-controls">
                 <div class="roster-view-buttons" role="group" aria-label="Roster view">
                   <button id="roster-ratings-button" class="secondary-button" type="button" aria-pressed="true" aria-controls="roster-groups">Ratings</button>
@@ -282,6 +283,21 @@
       <p id="scout-status" class="roster-note" role="status"></p>
       <button id="scout-retry" class="secondary-button" type="button" hidden>Retry</button>
       <div id="scout-groups" class="roster-groups"></div>
+    </dialog>
+    <dialog id="development-dialog" class="team-roster-dialog" aria-labelledby="development-recap-title">
+      <div class="scout-heading"><h2 id="development-recap-title">Player development</h2>
+        <button id="development-close" class="secondary-button" type="button" autofocus>Close recap</button></div>
+      <p id="development-recap-summary" class="roster-note"></p>
+      <p id="development-recap-legacy" class="roster-note" hidden>Potential changes were not recorded for this saved season.</p>
+      <label class="development-filter"><input id="development-show-unchanged" type="checkbox"> Include unchanged players</label>
+      <p id="development-recap-empty" class="roster-note" hidden>No rating changes this offseason.</p>
+      <div id="development-recap-scroll" class="table-wrap" tabindex="0" role="region" aria-labelledby="development-recap-title">
+        <table class="development-recap-table">
+          <caption>Season-start roster · Veterans compared with last season; new rookies with draft-day estimates.</caption>
+          <thead><tr><th scope="col">Player</th><th scope="col">Position</th><th scope="col">Outcome</th><th scope="col">Current</th><th scope="col">Potential</th></tr></thead>
+          <tbody id="development-recap-rows"></tbody>
+        </table>
+      </div>
     </dialog>
     <dialog id="draft-dialog" class="team-roster-dialog" aria-labelledby="draft-title">
       <div class="scout-heading"><div><p class="eyebrow">Offseason</p><h2 id="draft-title">Rookie draft</h2></div>
