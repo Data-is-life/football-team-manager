@@ -77,7 +77,7 @@ def rebuild_lineups(run_seed, team_id, balanced=False):
 def lineup_context(context, run_seed, rules, season=1, development_start=1, rebuild_team=None):
     if rebuild_team is not None and rules < 4:
         raise ValueError('Rebuild careers require lineup rules 4 or later')
-    if rules in (3, 4, 5, 6, 7, 8):
+    if rules in (3, 4, 5, 6, 7, 8, 9):
         from .development import advance_context
         if getattr(context, 'lineup_rules', 1) > rules:
             raise ValueError('Lineup rules cannot be downgraded')
