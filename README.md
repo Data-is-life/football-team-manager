@@ -101,7 +101,7 @@ Current is the ability rating used by roster decisions and simulation. Potential
 
 Legacy career rules retain the earlier age-band display until upgrading at a season boundary. New careers use development rules immediately.
 
-Player API payloads add `current_rating` and `potential_rating`. The existing `rating`, experience, and generated attribute data remain available for API/save compatibility and existing usage logic; attributes are no longer displayed and still do not affect gameplay. Save version 16 reconstructs the displayed ratings from seeded player state and offseason history.
+Player API payloads add `current_rating` and `potential_rating`. The existing `rating`, experience, and generated attribute data remain available for API/save compatibility and existing usage logic; attributes are no longer displayed and still do not affect gameplay. Save version 17 reconstructs the displayed ratings from seeded player state and offseason history.
 
 ## Run locally
 
@@ -272,7 +272,7 @@ New careers automatically rank every position by current ability from the first 
 
 Offense includes QB/WR/TE/RB/OL, defense includes DL/LB/CB/S. Each team's unit rating is `round(0.8 × starter average + 0.2 × bench average)` on current ratings only. An empty bench uses the starter average instead. Ratings, profiles, standings, games, scouting, and postseason share one immutable, versioned lineup context. The old seeded strength values remain only as initial player-generation inputs and for legacy seasons.
 
-Save version 5 records the lineup rules for the active season and for each past offseason. Versions 1–4 restore under their exact old season rules, including in-progress drafts. Continuing into the next season activates highest-rated starters and the 80/20 formula, while past drafts replay under the rules they actually used. New careers use the updated rules immediately. The team header explains the active formula or the pending next-season upgrade. Legacy seed-only APIs default to lineup rules 1; `lineup_rules=2` selects automatic lineups without development; `lineup_rules=3` selects development without initial hierarchy, and `lineup_rules=4` selects initial hierarchy, and `lineup_rules=7` selects current rules in team/week/playoff endpoints and draft/career requests.
+Save version 5 records the lineup rules for the active season and for each past offseason. Versions 1–4 restore under their exact old season rules, including in-progress drafts. Continuing into the next season activates highest-rated starters and the 80/20 formula, while past drafts replay under the rules they actually used. New careers use the updated rules immediately. The team header explains the active formula or the pending next-season upgrade. Legacy seed-only APIs default to lineup rules 1; `lineup_rules=2` selects automatic lineups without development; `lineup_rules=3` selects development without initial hierarchy, and `lineup_rules=4` selects initial hierarchy, and `lineup_rules=8` selects current rules in team/week/playoff endpoints and draft/career requests.
 
 ## Position-specific development and hidden longevity
 
@@ -307,11 +307,11 @@ Players from the most recent draft have an **R** badge beside their names in ros
 
 ## Initial starter and backup hierarchy
 
-New careers use lineup rules 7 (save version 16). Every team's initial roster is ranked by current ability, then backups are lowered relative to the weakest starter at that position. Starter counts remain QB 1, WR 2, TE 1, RB 1, OL 5, K 1, DL 4, LB 3, CB 2, and S 2.
+New careers use lineup rules 8 (save version 17). Every team's initial roster is ranked by current ability, then backups are lowered relative to the weakest starter at that position. Starter counts remain QB 1, WR 2, TE 1, RB 1, OL 5, K 1, DL 4, LB 3, CB 2, and S 2.
 
 If the weakest starter is rated 70 or higher, each backup has a seeded ceiling 8–14 points below that starter. If the weakest starter is below 70, the ceiling is only 1–4 points lower, allowing closer competition on weak units. These are minimum separations: an already weaker backup stays weaker. Initial QB and K backups are also capped at 74. The adjustment never improves or lowers the selected starters, and preserves player identities, names, ages, experience, roster sizes, and position minimums. Backup attributes and potential are initialized from their adjusted ability.
 
-This is a one-time initial-roster rule, not an ongoing limit. Future draft picks, development, aging, and automatic depth-chart changes can produce strong backups or new starters. Existing saved careers keep rules 1–3 and their original rosters, scores, and draft availability; they are not reshaped at their next season transition. Saved rules persist through the current season, draft, cuts and scouting. Future seasons adopt rules 7, while historical offseasons retain their original rules and existing initial rosters are never regenerated. The 80% starter/20% bench team-rating formula is unchanged, so reducing initial bench quality can lower new-career team ratings.
+This is a one-time initial-roster rule, not an ongoing limit. Future draft picks, development, aging, and automatic depth-chart changes can produce strong backups or new starters. Existing saved careers keep rules 1–3 and their original rosters, scores, and draft availability; they are not reshaped at their next season transition. Saved rules persist through the current season, draft, cuts and scouting. Future seasons adopt rules 8, while historical offseasons retain their original rules and existing initial rosters are never regenerated. The 80% starter/20% bench team-rating formula is unchanged, so reducing initial bench quality can lower new-career team ratings.
 
 
 ## Rebuild challenge
@@ -325,7 +325,7 @@ Save version 8 stores `rebuildTeam`, the managed city at career creation. Team/w
 
 ## Rating-based rotations and youth development
 
-New careers use lineup rules 7 and save version 16; playing-time rules are unchanged from rules 5. Existing saves keep their current-season playing-time model and draft estimates, then adopt rules 7 at their next season transition. Past offseasons replay under their saved rules, and existing roster generation is not reapplied.
+New careers use lineup rules 8 and save version 17; playing-time rules are unchanged from rules 5. Existing saves keep their current-season playing-time model and draft estimates, then adopt rules 8 at their next season transition. Past offseasons replay under their saved rules, and existing roster generation is not reapplied.
 
 QB1 handles all passing and K1 all kicking; youth development does not force their backups into games. Starting OL receive nearly all pass/run blocking snaps, with a small reserve role. RB carries favor the stronger starter while keeping a rotation. WR/TE targets combine their current ability with their assigned role; the existing 60% WR / 22% TE / 18% RB receiving mix remains. DL rotate most, LB next, with lighter CB/S rotations. Depth is automatically ranked by current rating as before. Potential does not influence playing time.
 
@@ -374,7 +374,7 @@ Older saves remain supported. Their completed-season summaries store a finishing
 
 ## Manageable starting balance
 
-New careers use lineup rules 7 and save version 16. The selected team's initial offense and defense are each within **70 ± 2**. Seeded starter ratings of 71–73 and reserves of 57–64 after the existing hierarchy caps guarantee the target under the current 80% starter/20% bench team-rating formula. QB2/K2 remain clearly weaker than QB1/K1. Ratings vary by player and run; other teams keep their normal rosters.
+New careers use lineup rules 8 and save version 17. The selected team's initial offense and defense are each within **70 ± 2**. Seeded starter ratings of 71–73 and reserves of 57–64 after the existing hierarchy caps guarantee the target under the current 80% starter/20% bench team-rating formula. QB2/K2 remain clearly weaker than QB1/K1. Ratings vary by player and run; other teams keep their normal rosters.
 
 This replaces the much weaker starting balance for new careers without changing the playing-time model, potential rules, or offseason growth. The balance is applied once: later draft picks and development can raise the team beyond the starting target, while aging can lower it. Existing saves retain their original roster generation, draft availability, and results through future seasons. Start a new career to use the more manageable rebuild.
 
@@ -430,7 +430,7 @@ Save version 14 stores `careerStartWeek` (17 for new late starts, 1 for older ca
 
 ## Rookie booms, busts and potential arrows
 
-New careers use lineup rules 7. **When a retained drafted player enters Week 1 of their first rookie season**, one seeded assessment applies: **15% boom, 15% bust, 70% unchanged**. The probability is per player and independent of draft round, team or position; each class need not contain exact percentages. Draft cards and the entire draft/cut period retain their original estimates. Reloading, retrying, scouting and playing games never reroll the result. All league teams use the same rules.
+Under legacy lineup rules 7, **when a retained drafted player enters Week 1 of their first rookie season**, one seeded assessment applies: **15% boom, 15% bust, 70% unchanged**. The probability is per player and independent of draft round, team or position; each class need not contain exact percentages. Draft cards and the entire draft/cut period retain their original estimates. Reloading, retrying, scouting and playing games never reroll the result. All league teams use the same rules.
 
 For non-kickers, a boom adds **2–6 current** and **8–15 potential**, capped at 99. A bust lowers potential by **15–25** (floor 40), lowers current by **3–8**, and lowers current further if needed to fit the new ceiling. Current never exceeds potential. Thus 75 potential can become 85, and 95 can become 70; a high-current first-rounder can suffer a substantial current-rating drop. The normal 70% keep their draft ratings. Rookies retain their age, experience, identity and rookie badge on entry; normal development begins the following offseason. Attributes are regenerated from reassessed current ability.
 
@@ -438,7 +438,7 @@ Kickers also receive one rookie boom/bust assessment, but keep **potential equal
 
 Ratings tables in your roster and read-only scouting show green **↑ +N** or red **↓ −N** potential arrows. Tooltips distinguish changes from draft estimates from later season-to-season changes, and accessible labels state the old and new potential. Zero changes have no arrow. Current-rating arrows remain separate. Rookie arrows last through the rookie season and are replaced by the next offseason's actual changes. Automatic lineups use reassessed current ability; explicit starter preferences remain your choices.
 
-Existing careers preserve their current season and draft under their saved rules, then adopt rules 7 on the next season transition. Only rookies entering their first season at that transition are reassessed; already-playing rookies are never reassessed retroactively. Past offseason steps retain their original rules so old scores, draft order and availability remain reproducible. Save version 16 records rules 7 and continues reading versions 1–15. Reassessment state is reconstructed server-side from permanent rookie IDs, the run seed and chronological offseason history, rather than trusted player data from the browser. No new career is needed for the next rookie class.
+Existing careers preserve their current season and draft under their saved rules, then adopt rules 8 on the next season transition. Only rookies entering their first season at that transition are reassessed; already-playing rookies are never reassessed retroactively. Past offseason steps retain their original rules so old scores, draft order and availability remain reproducible. Save version 17 records rules 8 and continues reading versions 1–16. Reassessment state is reconstructed server-side from permanent rookie IDs, the run seed and chronological offseason history, rather than trusted player data from the browser. No new career is needed for the next rookie class.
 
 
 ## Six-round drafts and saved-career compatibility
@@ -496,3 +496,14 @@ Open **Standings → League leaders** for the top 10 players in passing yards, r
 Only completed regular-season games through the current week count. Week 0 shows an empty prompt without requesting stats. Introductory careers include inherited regular-season production, consistent with Season Stats. Playoff games never enter these totals. During the draft/cut period, leaders retain the completed season's original player cohort. New seasons use actual retained league rosters and historical week-effective starter choices. No future games or rookie assessments are revealed.
 
 The read-only dialog loads on demand via the `leaders` action on `POST /api/career/{team_id}`; it adds no leader work or data to weekly simulation/save payloads. A bounded server cache stores compact immutable totals for eight full career/week contexts. Closing or replacing a career ignores late responses; regular-week progress clears stale tables, and failures offer Retry without changing progress. No new tabs, save fields, scoring or development rules are introduced.
+
+
+## Rookie preseason growth and revised outcomes (rules 8)
+
+New careers and the next season transition of existing careers use **20% boom, 5% bust, 75% normal assessment** for drafted rookies entering their first season. Probabilities are per retained rookie across all teams, not a guarantee of exact class proportions. The seeded outcome is revealed only at the draft/cuts → new-season transition. Draft estimates, ages, experience, identities and rookie badges stay unchanged until then.
+
+After the assessment, non-kicker rookies receive a seeded **+1–2 current-rating training-camp gain**, capped at their assessed potential and 99. A player with less headroom gains only the available amount, possibly zero. Normal assessments leave potential unchanged but can now improve current ability. Booms retain their existing +2–6 assessment gain and +8–15 potential adjustment before camp. Busts retain their existing −3–8 assessment adjustment (or a larger cut to fit the lowered ceiling) and −15–25 potential adjustment before camp; generated busts remain net current-rating declines. Kickers use the new outcome probabilities but keep their existing equal-current/potential seasonal-form anchor, with no extra camp gain; a separate kicker-potential model is later work.
+
+Current-rating arrows and the development recap show the **combined assessment plus camp delta** from draft-day ratings. Automatic starters are ranked after both changes. This happens once per rookie on entry, never on weekly play, retries, scouting or reload. Normal age/position-based growth resumes at the following offseason; no injury or in-season development mechanics are added.
+
+Past offseasons retain their saved rules (1–7 included). Existing current seasons keep their ratings and original outcomes, then adopt rules 8 at their next rollover; already-entered rookies never receive retroactive camp growth or another reveal. Legacy rules 7 keep the original 15/15/70 outcomes without camp. Save version 17 reads versions 1–16, and no new career is required for the next rookie class.
