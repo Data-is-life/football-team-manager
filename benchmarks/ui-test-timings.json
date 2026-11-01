@@ -1,0 +1,100 @@
+{
+  "date": "2026-11-01",
+  "base_commit": "b2683f00c6d49d3a039eb722422665ff28602720",
+  "environment": {
+    "python": "3.12.14",
+    "node": "24.22.1",
+    "cpu_quota": 8,
+    "memory_gib": 8
+  },
+  "sequential_seconds": 104.943,
+  "parallel_seconds": 60.514,
+  "workers": 2,
+  "reduction_percent": 42.34,
+  "suites": [
+    {
+      "suite": "tests/ui_tabs.cjs",
+      "sequential_seconds": 24.325,
+      "parallel_seconds": 26.872,
+      "passed": true
+    },
+    {
+      "suite": "tests/ui_save.cjs",
+      "sequential_seconds": 3.505,
+      "parallel_seconds": 3.37,
+      "passed": true
+    },
+    {
+      "suite": "tests/ui_seasons.cjs",
+      "sequential_seconds": 10.359,
+      "parallel_seconds": 11.21,
+      "passed": true
+    },
+    {
+      "suite": "tests/ui_draft.cjs",
+      "sequential_seconds": 10.335,
+      "parallel_seconds": 11.091,
+      "passed": true
+    },
+    {
+      "suite": "tests/ui_cuts.cjs",
+      "sequential_seconds": 6.927,
+      "parallel_seconds": 7.857,
+      "passed": true
+    },
+    {
+      "suite": "tests/ui_development.cjs",
+      "sequential_seconds": 4.716,
+      "parallel_seconds": 4.89,
+      "passed": true
+    },
+    {
+      "suite": "tests/ui_gm.cjs",
+      "sequential_seconds": 3.432,
+      "parallel_seconds": 3.694,
+      "passed": true
+    },
+    {
+      "suite": "tests/ui_contracts.cjs",
+      "sequential_seconds": 5.378,
+      "parallel_seconds": 6.466,
+      "passed": true
+    },
+    {
+      "suite": "tests/ui_restore.cjs",
+      "sequential_seconds": 3.373,
+      "parallel_seconds": 3.635,
+      "passed": true
+    },
+    {
+      "suite": "tests/ui_simulate_season.cjs",
+      "sequential_seconds": 9.866,
+      "parallel_seconds": 10.85,
+      "passed": true
+    },
+    {
+      "suite": "tests/ui_starters.cjs",
+      "sequential_seconds": 7.474,
+      "parallel_seconds": 7.942,
+      "passed": true
+    },
+    {
+      "suite": "tests/ui_late_start.cjs",
+      "sequential_seconds": 5.272,
+      "parallel_seconds": 5.734,
+      "passed": true
+    },
+    {
+      "suite": "tests/ui_rookie_reveal.cjs",
+      "sequential_seconds": 5.138,
+      "parallel_seconds": 5.318,
+      "passed": true
+    },
+    {
+      "suite": "tests/ui_leaders.cjs",
+      "sequential_seconds": 4.843,
+      "parallel_seconds": 5.091,
+      "passed": true
+    }
+  ]
+}
