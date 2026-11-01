@@ -15,6 +15,9 @@ CURVES = {
 }
 
 
+KICKER_CURVE = (29,37,40,(1,2),(3,4))
+
+
 def number(seed, player_id, purpose):
     return int.from_bytes(hashlib.sha256(f'development-v1:{seed}:{player_id}:{purpose}'.encode()).digest()[:8], 'big')
 
@@ -39,6 +42,7 @@ class DevelopmentState:
     potential_change: int = 0
     rookie_revealed: bool = False
     rookie_outcome: str | None = None
+    kicker_development: bool = False
 
 
 @dataclass(frozen=True)
@@ -54,24 +58,24 @@ class DevelopmentContext:
         return iter(self.rosters)
 
 
-def initial_state(player, seed):
-    if player.position == 'K':
+def initial_state(player, seed, kicker_potential=False):
+    if player.position == 'K' and not kicker_potential:
         return DevelopmentState(player.rating, player.rating)
-    develop, decline, *_ = CURVES[player.position]
+    develop, decline, *_ = (KICKER_CURVE if player.position == 'K' else CURVES[player.position])
     maximum = min(18, max(0, 2 * (decline - player.age)))
     minimum = min(6, maximum) if player.age <= develop else 0
     room = minimum + number(seed, player.id, 'potential') % (maximum - minimum + 1)
-    return DevelopmentState(min(99, player.rating + room), player.rating)
+    return DevelopmentState(min(99, player.rating + room), player.rating, kicker_development=player.position == 'K' and kicker_potential)
 
 
 def with_rosters(context, rosters):
     old = dict(context.development)
-    values = {p.id: old.get(p.id) or initial_state(p, context.run_seed) for _, players in rosters for p in players}
+    values = {p.id: old.get(p.id) or initial_state(p, context.run_seed, context.lineup_rules >= 9) for _, players in rosters for p in players}
     return DevelopmentContext(tuple(rosters), context.season, context.run_seed, tuple(sorted(values.items())), context.lineup_rules, context.rebuild_team)
 
 
 def rating_view(player, context):
-    state = dict(context.development).get(player.id) or initial_state(player, context.run_seed)
+    state = dict(context.development).get(player.id) or initial_state(player, context.run_seed, context.lineup_rules >= 9)
     result = {'current_rating': player.rating, 'potential_rating': state.potential, 'rating_change': state.change}
     if context.lineup_rules >= 7:
         result['potential_change'] = state.potential_change
@@ -80,7 +84,7 @@ def rating_view(player, context):
     return result
 
 
-def reveal_rookie(player, state, seed, preseason_growth=False):
+def reveal_rookie(player, state, seed, preseason_growth=False, kicker_potential=False):
     """One entry-season assessment; rules 8 add modest camp growth within potential."""
     if state.rookie_revealed:
         return player, state
@@ -94,10 +98,10 @@ def reveal_rookie(player, state, seed, preseason_growth=False):
     elif outcome == 'bust':
         potential = max(40, potential - 15 - number(seed, player.id, 'rookie-potential-v1') % 11)
         current = max(40, min(potential, current - 3 - number(seed, player.id, 'rookie-current-v1') % 6))
-    if preseason_growth and player.position != 'K':
+    if preseason_growth and (player.position != 'K' or kicker_potential):
         current = min(99, potential, current + 1 + number(seed, player.id, 'rookie-camp-v1') % 2)
-    if player.position == 'K':
-        # Kicking remains seasonal form around an anchor, rather than a growth ceiling.
+    if player.position == 'K' and not kicker_potential:
+        # Preserve the legacy seasonal-form-only model.
         potential = current
     from .attributes import generate_attributes
     updated = replace(player, rating=current, attributes=generate_attributes(player.id, player.position, current, seed)) if current != player.rating else player
@@ -106,14 +110,47 @@ def reveal_rookie(player, state, seed, preseason_growth=False):
                             rookie_revealed=True, rookie_outcome=outcome)
 
 
-def next_player(player, state, seed, season, rotation_growth=False, rookie_reassessment=False, preseason_growth=False):
+def next_player(player, state, seed, season, rotation_growth=False, rookie_reassessment=False, preseason_growth=False, kicker_potential=False):
     # A drafted rookie's listed age is their age in the upcoming rookie season.
     entry = int(player.id.split('-')[-2]) if player.id.startswith('rookie-') else 1
+    previous_potential = state.potential
+    initialize_kicker = kicker_potential and player.position == 'K' and not state.kicker_development and season >= entry
+    if initialize_kicker:
+        # Upgrade only at a real transition, keeping the old form-free anchor.
+        fresh = initial_state(replace(player, rating=state.baseline), seed, True)
+        state = replace(state, potential=fresh.potential, kicker_development=True)
     if rookie_reassessment and player.id.startswith('rookie-') and season == entry:
-        return reveal_rookie(player, state, seed, preseason_growth)
+        updated, result = reveal_rookie(player, state, seed, preseason_growth, kicker_potential)
+        return updated, replace(result, potential_change=result.potential-previous_potential) if initialize_kicker else result
+
     if season <= entry:
         return player, replace(state, change=0, potential_change=0)
     age = player.age + 1
+    if player.position == 'K' and kicker_potential:
+        develop, decline, cliff, loss, hard_loss = KICKER_CURVE
+        delay, exceptional = longevity(seed, player.id, 'K')
+        decline, cliff = decline + delay, cliff + delay
+        baseline = state.baseline
+        potential = state.potential
+        draw = number(seed, player.id, f'change:{season}')
+        if age <= develop:
+            baseline = min(potential, baseline + 1 + draw % 2)
+        elif age >= decline:
+            lo, hi = hard_loss if age >= cliff else loss
+            delta = -(lo + draw % (hi-lo+1))
+            if exceptional and age < cliff + 4:
+                delta = int(delta / 2)
+            baseline = max(1, baseline + delta)
+        # Form never feeds back into the anchor, even after decline collapses
+        # displayed potential to current ability.
+        current = max(1, min(99, baseline + number(seed, player.id, f'form:{season}') % 9 - 4))
+        if age >= decline:
+            potential = current
+        else:
+            current = min(potential, current)
+        updated = replace(player, age=age, experience=player.experience+1, rating=current)
+        return updated, replace(state, baseline=baseline, potential=potential,
+                                change=current-player.rating, potential_change=potential-previous_potential)
     if player.position == 'K':
         current = max(1, min(99, state.baseline + number(seed, player.id, f'form:{season}') % 9 - 4))
         return replace(player, age=age, experience=player.experience+1, rating=current), DevelopmentState(current,state.baseline,current-player.rating, potential_change=current-state.potential if rookie_reassessment else 0, rookie_revealed=state.rookie_revealed, rookie_outcome=state.rookie_outcome)
@@ -149,7 +186,7 @@ def advance_context(context, run_seed, season, development_start=1, lineup_rules
     if rebuild_team is None and current_rules >= 3:
         rebuild_team = context.rebuild_team
     lineup_rules = lineup_rules if lineup_rules is not None else max(3, current_rules)
-    if lineup_rules not in (3, 4, 5, 6, 7, 8) or current_rules > lineup_rules:
+    if lineup_rules not in (3, 4, 5, 6, 7, 8, 9) or current_rules > lineup_rules:
         raise ValueError('Invalid development rules')
     if not 1 <= development_start <= season <= 999:
         raise ValueError('Invalid development season')
@@ -165,7 +202,7 @@ def advance_context(context, run_seed, season, development_start=1, lineup_rules
         else:
             rosters = tuple(context) if context else tuple((team.id, tuple(roster_for(team.id,run_seed).values())) for team in TEAMS)
         rosters = tuple((owner,ranked_players(players)) for owner,players in rosters)
-        states = tuple(sorted((p.id,initial_state(p,run_seed)) for _,players in rosters for p in players))
+        states = tuple(sorted((p.id,initial_state(p,run_seed,lineup_rules >= 9)) for _,players in rosters for p in players))
         context = DevelopmentContext(rosters,max(1,development_start-1),run_seed,states,lineup_rules,rebuild_team)
         if lineup_rules >= 5 and development_start == 1:
             context = capture_rotation(context)
@@ -183,7 +220,7 @@ def advance_context(context, run_seed, season, development_start=1, lineup_rules
         for owner, players in context:
             updated = []
             for player in players:
-                player, state = next_player(player,states[player.id],run_seed,year,rotation_growth and player.position not in ('QB','K'), lineup_rules >= 7, lineup_rules >= 8)
+                player, state = next_player(player,states[player.id],run_seed,year,rotation_growth and player.position not in ('QB','K'), lineup_rules >= 7, lineup_rules >= 8, lineup_rules >= 9)
                 updated.append(player)
                 updated_states.append((player.id,state))
             rosters.append((owner,ranked_players(updated)))
