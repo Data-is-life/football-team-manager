@@ -829,15 +829,16 @@ function updatePhaseActions() {
   manageRoster.hidden = !offseason || !drafted;
   nextSeasonButton.hidden = !offseason || !drafted || (rosterProfile?.roster.length ?? 0) > 38;
   document.querySelector("#starter-editor").hidden = !hasFutureTeamGame();
+  document.querySelector("#auto-starters").hidden = !hasFutureTeamGame();
 }
 
 function updateStarterControls() {
   updatePhaseActions();
   const disabled = !canChooseStarters();
-  for (const control of document.querySelectorAll("#starter-form select, #starter-form button")) control.disabled = disabled;
+  for (const control of document.querySelectorAll("#starter-form select, #starter-form button, #auto-starters")) control.disabled = disabled;
   document.querySelector("#starter-timing").textContent = careerEnded() ? "Your career has ended. This lineup is read-only."
     : currentWeek === 17 && !canChooseStarters() && !lineupBusy && !playoffBusy && !restoring && !weekSimulationBusy
-      ? "No games remain for your team this season. Retained starter choices carry into next season."
+      ? "No games remain for your team this season. The best current-rated starters are selected at the next season start."
     : currentWeek < 17
     ? `Changes apply from Week ${currentWeek + 1}. Completed games stay unchanged.`
     : `Changes apply to your next playoff game. Completed rounds and playoff seeds stay unchanged.`;
@@ -863,16 +864,6 @@ function renderStarterEditor() {
     fields.append(fieldset);
   }
   updateStarterControls();
-}
-
-function carriedStarters() {
-  const preferred = activeLineupChanges.at(-1)?.starters ?? [];
-  if (!preferred.length || !rosterProfile) return [];
-  return rosterProfile.roster_rules.flatMap(rule => {
-    const group = rosterProfile.roster.filter(p => p.position === rule.position).sort((a,b) => b.current_rating-a.current_rating || a.depth-b.depth || a.id.localeCompare(b.id));
-    const retained = group.filter(p => preferred.includes(p.id)).slice(0,rule.minimum);
-    return [...retained, ...group.filter(p => !retained.includes(p)).slice(0,rule.minimum-retained.length)].map(p => p.id);
-  });
 }
 
 async function saveStarters(starters) {
@@ -1832,8 +1823,9 @@ nextSeasonButton.addEventListener("click", async () => {
   try {
     const developmentStart = activeDevelopmentStart ?? nextSeason;
     const lineupRules = 7;
-    const carried = carriedStarters();
-    const lineupChanges = carried.length ? [{ week: 1, starters: carried }] : [];
+    // Re-rank the new roster after development and draft/cuts. Prior-season
+    // overrides remain only in career history, where completed games need them.
+    const lineupChanges = [];
     const career = [...activeCareer, {
       season: activeSeason, prior_standings: Object.keys(activePriorStandings).length ? activePriorStandings : null,
       manual_picks: activeDraftChoices, draft_rounds: activeDraftRounds, dropped: activeDropped, lineup_rules: activeLineupRules,
@@ -1859,6 +1851,7 @@ nextSeasonButton.addEventListener("click", async () => {
     showError(error.message);
   } finally {
     advancingSeason = false;
+    updateStarterControls();
     updateOffseasonActions();
     manageRoster.disabled = false;
     renderCuts();

@@ -27,8 +27,18 @@ const position=(p,pos)=>[...p.d.querySelectorAll(`#roster-groups [data-position=
 const starter=(p,pos)=>position(p,pos).filter(row=>row.dataset.starter==='true').map(row=>row.dataset.playerId);
 function choose(p,pos,id,slot=0){p.d.querySelectorAll(`#starter-fields select[data-starter-position="${pos}"]`)[slot].value=id}
 async function commit(p){q(p,'#starter-form').dispatchEvent(new p.w.Event('submit',{cancelable:true}));await until(()=>/saved for|best available|unchanged|different player/i.test(q(p,'#starter-status').textContent)&&!q(p,'#save-starters').disabled)}
+function assertBestStarters(p){
+ for(const group of p.d.querySelectorAll('#roster-groups .roster-group')){
+  const rows=[...group.querySelectorAll('.roster-player')];
+  const selected=rows.filter(row=>row.dataset.starter==='true'),bench=rows.filter(row=>row.dataset.starter!=='true');
+  const rating=row=>Number(row.cells[3].firstChild.textContent);
+  if(bench.length)assert.ok(Math.min(...selected.map(rating))>=Math.max(...bench.map(rating)),`${group.dataset.position} starters must outrank every reserve`);
+  assert.deepEqual([...p.d.querySelectorAll(`#starter-fields select[data-starter-position="${group.dataset.position}"]`)].map(select=>select.value),selected.map(row=>row.dataset.playerId));
+ }
+}
 async function checks(){
  let p=await restore(checkpoint);q(p,'#view-roster').click();q(p,'#starter-editor').open=true;
+ assert.equal(q(p,'#auto-starters').textContent,'Select best starters');assert.equal(q(p,'#auto-starters').closest('#starter-editor'),null);assert.ok(q(p,'#auto-starters').closest('.roster-controls'));assert.equal(q(p,'#auto-starters').hidden,false);assertBestStarters(p);
  assert.equal(p.d.querySelectorAll('#starter-fields select').length,22);assert.equal(q(p,'#save-starters').disabled,false);
  const original=starter(p,'QB')[0],reserve=position(p,'QB').find(row=>row.dataset.starter==='false').dataset.playerId;
  const wr=p.d.querySelectorAll('#starter-fields select[data-starter-position="WR"]');wr[1].value=wr[0].value;
@@ -37,7 +47,7 @@ async function checks(){
  choose(p,'QB',reserve);const beforeRating=Number(q(p,'#offense-rating').textContent);p.state.fail=true;await commit(p);
  assert.equal(raw(p),untouched);assert.deepEqual(starter(p,'QB'),[original]);assert.match(q(p,'#starter-status').textContent,/unchanged/);
  p.state.fail=false;p.state.hold=true;q(p,'#starter-form').dispatchEvent(new p.w.Event('submit',{cancelable:true}));await until(()=>Boolean(p.state.release));
- assert.equal(q(p,'#simulate-button').disabled,true);assert.equal(q(p,'#simulate-season').disabled,true);assert.equal(q(p,'#change-team-button').disabled,true);
+ assert.equal(q(p,'#auto-starters').disabled,true);assert.equal(q(p,'#simulate-button').disabled,true);assert.equal(q(p,'#simulate-season').disabled,true);assert.equal(q(p,'#change-team-button').disabled,true);
  const calls=p.state.requests.length;q(p,'#save-starters').disabled=false;q(p,'#starter-form').dispatchEvent(new p.w.Event('submit',{cancelable:true}));q(p,'#simulate-button').disabled=false;q(p,'#simulate-button').click();assert.equal(p.state.requests.length,calls);
  p.state.hold=false;p.state.release();await until(()=>/saved for/.test(q(p,'#starter-status').textContent)&&!q(p,'#save-starters').disabled);
  assert.equal(save(p).version,16);assert.equal(save(p).lineupChanges[0].week,1);assert.equal(save(p).lineupChanges[0].starters.length,22);assert.deepEqual(starter(p,'QB'),[reserve]);assert.ok(Number(q(p,'#offense-rating').textContent)<=beforeRating);
@@ -48,20 +58,22 @@ async function checks(){
  assert.equal(q(p,'#team-roster-dialog').querySelector('#starter-editor'),null);assert.equal(raw(p),weekOne);q(p,'#scout-close').click();
  choose(p,'QB',original);await commit(p);assert.equal(save(p).lineupChanges.length,2);assert.equal(save(p).lineupChanges[1].week,2);assert.equal(q(p,'#player-stats').textContent,box);assert.equal(q(p,'#season-record').textContent,record);
  const changed=raw(p);p.dom.window.close();p=await restore(JSON.parse(changed));assert.equal(q(p,'#player-stats').textContent,box);assert.equal(q(p,'#season-record').textContent,record);
+ // The direct Roster button works with the editor closed and preserves state on failure.
+ q(p,'#starter-editor').open=false;q(p,'#roster-stats-button').click();const beforeAuto=raw(p);p.state.fail=true;q(p,'#auto-starters').click();await until(()=>/unchanged/.test(q(p,'#starter-status').textContent)&&!q(p,'#auto-starters').disabled);assert.equal(raw(p),beforeAuto);assert.equal(q(p,'#starter-status').closest('#starter-editor'),null);assert.equal(q(p,'#roster-stats-button').getAttribute('aria-pressed'),'true');
+ p.state.fail=false;p.state.hold=true;q(p,'#auto-starters').click();await until(()=>Boolean(p.state.release));assert.equal(q(p,'#auto-starters').disabled,true);const autoCalls=p.state.requests.length;q(p,'#auto-starters').disabled=false;q(p,'#auto-starters').click();assert.equal(p.state.requests.length,autoCalls);p.state.hold=false;p.state.release();
  // Auto reset is another future-effective event, not deletion of historical decisions.
- q(p,'#auto-starters').click();await until(()=>/Best available/.test(q(p,'#starter-status').textContent));assert.equal(save(p).lineupChanges.length,2);assert.deepEqual(save(p).lineupChanges[1].starters,[]);assert.deepEqual(starter(p,'QB'),[original]);
- p.state.holdWeek=true;q(p,'#simulate-button').click();await until(()=>Boolean(p.state.releaseWeek));assert.equal(q(p,'#save-starters').disabled,true);p.state.releaseWeek();p.state.holdWeek=false;await until(()=>save(p).week===2&&!q(p,'#simulate-button').disabled);p.dom.window.close();
- // Complete the manual-lineup season and real draft/cuts; retained manual choices carry to season two.
+ await until(()=>/Best available/.test(q(p,'#starter-status').textContent));assert.equal(save(p).lineupChanges.length,2);assert.deepEqual(save(p).lineupChanges[1].starters,[]);assert.deepEqual(starter(p,'QB'),[original]);assertBestStarters(p);assert.equal(q(p,'#roster-stats-button').getAttribute('aria-pressed'),'true');assert.equal(q(p,'#player-stats').textContent,box);assert.equal(q(p,'#season-record').textContent,record);
+ p.state.holdWeek=true;q(p,'#simulate-button').click();await until(()=>Boolean(p.state.releaseWeek));assert.equal(q(p,'#save-starters').disabled,true);assert.equal(q(p,'#auto-starters').disabled,true);const duringWeek=p.state.requests.length;q(p,'#auto-starters').disabled=false;q(p,'#auto-starters').click();assert.equal(p.state.requests.length,duringWeek);p.state.releaseWeek();p.state.holdWeek=false;await until(()=>save(p).week===2&&!q(p,'#simulate-button').disabled);p.dom.window.close();
+ // Complete the manual-lineup season and real draft/cuts; all new-season positions reset to highest current ability.
  p=await restore(JSON.parse(selected));q(p,'#simulate-season').click();await until(()=>save(p).week===17&&q(p,'#stop-season').hidden);
  assert.equal(q(p,'#save-starters').disabled,true,'Eliminated/nonqualified teams cannot edit offseason lineups');
  q(p,'#playoffs-start').click();await until(()=>save(p).playoffRound===0);
  for(let round=1;round<=4;round++){q(p,'#playoff-simulate').click();await until(()=>save(p).playoffRound===round)}
  assert.equal(q(p,'#save-starters').disabled,true);await finishOffseason(p,until);
- const preferred=save(p).lineupChanges.at(-1).starters,retained=new Set([...p.d.querySelectorAll('#roster-groups .roster-player')].map(r=>r.dataset.playerId));
  const oldEvents=save(p).lineupChanges;q(p,'#next-season').click();await until(()=>save(p).season===2);
- assert.deepEqual(save(p).career[0].lineup_changes,oldEvents);assert.equal(save(p).lineupChanges[0].week,1);
- for(const id of preferred.filter(id=>retained.has(id)))assert.ok(save(p).lineupChanges[0].starters.includes(id));
- const yearTwo=raw(p),depths=[...p.d.querySelectorAll('#roster-groups .is-starter')].map(r=>r.dataset.playerId);p.dom.window.close();p=await restore(JSON.parse(yearTwo));assert.deepEqual([...p.d.querySelectorAll('#roster-groups .is-starter')].map(r=>r.dataset.playerId),depths);
+ assert.deepEqual(save(p).career[0].lineup_changes,oldEvents);assert.deepEqual(save(p).lineupChanges,[]);assertBestStarters(p);assert.equal(q(p,'#auto-starters').hidden,false);assert.equal(q(p,'#auto-starters').disabled,false);
+ const yearTwo=raw(p),depths=[...p.d.querySelectorAll('#roster-groups .is-starter')].map(r=>r.dataset.playerId);p.dom.window.close();p=await restore(JSON.parse(yearTwo));assert.deepEqual([...p.d.querySelectorAll('#roster-groups .is-starter')].map(r=>r.dataset.playerId),depths);assertBestStarters(p);assert.deepEqual(save(p).lineupChanges,[]);
+ q(p,'#auto-starters').click();await until(()=>/Best available/.test(q(p,'#starter-status').textContent));assert.equal(save(p).lineupChanges[0].week,1);assert.deepEqual(save(p).lineupChanges[0].starters,[]);assert.deepEqual(save(p).career[0].lineup_changes,oldEvents);assertBestStarters(p);
  q(p,'#change-team-button').click();q(p,'#team-select').value='seattle';q(p,'#team-form').dispatchEvent(new p.w.Event('submit',{cancelable:true}));await until(()=>save(p).season===1&&save(p).week===16);
  assert.deepEqual(save(p).lineupChanges,[]);assert.equal(save(p).career.length,0);p.dom.window.close();
  // A qualified team can choose its playoff starter without reseeding or replaying completed rounds.
@@ -76,6 +88,6 @@ async function checks(){
  for(const bad of [{week:1,starters:['miami-qb1',...JSON.parse(selected).lineupChanges[0].starters.slice(1)]},{week:22,starters:[]}]){
   const input={...JSON.parse(selected),lineupChanges:[bad]};p=page(input);await until(()=>/could not/.test(q(p,'#save-status').textContent));assert.equal(raw(p),JSON.stringify(input));assert.equal(q(p,'#schedule-section').hidden,true);p.dom.window.close();
  }
- console.log('Starter UI checks passed: 22 position slots, duplicate validation, cancel, failed/retried save, busy guards, QB promotion/rating update, reload, completed-game preservation, future-effective auto reset, weekly lock, draft/cuts/season rollover with retained preferences, and corrupt-save protection.');
+ console.log('Starter UI checks passed: 22 position slots, duplicate validation, cancel, failed/retried save, busy guards, QB promotion/rating update, reload, completed-game preservation, future-effective auto reset, weekly lock, direct best-starters button failure/retry/duplicate guards, all-position automatic new-season starters with preserved historical choices, and corrupt-save protection.');
 }
 (async()=>{const server=spawn(process.env.PYTHON||'python',['-m','uvicorn','app.main:app','--host','127.0.0.1','--port','8778'],{cwd:root,stdio:['ignore','pipe','pipe']});let logs='';server.stdout.on('data',d=>logs+=d);server.stderr.on('data',d=>logs+=d);try{for(let i=0;;i++){if(server.exitCode!==null)throw new Error(logs);try{if((await fetch(base+'/api/teams')).ok)break}catch{}if(i===100)throw new Error(logs);await new Promise(r=>setTimeout(r,100))}await checks()}finally{server.kill()}})().catch(e=>{console.error(e);process.exitCode=1});
