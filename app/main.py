@@ -11,6 +11,7 @@ from fastapi.staticfiles import StaticFiles
 from .league import GROUPS, TEAM_BY_ID, generate_schedule, rotating_group, schedule_payload, teams_payload, validate_standings
 from .playoffs import playoffs_through_round
 from .player_stats import aggregate_player_stats
+from .leaders import league_leaders
 from .simulation import ROSTER_RULES, roster_for, simulate_through_week, team_ratings
 from .attributes import ATTRIBUTE_INFO, attribute_keys
 from .ratings import rating_payload
@@ -213,7 +214,7 @@ class CareerStep(BaseModel):
 class CareerRequest(BaseModel):
     draft_rounds: Literal[4, 6] = 4
     lineup_changes: list[LineupChange] = Field(default_factory=list, max_length=21)
-    action: Literal['profile', 'week', 'playoffs', 'draft', 'cuts']
+    action: Literal['profile', 'week', 'playoffs', 'draft', 'cuts', 'leaders']
     season: int = Field(default=1, ge=1, le=999)
     run_seed: int = Field(default=0, ge=0, le=4294967295)
     lineup_rules: Literal[1, 2, 3, 4, 5, 6, 7] = 1
@@ -251,6 +252,8 @@ def career_action(team_id: str, request: CareerRequest) -> dict:
         context = with_starters(context, team_id, request.run_seed, changes)
         prior = ranks_context(request.prior_standings)
         viewed = request.view_team or team_id
+        if request.action == 'leaders':
+            return league_leaders(team_id, request.season, request.week, request.run_seed, prior, context)
         if request.action == 'week':
             return simulate_through_week(team_id, request.season, request.week, request.run_seed, prior, context)
         if request.action == 'playoffs':

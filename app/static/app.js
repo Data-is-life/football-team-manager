@@ -64,6 +64,10 @@ const developmentDialog = document.querySelector("#development-dialog");
 let rosterMode = "ratings";
 let rosterTotals = null;
 const rosterDialog = document.querySelector("#team-roster-dialog");
+const leadersDialog = document.querySelector("#leaders-dialog");
+const leadersButton = document.querySelector("#league-leaders-button");
+let leadersRequest = 0;
+let leadersBusy = false;
 let scoutingRequest = 0;
 let scoutingTeamId = null;
 let scoutingCity = "";
@@ -486,6 +490,90 @@ rosterDialog.addEventListener("close", () => {
   document.querySelector("#scout-groups").replaceChildren();
 });
 
+function clearLeaders() {
+  ++leadersRequest;
+  leadersBusy = false;
+  if (leadersDialog.open) leadersDialog.close();
+  document.querySelector("#leaders-lists").replaceChildren();
+  document.querySelector("#leaders-status").textContent = "";
+  document.querySelector("#leaders-retry").hidden = true;
+}
+
+function renderLeaders(data) {
+  const sections = data.categories.map(category => {
+    const section = document.createElement("section"); section.className = "leaders-category";
+    const heading = document.createElement("h3"); heading.id = `leaders-${category.id}`; heading.textContent = category.label; section.append(heading);
+    if (category.leaders.length) {
+      const wrap = document.createElement("div"); wrap.className = "table-wrap"; wrap.tabIndex = 0;
+      wrap.setAttribute("role", "region"); wrap.setAttribute("aria-labelledby", heading.id);
+      const table = document.createElement("table"); table.className = "league-leaders-table"; table.setAttribute("aria-labelledby", heading.id);
+      const head = document.createElement("thead"), header = document.createElement("tr");
+      for (const label of ["Rank", "Player", "Team", "Total"]) {
+        const cell = document.createElement("th"); cell.scope = "col"; cell.textContent = label; header.append(cell);
+      }
+      head.append(header); table.append(head);
+      const body = document.createElement("tbody");
+      for (const leader of category.leaders) {
+        const row = document.createElement("tr"); row.dataset.playerId = leader.player_id;
+        if (leader.team.id === activeTeamId) row.className = "leader-own";
+        for (const value of [leader.rank, `${leader.player} · ${leader.position}`, leader.team.city, leader.value]) {
+          const cell = document.createElement("td"); cell.textContent = value; row.append(cell);
+        }
+        if (leader.team.id === activeTeamId) {
+          const badge = document.createElement("span"); badge.className = "your-team-badge"; badge.textContent = "Your team"; row.cells[2].append(" ", badge);
+        }
+        body.append(row);
+      }
+      table.append(body); wrap.append(table); section.append(wrap);
+    } else {
+      const empty = document.createElement("p"); empty.className = "roster-note"; empty.textContent = `No recorded ${category.label.toLowerCase()} yet.`; section.append(empty);
+    }
+    const best = category.your_best;
+    if (best && !category.leaders.some(row => row.player_id === best.player_id)) {
+      const own = document.createElement("p"); own.className = "leaders-your-best leader-own"; own.dataset.playerId = best.player_id;
+      own.textContent = `Your best: #${best.rank} · ${best.player} · ${best.position} · ${best.team.city} · ${best.value}`; section.append(own);
+    } else if (!best) {
+      const empty = document.createElement("p"); empty.className = "roster-note"; empty.textContent = "Your team has no recorded total in this category yet."; section.append(empty);
+    }
+    return section;
+  });
+  document.querySelector("#leaders-lists").replaceChildren(...sections);
+}
+
+async function loadLeaders() {
+  if (!activeTeamId || weekSimulationBusy || lineupBusy || advancingSeason || restoring || leadersBusy) return;
+  leadersBusy = true;
+  const request = ++leadersRequest;
+  const team = activeTeamId, seed = activeRunSeed, season = activeSeason, week = currentWeek;
+  const isCurrent = () => request === leadersRequest && leadersDialog.open && team === activeTeamId
+    && seed === activeRunSeed && season === activeSeason && week === currentWeek;
+  if (!leadersDialog.open) leadersDialog.showModal();
+  document.querySelector("#leaders-lists").replaceChildren();
+  document.querySelector("#leaders-retry").hidden = true;
+  const status = document.querySelector("#leaders-status");
+  if (!week) { leadersBusy = false; status.textContent = `Season ${season} · Regular season · Play Week 1 to see league leaders.`; return; }
+  status.textContent = `Loading Season ${season} leaders through Week ${week}…`;
+  try {
+    const data = await careerRequest("leaders", { week });
+    if (!isCurrent()) return;
+    if (data.team?.id !== team || data.run_seed !== seed || data.season !== season || data.week !== week
+        || !Array.isArray(data.categories) || data.categories.map(item => item.id).join(",") !== "passing,rushing,receiving,sacks,interceptions") throw new Error("Leader response did not match this career.");
+    renderLeaders(data);
+    status.textContent = `Season ${season} · Regular season through Week ${week}`;
+  } catch {
+    if (!isCurrent()) return;
+    status.textContent = "League leaders could not be loaded. Your progress is unchanged. Try again.";
+    document.querySelector("#leaders-retry").hidden = false;
+  } finally {
+    if (request === leadersRequest) leadersBusy = false;
+  }
+}
+
+leadersButton.addEventListener("click", loadLeaders);
+document.querySelector("#leaders-retry").addEventListener("click", loadLeaders);
+document.querySelector("#leaders-close").addEventListener("click", () => leadersDialog.close());
+leadersDialog.addEventListener("close", () => { ++leadersRequest; leadersBusy = false; });
+
 function activateView(id, { focus = false } = {}) {
   for (const tab of viewTabs) {
     const selected = tab.id === `view-${id}`;
@@ -816,6 +904,7 @@ function canChooseStarters() {
 }
 
 function updatePhaseActions() {
+  leadersButton.disabled = !activeTeamId || weekSimulationBusy || lineupBusy || advancingSeason || restoring;
   const live = Boolean(activeTeamId) && !careerEnded();
   const regular = live && currentWeek < 17;
   simulateButton.hidden = !regular || seasonSimulationActive;
@@ -885,6 +974,7 @@ async function saveStarters(starters) {
     if (profile.team?.id !== activeTeamId || profile.run_seed !== activeRunSeed) throw new Error("Starters could not be saved.");
     const totals = rosterTotals, mode = rosterMode, competition = rosterCompetition.value;
     const collapsed = [...document.querySelectorAll("#roster-groups .roster-group")].filter(group => !group.open).map(group => group.dataset.position);
+    clearLeaders();
     activeLineupChanges = changes;
     renderTeamProfile(profile, rookieSeason);
     rosterTotals = totals; rosterMode = mode; rosterCompetition.value = competition;
@@ -919,6 +1009,7 @@ function createRunSeed() {
 }
 
 function renderSchedule(data, runSeed, { priorStandings = {}, history = [], career = [], lineupRules = 7, developmentStart = 1, rebuildTeam = null, contracts = true, lineupChanges = [], careerStartWeek = 1, draftRounds = 6 } = {}) {
+  clearLeaders();
   if (rosterDialog.open) rosterDialog.close();
   weekSimulationBusy = false;
   seasonSimulationActive = false;
@@ -1082,6 +1173,7 @@ function renderQualification(data) {
 }
 
 function renderResult(data) {
+  clearLeaders();
   regularSnapshot = data;
   rosterTotals.regular = data.roster_stats;
   renderRosterStats();
