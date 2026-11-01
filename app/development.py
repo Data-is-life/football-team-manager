@@ -80,12 +80,13 @@ def rating_view(player, context):
     return result
 
 
-def reveal_rookie(player, state, seed):
-    """One seeded reassessment: 15% boom, 15% bust, 70% unchanged."""
+def reveal_rookie(player, state, seed, preseason_growth=False):
+    """One entry-season assessment; rules 8 add modest camp growth within potential."""
     if state.rookie_revealed:
         return player, state
-    draw = number(seed, player.id, 'rookie-reveal-v1') % 100
-    outcome = 'boom' if draw < 15 else 'bust' if draw < 30 else 'normal'
+    draw = number(seed, player.id, 'rookie-reveal-v2' if preseason_growth else 'rookie-reveal-v1') % 100
+    boom, bust = (20, 25) if preseason_growth else (15, 30)
+    outcome = 'boom' if draw < boom else 'bust' if draw < bust else 'normal'
     current, potential = player.rating, state.potential
     if outcome == 'boom':
         current = min(99, current + 2 + number(seed, player.id, 'rookie-current-v1') % 5)
@@ -93,6 +94,8 @@ def reveal_rookie(player, state, seed):
     elif outcome == 'bust':
         potential = max(40, potential - 15 - number(seed, player.id, 'rookie-potential-v1') % 11)
         current = max(40, min(potential, current - 3 - number(seed, player.id, 'rookie-current-v1') % 6))
+    if preseason_growth and player.position != 'K':
+        current = min(99, potential, current + 1 + number(seed, player.id, 'rookie-camp-v1') % 2)
     if player.position == 'K':
         # Kicking remains seasonal form around an anchor, rather than a growth ceiling.
         potential = current
@@ -103,11 +106,11 @@ def reveal_rookie(player, state, seed):
                             rookie_revealed=True, rookie_outcome=outcome)
 
 
-def next_player(player, state, seed, season, rotation_growth=False, rookie_reassessment=False):
+def next_player(player, state, seed, season, rotation_growth=False, rookie_reassessment=False, preseason_growth=False):
     # A drafted rookie's listed age is their age in the upcoming rookie season.
     entry = int(player.id.split('-')[-2]) if player.id.startswith('rookie-') else 1
     if rookie_reassessment and player.id.startswith('rookie-') and season == entry:
-        return reveal_rookie(player, state, seed)
+        return reveal_rookie(player, state, seed, preseason_growth)
     if season <= entry:
         return player, replace(state, change=0, potential_change=0)
     age = player.age + 1
@@ -146,7 +149,7 @@ def advance_context(context, run_seed, season, development_start=1, lineup_rules
     if rebuild_team is None and current_rules >= 3:
         rebuild_team = context.rebuild_team
     lineup_rules = lineup_rules if lineup_rules is not None else max(3, current_rules)
-    if lineup_rules not in (3, 4, 5, 6, 7) or current_rules > lineup_rules:
+    if lineup_rules not in (3, 4, 5, 6, 7, 8) or current_rules > lineup_rules:
         raise ValueError('Invalid development rules')
     if not 1 <= development_start <= season <= 999:
         raise ValueError('Invalid development season')
@@ -180,7 +183,7 @@ def advance_context(context, run_seed, season, development_start=1, lineup_rules
         for owner, players in context:
             updated = []
             for player in players:
-                player, state = next_player(player,states[player.id],run_seed,year,rotation_growth and player.position not in ('QB','K'), lineup_rules >= 7)
+                player, state = next_player(player,states[player.id],run_seed,year,rotation_growth and player.position not in ('QB','K'), lineup_rules >= 7, lineup_rules >= 8)
                 updated.append(player)
                 updated_states.append((player.id,state))
             rosters.append((owner,ranked_players(updated)))

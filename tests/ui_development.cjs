@@ -15,8 +15,8 @@ async function checks(){
  const before=(await api('/api/career/seattle',{action:'cuts',draft_rounds:save(p).draftRounds,run_seed:1234,lineup_rules:2,manual_picks:save(p).draftChoices,dropped:save(p).dropped})).profile;
  assert.equal(p.d.querySelectorAll('.rating-change').length,0);
  q(p,'#next-season').click();await until(()=>save(p).season===2);
- assert.equal(save(p).version,16);assert.equal(save(p).lineupRules,7);assert.equal(save(p).developmentStart,2);
- const current=await api('/api/career/seattle',{action:'profile',run_seed:1234,lineup_rules:7,season:2,development_start:2,career:save(p).career});
+ assert.equal(save(p).version,17);assert.equal(save(p).lineupRules,8);assert.equal(save(p).developmentStart,2);
+ const current=await api('/api/career/seattle',{action:'profile',run_seed:1234,lineup_rules:8,season:2,development_start:2,career:save(p).career});
  const previous=new Map(before.roster.map(p=>[p.id,p]));
  let changed=0;
  for(const player of current.roster){
@@ -34,7 +34,7 @@ async function checks(){
  const stats=q(p,'#roster-groups').textContent;
  const raw=p.w.localStorage.getItem(key);p.dom.window.close();p=await restore(raw);assert.equal(q(p,'#roster-groups').textContent,stats);
  q(p,'#simulate-button').click();await until(()=>save(p).week===1);
- const after=await api('/api/career/seattle',{action:'profile',run_seed:1234,lineup_rules:7,season:2,development_start:2,career:save(p).career});assert.deepEqual(current,after,'Playing/retrying a week cannot age players again');
+ const after=await api('/api/career/seattle',{action:'profile',run_seed:1234,lineup_rules:8,season:2,development_start:2,career:save(p).career});assert.deepEqual(current,after,'Playing/retrying a week cannot age players again');
  const legacySeason={...save(p),lineupRules:3};p.dom.window.close();p=await restore(JSON.stringify(legacySeason));
  assert.equal(q(p,'#development-recap-button').hidden,false);assert.equal(q(p,'#development-recap-legacy').hidden,false);q(p,'#development-show-unchanged').checked=true;q(p,'#development-show-unchanged').dispatchEvent(new p.w.Event('change'));assert.ok([...p.d.querySelectorAll('#development-recap-rows tr')].every(row=>row.cells[4].textContent.includes('change unavailable')));
  p.dom.window.close();
@@ -47,7 +47,7 @@ async function checks(){
  assert.equal(q(p,'#development-recap-button').hidden,true);
  for(const player of v3.roster)assert.equal(q(p,`#roster-groups [data-player-id="${player.id}"]`).children[3].textContent,String(player.current_rating));
  q(p,'#simulate-button').click();await until(()=>save(p).week===1);
- assert.equal(save(p).version,16);assert.equal(save(p).lineupRules,3,'Saving an existing career must not adopt initial hierarchy');
+ assert.equal(save(p).version,17);assert.equal(save(p).lineupRules,3,'Saving an existing career must not adopt initial hierarchy');
  p.dom.window.close();
  // The most recent pre-rotation rebuild save remains on rules 4 after re-saving.
  const v8={...old,version:8,lineupRules:4,developmentStart:1,rebuildTeam:'seattle',week:0,playoffRound:null};
@@ -55,7 +55,7 @@ async function checks(){
  const previousRebuild=await api('/api/team/seattle?run_seed=1234&lineup_rules=4&rebuild_team=seattle');
  for(const player of previousRebuild.roster)assert.equal(q(p,`#roster-groups [data-player-id="${player.id}"]`).children[3].textContent,String(player.current_rating));
  q(p,'#simulate-button').click();await until(()=>save(p).week===1);
- assert.equal(save(p).version,16);assert.equal(save(p).lineupRules,4);assert.equal(save(p).rebuildTeam,'seattle');
+ assert.equal(save(p).version,17);assert.equal(save(p).lineupRules,4);assert.equal(save(p).rebuildTeam,'seattle');
  assert.equal(q(p,'#player-stats').textContent.includes('Targets'),false,'Legacy receiving layouts remain unchanged');
  p.dom.window.close();
  // The stronger starting balance must not rewrite the latest rules-5 rebuild save.
@@ -64,8 +64,10 @@ async function checks(){
  const oldBalance=await api('/api/team/seattle?run_seed=1234&lineup_rules=5&rebuild_team=seattle');
  assert.equal(q(p,'#offense-rating').textContent,String(oldBalance.ratings.offense));assert.ok(oldBalance.ratings.offense<68);
  q(p,'#simulate-button').click();await until(()=>save(p).week===1);
- assert.equal(save(p).version,16);assert.equal(save(p).lineupRules,5);assert.equal(save(p).rebuildTeam,'seattle');
+ assert.equal(save(p).version,17);assert.equal(save(p).lineupRules,5);assert.equal(save(p).rebuildTeam,'seattle');
  p.dom.window.close();
+ const v16={...v10,version:16,lineupRules:7,contracts:false,careerStartWeek:1,lineupChanges:[],draftRounds:6};
+ p=await restore(JSON.stringify(v16));assert.match(q(p,'#development-note').textContent,/15% boom \/ 15% bust/);q(p,'#simulate-button').click();await until(()=>save(p).week===1);assert.equal(save(p).version,17);assert.equal(save(p).lineupRules,7,'Existing current-season rules must remain unchanged');p.dom.window.close();
  console.log('Development UI checks passed: legacy season unchanged, migration ages once, actual rating arrows, private longevity, seeded profile equality after reload/week, and invalid development start.');
 }
 (async()=>{const server=spawn(process.env.PYTHON||'python',['-m','uvicorn','app.main:app','--host','127.0.0.1','--port','8773'],{cwd:root,stdio:['ignore','pipe','pipe']});let logs='';server.stdout.on('data',d=>logs+=d);server.stderr.on('data',d=>logs+=d);try{for(let i=0;;i++){if(server.exitCode!==null)throw new Error(logs);try{if((await fetch(base+'/api/teams')).ok)break}catch{}if(i===100)throw new Error(logs);await new Promise(r=>setTimeout(r,100))}await checks()}finally{server.kill()}})().catch(e=>{console.error(e);process.exitCode=1});

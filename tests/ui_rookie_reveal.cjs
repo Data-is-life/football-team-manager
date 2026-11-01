@@ -11,7 +11,7 @@ function page(checkpoint){const dom=new JSDOM(html,{url:base,runScripts:'outside
  w.HTMLDialogElement.prototype.close=function(){this.open=false};w.HTMLDialogElement.prototype.showModal=function(){this.open=true};
  w.fetch=(url,init)=>fetch(new URL(url,base),init);w.eval(script);return {dom,w,d};}
 async function restore(checkpoint){const p=page(checkpoint);await until(()=>/restored|could not/.test(q(p,'#save-status').textContent));assert.match(q(p,'#save-status').textContent,/restored/);return p}
-const roll=id=>Number(createHash('sha256').update(`development-v1:1234:${id}:rookie-reveal-v1`).digest().readBigUInt64BE()%100n);
+const roll=id=>Number(createHash('sha256').update(`development-v1:1234:${id}:rookie-reveal-v2`).digest().readBigUInt64BE()%100n);
 const row=(p,id,scope='#roster-groups')=>q(p,`${scope} [data-player-id="${id}"]`);
 function snapshot(p){return q(p,'#roster-groups').textContent}
 function body(checkpoint,action='profile',extra={}){return {action,run_seed:checkpoint.runSeed,season:checkpoint.season,lineup_rules:checkpoint.lineupRules,development_start:checkpoint.developmentStart,rebuild_team:checkpoint.rebuildTeam,career:checkpoint.career,prior_standings:checkpoint.priorStandings,...extra}}
@@ -35,7 +35,7 @@ async function checks(){
  const picks=[],estimates=[];let board;
  for(const target of ['boom','bust','normal','normal']){
   board=await api('/api/draft/seattle',{season:1,run_seed:1234,lineup_rules:6,rebuild_team:'seattle',manual_picks:picks});
-  const player=board.available.find(p=>p.position!=='K'&&(target==='boom'?roll(p.id)<15&&p.potential_rating<90:target==='bust'?roll(p.id)>=15&&roll(p.id)<30:roll(p.id)>=30));
+  const player=board.available.find(p=>p.position!=='K'&&(target==='boom'?roll(p.id)<20&&p.potential_rating<90:target==='bust'?roll(p.id)>=20&&roll(p.id)<25:roll(p.id)>=25));
   assert.ok(player,target);estimates.push(player);picks.push(player.id);
  }
  board=await api('/api/draft/seattle',{season:1,run_seed:1234,lineup_rules:6,rebuild_team:'seattle',manual_picks:picks});assert.equal(board.complete,true);
@@ -47,7 +47,7 @@ async function checks(){
  while(p.d.querySelectorAll('#roster-groups .roster-player').length>38){const count=save(p).dropped.length;const button=[...p.d.querySelectorAll('#roster-groups [data-drop-id]:not([disabled])')].find(b=>!picks.includes(b.dataset.dropId));assert.ok(button);button.click();q(p,'#cut-confirm').click();await until(()=>save(p).dropped.length===count+1)}
  assert.equal(save(p).lineupRules,6);const frozen=save(p);p.dom.window.close();p=await restore(frozen);
  for(const player of estimates)assert.equal(row(p,player.id).children[4].textContent,String(player.potential_rating));
- q(p,'#next-season').click();await until(()=>save(p).season===2);assert.equal(save(p).lineupRules,7);assert.equal(save(p).version,16);assert.equal(save(p).career[0].lineup_rules,6);
+ q(p,'#next-season').click();await until(()=>save(p).season===2);assert.equal(save(p).lineupRules,8);assert.equal(save(p).version,17);assert.equal(save(p).career[0].lineup_rules,6);
  assert.equal(q(p,'#development-dialog').open,true);
  const current=await api('/api/career/seattle',body(save(p)));checkDevelopment(p,current);
  const unchanged=q(p,'#development-show-unchanged');unchanged.checked=true;unchanged.dispatchEvent(new p.w.Event('change'));checkDevelopment(p,current,true);
@@ -56,7 +56,7 @@ async function checks(){
  const byId=new Map(current.roster.map(player=>[player.id,player]));
  for(let i=0;i<estimates.length;i++){
   const original=estimates[i],player=byId.get(original.id),view=row(p,original.id),delta=player.potential_rating-original.potential_rating;
-  assert.equal(player.rookie_outcome,i===0?'boom':i===1?'bust':'normal');assert.equal(player.potential_change,delta);assert.equal(player.rating_change,player.current_rating-original.current_rating);
+  assert.equal(player.rookie_outcome,i===0?'boom':i===1?'bust':'normal');if(i>=2){const room=original.potential_rating-original.current_rating;assert.equal(delta,0);assert.ok(player.current_rating-original.current_rating>=Math.min(1,room));assert.ok(player.current_rating-original.current_rating<=Math.min(2,room));}assert.equal(player.potential_change,delta);assert.equal(player.rating_change,player.current_rating-original.current_rating);
   assert.equal(player.age,original.age);assert.equal(player.experience,0);assert.ok(view.querySelector('.rookie-badge'));assert.equal(view.children[3].firstChild.textContent,String(player.current_rating));assert.equal(view.children[4].firstChild.textContent,String(player.potential_rating));
   const arrow=view.querySelector('.potential-change');
   if(delta){assert.ok(arrow);assert.equal(arrow.classList.contains(delta>0?'improved':'declined'),true);assert.match(arrow.textContent,new RegExp(delta>0?'↑ \\+'+delta:'↓ '+delta));assert.match(arrow.getAttribute('aria-label'),/Potential.*from.*to/);assert.match(arrow.title,/draft estimate/)}else assert.equal(arrow,null);

@@ -66,7 +66,7 @@ async function checks() {
  assert.equal(q(p,'#season-display').textContent,'2');assert.equal(q(p,'#draft-recap').hidden,true);assert.equal(q(p,'#draft-recap-rows').children.length,0);
  assert.deepEqual([...p.d.querySelectorAll('.roster-player')].map(row=>[row.dataset.playerId,row.children[1].textContent]).sort(),roster,'Player IDs and names survive offseason aging');
  assert.equal(save(p).runSeed,1234);assert.deepEqual(save(p).priorStandings,ranks);
- assert.equal(save(p).version,16);assert.equal(save(p).contracts,false);assert.equal(q(p,"#gm-contract").hidden,true);assert.equal(save(p).week,0);assert.equal(save(p).playoffRound,null);
+ assert.equal(save(p).version,17);assert.equal(save(p).contracts,false);assert.equal(q(p,"#gm-contract").hidden,true);assert.equal(save(p).week,0);assert.equal(save(p).playoffRound,null);
  assert.equal(q(p,'#qualification-status').hidden,true);assert.equal(q(p,'#qualification-status').textContent,'');
  assert.equal(q(p,'#season-record').textContent,'0–0');assert.equal(q(p,'#next-season').hidden,true);
  assert.equal(q(p,'#postseason-section').hidden,true);
@@ -93,7 +93,7 @@ async function checks() {
   }
  }
  assert.equal(q(p,'#next-season').hidden,true);
- const expected=await (await fetch(base+'/api/career/'+id,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'week',season:2,week:17,run_seed:1234,lineup_rules:7,development_start:2,prior_standings:ranks,career:save(p).career})})).json();
+ const expected=await (await fetch(base+'/api/career/'+id,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'week',season:2,week:17,run_seed:1234,lineup_rules:8,development_start:2,prior_standings:ranks,career:save(p).career})})).json();
  const rec=expected.record;assert.equal(q(p,'#season-record').textContent,`${rec.wins}–${rec.losses}${rec.ties?`–${rec.ties}`:''}`);
  q(p,'#playoffs-start').click();await until(()=>save(p).playoffRound===0);
  for(let round=1;round<=4;round++) {

@@ -154,7 +154,7 @@ async function checks(){
   q(p,'#draft-button').click();assert.match(q(p,'#draft-format').textContent,/4 rounds/);
   if(count<4){
    q(p,'#auto-draft').click();await until(()=>save(p).draftChoices.length===4);
-   assert.equal(save(p).version,16);assert.equal(save(p).draftRounds,4);
+   assert.equal(save(p).version,17);assert.equal(save(p).draftRounds,4);
    assert.deepEqual(p.state.last.picks,oldDraft.picks);checkRecap(p,oldDraft.picks);
    const frozen=raw(p);p.dom.window.close();p=await restore(frozen);assert.equal(p.state.last.rounds,4);assert.deepEqual(p.state.last.picks,oldDraft.picks);checkRecap(p,oldDraft.picks);
   }
