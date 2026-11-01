@@ -331,3 +331,13 @@ tr.selected-team td { color: var(--cyan); background: rgba(72,230,210,0.07); }
 .info-control > summary:focus-visible { outline: 2px solid var(--cyan); outline-offset: 3px; }
 .info-control[open] { flex-basis: 100%; }
 .info-control .roster-note { font-size: .95rem; line-height: 1.6; padding: 8px 10px; margin: 0; }
+
+#league-leaders-button { margin-bottom: 16px; }
+.leaders-category { margin: 24px 0; }
+.leaders-category h3 { font-size: 1.2rem; margin-bottom: 10px; }
+.league-leaders-table { font-size: 1rem; }
+.league-leaders-table th:nth-child(2), .league-leaders-table td:nth-child(2),
+.league-leaders-table th:nth-child(3), .league-leaders-table td:nth-child(3) { text-align: left; }
+.leader-own { background: rgba(72,230,210,.08); border-left: 3px solid var(--cyan); }
+.leaders-your-best { padding: 12px; line-height: 1.6; }
+.leaders-category .table-wrap:focus-visible { outline: 2px solid var(--cyan); outline-offset: 3px; }
