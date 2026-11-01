@@ -435,7 +435,7 @@ async function checkUI() {
    assert.equal(advance.hidden,state.postseason_complete);assert.equal(start.hidden,true);
    assert.equal(d.querySelector('#simulate-button').hidden,true);assert.equal(d.querySelector('#simulate-season').hidden,true);
    assert.equal(d.querySelector('#draft-button').hidden,!state.postseason_complete);
-   assert.equal(d.querySelector('#starter-editor').hidden,!state.qualified||state.eliminated||state.postseason_complete);
+   assert.equal(d.querySelector('#starter-editor').hidden,!state.qualified||state.eliminated||state.postseason_complete);assert.equal(d.querySelector('#auto-starters').hidden,d.querySelector('#starter-editor').hidden);
    go('roster');checkRoster(state.roster_stats,'playoffs');checkRoster(regularFinal,'regular');checkRoster(state.roster_stats,'playoffs');go('playoffs');
    const latest=state.rounds.at(-1);
    const own=latest.games.find(g=>g.home.team.id===id||g.away.team.id===id);

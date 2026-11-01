@@ -150,6 +150,7 @@
                   <button id="roster-ratings-button" class="secondary-button" type="button" aria-pressed="true" aria-controls="roster-groups">Ratings</button>
                   <button id="roster-stats-button" class="secondary-button" type="button" aria-pressed="false" aria-controls="roster-groups">Season Stats</button>
                 </div>
+                <button id="auto-starters" type="button" class="secondary-button">Select best starters</button>
                 <div id="roster-competition-control" hidden>
                   <label for="roster-competition">Competition</label>
                   <select id="roster-competition">
@@ -158,6 +159,7 @@
                   </select>
                 </div>
               </div>
+              <p id="starter-status" class="roster-note" role="status" aria-atomic="true"></p>
               <p id="roster-stats-status" class="roster-note" role="status" hidden></p>
               <p id="roster-stats-note" class="roster-note" hidden>Defense and line stats are aggregate estimates. Tackles include sacks; pass snaps include sacks.</p>
               <div class="info-controls">
@@ -187,10 +189,8 @@
                 <form id="starter-form">
                   <div id="starter-fields" class="starter-fields"></div>
                   <button id="save-starters" type="submit">Save starters</button>
-                  <button id="auto-starters" type="button" class="secondary-button">Auto-select best</button>
                   <button id="cancel-starters" type="button" class="secondary-button">Cancel</button>
                 </form>
-                <p id="starter-status" class="roster-note" role="status" aria-atomic="true"></p>
               </details>
               <div id="roster-groups" class="roster-groups"></div>
             </section>
