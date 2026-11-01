@@ -31,5 +31,7 @@ jobs:
         run: npm ci
       - name: Check JavaScript syntax
         run: node --check app/static/app.js
+      - name: Check UI test runner
+        run: npm run test:runner
       - name: Run UI interaction checks
         run: npm run test:ui

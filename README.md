@@ -155,7 +155,11 @@ npm ci
 npm run test:ui
 ```
 
-The UI suites start local FastAPI servers on ports 8767, 8769, 8770, 8771, 8772, 8773, and 8774 and checks tab/keyboard navigation, empty states, full seasons and playoffs, box-score values, roster collapse state, always-expanded league content, failed-request retry, team reset/cancel, save restoration, and multiple-season continuation using jsdom. Node dependencies are only for development checks; Render still runs the Python app directly. These DOM checks do not verify visual layout.
+The 14 UI suites run with two workers by default, each with an isolated jsdom session and its own local FastAPI port (8767 and 8769–8781). They check tab/keyboard navigation, empty states, full seasons and playoffs, box-score values, roster collapse state, always-expanded league content, failed-request retry, team reset/cancel, save restoration, and multiple-season continuation using jsdom. Node dependencies are only for development checks; Render still runs the Python app directly. These DOM checks do not verify visual layout.
+
+For sequential debugging or a machine with limited resources, use `npm run test:ui -- --workers=1`. Workers can be set from 1 to 4; the default stays at 2 for CI. Run only one full UI command at a time because suites use fixed ports. Each suite still runs all of its scenarios in sequence. The measured longest suite starts first; remaining suites fill the available worker slots. Failures retain their output and fail the overall command; other suites finish so their results remain visible. A five-minute per-suite timeout bounds hangs, and Linux/macOS cancellation terminates each suite's server process group too.
+
+Use `npm run test:ui -- --report=ui-timings.json` for total and per-suite timings with results. `npm run test:runner` checks scheduling, failure propagation, discovery and timeout cleanup; CI runs it before the interaction suites. See [test timing measurements](docs/test-performance.md) for the before/after comparison. All existing interaction scenarios and Python checks remain enabled.
 
 ## Randomized runs
 
