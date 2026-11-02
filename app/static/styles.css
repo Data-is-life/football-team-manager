@@ -341,3 +341,11 @@ tr.selected-team td { color: var(--cyan); background: rgba(72,230,210,0.07); }
 .leader-own { background: rgba(72,230,210,.08); border-left: 3px solid var(--cyan); }
 .leaders-your-best { padding: 12px; line-height: 1.6; }
 .leaders-category .table-wrap:focus-visible { outline: 2px solid var(--cyan); outline-offset: 3px; }
+
+/* Keep release confirmation in the same position group without widening tables. */
+.cut-confirmation-row > td { white-space: normal; text-align: left; }
+.cut-confirmation-row .empty-state { margin: 0; }
+.cut-confirmation-row p { overflow-wrap: anywhere; }
+
+#roster-groups { overflow-anchor: none; }
+.cut-confirmation-row .empty-state { max-width: min(36rem, calc(100vw - 5rem)); }
