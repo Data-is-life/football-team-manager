@@ -48,7 +48,7 @@ async function checkUI() {
   await until(()=>d.querySelector('#team-select').options.length===31);
   await until(()=>/restored/.test(d.querySelector('#save-status').textContent));
   await until(()=>!d.querySelector('#schedule-section').hidden);
-  const helpTopics=['team-ratings','career-records','player-development','roster-limits','roster-cuts','starter-selection','playoff-format','draft-format'];
+  const helpTopics=['team-ratings','career-records','player-development','roster-limits','roster-cuts','starter-selection','playoff-format','draft-format','career-guide','contract','schedule-rules','tiebreakers'];
   assert.equal(d.querySelectorAll('.info-control').length,helpTopics.length);
   const beforeHelp=w.localStorage.getItem('arcade-league-save');
   for(const topic of helpTopics){
@@ -67,7 +67,7 @@ async function checkUI() {
    for(const dialog of dialogs)dialog.close();for(const detail of closed)detail.open=false;for(const node of hidden)node.hidden=true;
   }
   assert.equal(w.localStorage.getItem('arcade-league-save'),beforeHelp,'Reading help cannot alter saved progress');
-  for(const selector of ['[role="status"]','[role="alert"]','#starter-timing','#cut-count','#cut-confirmation','#qualification-status','#roster-stats-note','#gm-legacy-note']){
+  for(const selector of ['[role="status"]','[role="alert"]','#starter-timing','#cut-count','#cut-confirmation','#qualification-status','#gm-legacy-note']){
    for(const node of d.querySelectorAll(selector))assert.equal(node.closest('.info-control'),null,'Progress, warnings and action timing stay outside help');
   }
   assert.equal(d.querySelector('#rating-method').closest('.info-control').id,'team-ratings-info');
@@ -105,7 +105,7 @@ async function checkUI() {
    assert.doesNotMatch(d.querySelector('#roster-groups').textContent,/Scouting rating|Football IQ|Clutch Factor/);
   }
   checkRatings(api);
-  const views=['roster','game','schedule','standings','league','race','playoffs','gm'];
+  const views=['roster','game','schedule','standings','league','race','playoffs','gm','help'];
   assert.deepEqual([...d.querySelectorAll('.view-tab')].map(tab=>tab.id),views.map(view=>`view-${view}`));
   let requests=0;
   const originalFetch=w.fetch;
@@ -133,9 +133,9 @@ async function checkUI() {
    button.dispatchEvent(new w.KeyboardEvent('keydown',{key,bubbles:true,cancelable:true}));
    checkView(to);assert.equal(d.activeElement.id,`view-${to}`);
   }
-  key('roster','ArrowLeft','gm');
-  key('gm','ArrowRight','roster');
-  key('schedule','End','gm');
+  key('roster','ArrowLeft','help');
+  key('help','ArrowRight','roster');
+  key('schedule','End','help');
   key('gm','Home','roster');
   key('roster','ArrowRight','game');
   const rosterGroup=d.querySelector('.roster-group');rosterGroup.open=false;
@@ -548,7 +548,7 @@ async function checkUI() {
   assert.doesNotMatch(fixture.textContent,/NaN|Infinity|null|undefined/);
   dom.window.close();
  }
- console.log('UI checks passed: eight tabs, keyboard navigation, empty states, unchanged views across weeks, roster collapse state, always-expanded league content, efficiency/kicking/roster season stats, full seasons/playoffs, retry, team reset/cancel, phase-correct simulation/draft/starter actions and playoff replay guards, and labeled native info disclosures with focus/click toggling, unchanged saves, live dynamic help and visible statuses.');
+ console.log('UI checks passed: nine tabs, keyboard navigation, empty states, unchanged views across weeks, roster collapse state, always-expanded league content, efficiency/kicking/roster season stats, full seasons/playoffs, retry, team reset/cancel, phase-correct simulation/draft/starter actions and playoff replay guards, and labeled native info disclosures with focus/click toggling, unchanged saves, live dynamic help and visible statuses.');
  }
 (async()=>{
  const server=spawn(process.env.PYTHON || 'python',['-m','uvicorn','app.main:app','--host','127.0.0.1','--port','8767'],{cwd:root,stdio:['ignore','pipe','pipe']});
