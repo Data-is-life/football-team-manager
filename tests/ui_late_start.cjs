@@ -44,9 +44,7 @@ async function checks(){
  assert.equal(status([intro,...misses,{...misses[0],season:5}],6,null,2).reason,'deadline','Intro playoffs cannot satisfy the full-season deadline');
  assert.equal(status([intro,...misses,{...misses[0],season:5,playoffFinish:'Lost in Wild Card'}],6,null,2).fired,false);
  p.dom.window.close();p=await restore(inherited);assert.equal(q(p,'#gm-regular').textContent,'0–0–0');assert.equal(q(p,'#simulate-button').textContent,'Simulate Week 17');assert.equal(raw(p),JSON.stringify(inherited));
- // Pick a starter before the only managed regular-season game; inherited games stay unchanged.
- const qb=p.d.querySelectorAll('#starter-fields select[data-starter-position="QB"]')[0];qb.value=qb.options[1].value;
- q(p,'#starter-form').dispatchEvent(new p.w.Event('submit',{cancelable:true}));await until(()=>/saved for/.test(q(p,'#starter-status').textContent));assert.equal(save(p).lineupChanges[0].week,17);
+ assert.equal(q(p,'#starter-form'),null);assert.deepEqual(save(p).lineupChanges,[]);
  p.state.weeks=[];q(p,'#simulate-season').click();await until(()=>save(p).week===17&&q(p,'#stop-season').hidden);assert.deepEqual(p.state.weeks,[17]);assert.equal(save(p).playoffRound,null);assert.equal(save(p).draftChoices,null);
  const managed=p.w.managedRecord(p.state.lastWeek);assert.equal(managed.wins+managed.losses+managed.ties,1);assert.equal(q(p,'#gm-regular').textContent,record(managed));assert.match(q(p,'#contract-status').textContent,/4 years remaining.*Season 5/);
  // Opponent records update with Week 17, but inherited score results cannot change.
@@ -67,6 +65,6 @@ async function checks(){
  for(const input of [{...inherited,week:0},{...inherited,careerStartWeek:16},{...yearTwo,history:yearTwo.history.map(({gmRecord,...entry})=>entry)}]){
   p=page(input);await until(()=>/could not be read/.test(q(p,'#save-status').textContent));assert.equal(raw(p),JSON.stringify(input));p.dom.window.close();
  }
- console.log('Late-start UI checks passed: inherited 16 games, one managed final game, GM/team record separation, four full contract seasons without intro extensions, reloads, manual starters, mandatory draft/cuts, full Season 2, archived GM record, legacy rules, failed replacement, and invalid-save preservation.');
+ console.log('Late-start UI checks passed: inherited 16 games, one managed final game, GM/team record separation, four full contract seasons without intro extensions, reloads, automatic starters, mandatory draft/cuts, full Season 2, archived GM record, legacy rules, failed replacement, and invalid-save preservation.');
 }
 (async()=>{const server=spawn(process.env.PYTHON||'python',['-m','uvicorn','app.main:app','--host','127.0.0.1','--port','8779'],{cwd:root,stdio:['ignore','pipe','pipe']});let logs='';server.stdout.on('data',d=>logs+=d);server.stderr.on('data',d=>logs+=d);try{for(let i=0;;i++){if(server.exitCode!==null)throw new Error(logs);try{if((await fetch(base+'/api/teams')).ok)break}catch{}if(i===100)throw new Error(logs);await new Promise(r=>setTimeout(r,100))}await checks()}finally{server.kill()}})().catch(e=>{console.error(e);process.exitCode=1});

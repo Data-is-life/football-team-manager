@@ -84,7 +84,7 @@ async function checks(){
   const nonqual=result.standings.groups.flatMap(g=>g.teams).find(row=>!result.standings.playoff_race.some(f=>f.team.id===row.team.id)&&row.wins<=row.losses).team.id;
   const dead=checkpoint(nonqual,year,history,ranks);p=await restore(dead);
   assert.match(q(p,'#contract-status').textContent,/Fired.*Career over/);assert.match(q(p,'#owner-feedback').textContent,new RegExp(reason));
-  assert.equal(q(p,'#simulate-button').disabled,true);for(const action of ['simulate-button','simulate-season','stop-season','playoffs-start','playoff-simulate','draft-button','next-season','manage-roster','starter-editor','auto-starters'])assert.equal(q(p,'#'+action).hidden,true);assert.equal(q(p,'#playoffs-start').hidden,true);assert.equal(q(p,'#next-season').hidden,true);
+  assert.equal(q(p,'#simulate-button').disabled,true);for(const action of ['simulate-button','simulate-season','stop-season','playoffs-start','playoff-simulate','draft-button','next-season','manage-roster'])assert.equal(q(p,'#'+action).hidden,true);assert.equal(q(p,'#playoffs-start').hidden,true);assert.equal(q(p,'#next-season').hidden,true);
   assert.equal(q(p,'#owner-update').hidden,false);assert.match(q(p,'#owner-update-text').textContent,/fired.*career is over/);assert.equal(q(p,'#owner-update-dismiss').hidden,true);
   q(p,'#owner-update-dismiss').click();assert.equal(q(p,'#owner-update').hidden,false,'Terminal career status cannot be hidden');
   await checkGuards(p);assert.equal(raw(p),JSON.stringify(dead));p.dom.window.close();p=await restore(dead);assert.match(q(p,'#contract-status').textContent,/Fired/);p.dom.window.close();
