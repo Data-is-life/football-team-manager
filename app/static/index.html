@@ -83,13 +83,12 @@
           </div>
           <p id="season-simulation-status" class="roster-note" role="status" aria-atomic="true" hidden></p>
           <p id="season-status" class="season-status" role="status">Ready for Week 1.</p>
-          <section id="gm-contract" class="contract-panel" aria-labelledby="contract-title" hidden>
-            <h2 id="contract-title">Your GM contract</h2>
-            <p id="contract-status" class="contract-status"></p>
-            <p id="owner-feedback" role="status" aria-atomic="true"></p>
-            <details id="contract-info" class="info-control"><summary><span aria-hidden="true">ⓘ</span> Contract rules</summary><div class="info-body">
-              <p id="contract-rules">Make the playoffs at least once in your first four seasons or lose the job, even if winning records earn extensions. Each season earns only the highest reward: championship +5 years; otherwise playoffs +2; otherwise a winning record (more wins than losses) +1; otherwise no extension. Extensions add to your remaining contract. After the opening deadline, an expired contract ends your career.</p>
-            </div></details>
+
+          <section id="owner-update" class="owner-update" aria-labelledby="owner-update-title" hidden>
+            <h2 id="owner-update-title">Season-end owner update</h2>
+            <p id="owner-update-text" role="status" aria-atomic="true"></p>
+            <button id="owner-update-details" class="secondary-button" type="button">View GM Records</button>
+            <button id="owner-update-dismiss" class="secondary-button" type="button">Dismiss</button>
           </section>
           <p id="qualification-status" role="status" aria-atomic="true" data-outcome="neutral" hidden></p>
           <p id="draft-summary" class="roster-note" role="status" hidden></p>
@@ -118,6 +117,14 @@
           <div id="panel-gm" class="view-panel" role="tabpanel" aria-labelledby="view-gm" tabindex="0" hidden>
             <section aria-labelledby="gm-title">
               <p class="eyebrow" id="gm-team"></p><h2 id="gm-title">GM Records</h2>
+          <section id="gm-contract" class="contract-panel" aria-labelledby="contract-title" hidden>
+            <h2 id="contract-title">Your GM contract</h2>
+            <p id="contract-status" class="contract-status"></p>
+            <p id="owner-feedback" role="status" aria-atomic="true"></p>
+            <details id="contract-info" class="info-control"><summary><span aria-hidden="true">ⓘ</span> Contract rules</summary><div class="info-body">
+              <p id="contract-rules">Make the playoffs at least once in your first four seasons or lose the job, even if winning records earn extensions. Each season earns only the highest reward: championship +5 years; otherwise playoffs +2; otherwise a winning record (more wins than losses) +1; otherwise no extension. Extensions add to your remaining contract. After the opening deadline, an expired contract ends your career.</p>
+            </div></details>
+          </section>
               <details id="career-records-info" class="info-control"><summary><span aria-hidden="true">ⓘ</span> How records are counted</summary><div class="info-body">
                 <p class="roster-note">Career totals include the current season. Playoff appearances count when the final field is set; byes do not count as wins.</p>
               <p id="gm-tenure-note" class="roster-note" hidden>Your tenure began in Season 1, Week 17. The first 16 inherited games count toward team standings and player stats, but not your GM W–L–T.</p></div></details>
