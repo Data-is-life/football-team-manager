@@ -48,9 +48,9 @@ def request_lineups(seed, rules, season, start, rebuild_team=None):
 
 @app.get("/api/team/{team_id}")
 def team_profile(team_id: str, run_seed: Annotated[int, Query(ge=0, le=4294967295)] = 0,
-                 lineup_rules: Annotated[int, Query(ge=1, le=9)] = 1,
-                 season: Annotated[int, Query(ge=1, le=999)] = 1,
-                 development_start: Annotated[int, Query(ge=1, le=999)] = 1,
+                 lineup_rules: Annotated[int, Query(ge=1, le=10)] = 1,
+                 season: Annotated[int, Query(ge=1, le=1099)] = 1,
+                 development_start: Annotated[int, Query(ge=1, le=1099)] = 1,
                  rebuild_team: Annotated[str | None, Query(max_length=40)] = None) -> dict[str, object]:
     if team_id not in TEAM_BY_ID:
         raise HTTPException(status_code=404, detail="Team not found")
@@ -104,10 +104,10 @@ def parse_prior_standings(raw: str | None) -> tuple[tuple[str, int], ...]:
 @app.get("/api/schedule/{team_id}")
 def team_schedule(
     team_id: str,
-    season: int = Query(default=1, ge=1, le=999),
+    season: int = Query(default=1, ge=1, le=1099),
     prior_standings: Annotated[str | None, Query(max_length=2000)] = None,
-    lineup_rules: Annotated[int, Query(ge=1, le=9)] = 1,
-    development_start: Annotated[int, Query(ge=1, le=999)] = 1,
+    lineup_rules: Annotated[int, Query(ge=1, le=10)] = 1,
+    development_start: Annotated[int, Query(ge=1, le=1099)] = 1,
     rebuild_team: Annotated[str | None, Query(max_length=40)] = None,
 ) -> dict[str, object]:
     if team_id not in TEAM_BY_ID:
@@ -127,11 +127,11 @@ def team_schedule(
 def simulate_week(
     team_id: str,
     week: int,
-    season: int = Query(default=1, ge=1, le=999),
+    season: int = Query(default=1, ge=1, le=1099),
     run_seed: Annotated[int, Query(ge=0, le=4294967295)] = 0,
     prior_standings: Annotated[str | None, Query(max_length=2000)] = None,
-    lineup_rules: Annotated[int, Query(ge=1, le=9)] = 1,
-    development_start: Annotated[int, Query(ge=1, le=999)] = 1,
+    lineup_rules: Annotated[int, Query(ge=1, le=10)] = 1,
+    development_start: Annotated[int, Query(ge=1, le=1099)] = 1,
     rebuild_team: Annotated[str | None, Query(max_length=40)] = None,
 ) -> dict[str, object]:
     if team_id not in TEAM_BY_ID:
@@ -147,11 +147,11 @@ def simulate_week(
 def playoff_round(
     team_id: str,
     round_number: int,
-    season: int = Query(default=1, ge=1, le=999),
+    season: int = Query(default=1, ge=1, le=1099),
     run_seed: Annotated[int, Query(ge=0, le=4294967295)] = 0,
     prior_standings: Annotated[str | None, Query(max_length=2000)] = None,
-    lineup_rules: Annotated[int, Query(ge=1, le=9)] = 1,
-    development_start: Annotated[int, Query(ge=1, le=999)] = 1,
+    lineup_rules: Annotated[int, Query(ge=1, le=10)] = 1,
+    development_start: Annotated[int, Query(ge=1, le=1099)] = 1,
     rebuild_team: Annotated[str | None, Query(max_length=40)] = None,
 ) -> dict[str, object]:
     if team_id not in TEAM_BY_ID:
@@ -164,10 +164,10 @@ def playoff_round(
 
 class DraftRequest(BaseModel):
     draft_rounds: Literal[4, 6] = 4
-    season: int = Field(default=1, ge=1, le=998)
+    season: int = Field(default=1, ge=1, le=1098)
     run_seed: int = Field(default=0, ge=0, le=4294967295)
-    lineup_rules: Literal[1, 2, 3, 4, 5, 6, 7, 8, 9] = 1
-    development_start: int = Field(default=1, ge=1, le=999)
+    lineup_rules: Literal[1, 2, 3, 4, 5, 6, 7, 8, 9, 10] = 1
+    development_start: int = Field(default=1, ge=1, le=1099)
     rebuild_team: str | None = Field(default=None, max_length=40)
     prior_standings: dict[str, StrictInt] | None = None
     manual_picks: list[str] = Field(default_factory=list, max_length=6)
@@ -198,8 +198,8 @@ class LineupChange(BaseModel):
 class CareerStep(BaseModel):
     draft_rounds: Literal[4, 6] = 4
     lineup_changes: list[LineupChange] = Field(default_factory=list, max_length=21)
-    lineup_rules: Literal[1, 2, 3, 4, 5, 6, 7, 8, 9] = 1
-    season: int = Field(ge=1, le=998)
+    lineup_rules: Literal[1, 2, 3, 4, 5, 6, 7, 8, 9, 10] = 1
+    season: int = Field(ge=1, le=1098)
     prior_standings: dict[str, StrictInt] | None = None
     manual_picks: list[str] = Field(min_length=4, max_length=6)
     dropped: list[str] = Field(default_factory=list, max_length=44)
@@ -215,10 +215,10 @@ class CareerRequest(BaseModel):
     draft_rounds: Literal[4, 6] = 4
     lineup_changes: list[LineupChange] = Field(default_factory=list, max_length=21)
     action: Literal['profile', 'week', 'playoffs', 'draft', 'cuts', 'leaders']
-    season: int = Field(default=1, ge=1, le=999)
+    season: int = Field(default=1, ge=1, le=1099)
     run_seed: int = Field(default=0, ge=0, le=4294967295)
-    lineup_rules: Literal[1, 2, 3, 4, 5, 6, 7, 8, 9] = 1
-    development_start: int = Field(default=1, ge=1, le=999)
+    lineup_rules: Literal[1, 2, 3, 4, 5, 6, 7, 8, 9, 10] = 1
+    development_start: int = Field(default=1, ge=1, le=1099)
     rebuild_team: str | None = Field(default=None, max_length=40)
     prior_standings: dict[str, StrictInt] | None = None
     career: list[CareerStep] = Field(default_factory=list, max_length=998)

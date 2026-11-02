@@ -61,6 +61,33 @@ async function checks(){
  await finishOffseason(p,until);q(p,'#next-season').click();await until(()=>save(p).season===2);
  assertBest(p);assert.deepEqual(save(p).lineupChanges,[]);assert.deepEqual(save(p).career[0].lineup_changes,[past]);
  const next=save(p);p.dom.window.close();p=await restore(next);assertBest(p);assert.deepEqual(save(p).career[0].lineup_changes,[past]);p.dom.window.close();
- console.log('Automatic starter UI checks passed: controls removed, best-rated starters, legacy regular/playoff migration, historical result parity, failed restore/retry, idempotent reload, draft/cuts/rollover, and preserved manual history.');
+ // New retirement careers flag departures during the season, then retain
+ // their earned stats while the active roster moves through draft and cuts.
+ const retirementCareer={...checkpoint,runSeed:1,lineupRules:10,week:16};
+ p=await restore(retirementCareer);q(p,'#view-roster').click();
+ const planned=[...p.d.querySelectorAll('#roster-groups .retirement-badge')].map(b=>b.closest('[data-player-id]').dataset.playerId);
+ assert.equal(planned.length,5);assert.ok([...p.d.querySelectorAll('#roster-groups .retirement-badge')].every(b=>b.textContent==='Retiring after this season'));
+ const savedPlan=raw(p);p.dom.window.close();p=await restore(JSON.parse(savedPlan));
+ assert.equal(p.d.querySelectorAll('#roster-groups .retirement-badge').length,5);
+ q(p,'#simulate-button').click();await until(()=>save(p).week===17);
+ q(p,'#playoffs-start').click();await until(()=>save(p).playoffRound===0);
+ for(let round=1;round<=4;round++){q(p,'#playoff-simulate').click();await until(()=>save(p).playoffRound===round)}
+ assert.equal(q(p,'#retirement-summary').hidden,false);assert.equal(p.d.querySelectorAll('#retirement-list li').length,5);
+ for(const id of planned)assert.equal(q(p,`#roster-groups .roster-rating-wrap [data-player-id="${id}"]`).hidden,true);
+ q(p,'#view-roster').click();q(p,'#roster-stats-button').click();
+ const stats=new Map(planned.map(id=>{const row=q(p,`.roster-season-player[data-player-id="${id}"]`);assert.match(row.cells[1].textContent,/Retired/);return [id,[...row.cells].slice(3).map(cell=>cell.textContent)]}));
+ await finishOffseason(p,until);
+ assert.ok(planned.every(id=>!q(p,`.roster-rating-wrap [data-player-id="${id}"]`)));
+ const cuts=save(p).dropped.length;
+ const drop=p.d.querySelector('#roster-groups [data-drop-id]:not([disabled])');drop.click();q(p,'#cut-confirm').click();await until(()=>save(p).dropped.length===cuts+1);
+ assert.equal(p.d.querySelectorAll('#roster-groups .roster-player').length,38);
+ assert.ok([...p.d.querySelectorAll('#roster-groups .roster-player')].some(row=>row.dataset.playerId.startsWith('replacement-')));
+ q(p,'#roster-stats-button').click();
+ for(const [id,values]of stats)assert.deepEqual([...q(p,`.roster-season-player[data-player-id="${id}"]`).cells].slice(3).map(cell=>cell.textContent),values,'Retired players keep their earned stats');
+ const afterRetirement=save(p);p.dom.window.close();p=await restore(afterRetirement);
+ assert.equal(p.d.querySelectorAll('#retirement-list li').length,5);assert.ok(planned.every(id=>!q(p,`.roster-rating-wrap [data-player-id="${id}"]`)));
+ q(p,'#next-season').click();await until(()=>save(p).season===2);
+ assert.ok(planned.every(id=>!q(p,`.roster-rating-wrap [data-player-id="${id}"]`)));assertBest(p);assert.equal(q(p,'#retirement-summary').hidden,true);p.dom.window.close();
+ console.log('Automatic starter UI checks passed: controls removed, best-rated starters, legacy regular/playoff migration, historical result parity, failed restore/retry, idempotent reload, draft/cuts/rollover, preserved manual history, retirement labels/removal, archived stats and low-rated replacements.');
 }
 (async()=>{const server=spawn(process.env.PYTHON||'python',['-m','uvicorn','app.main:app','--host','127.0.0.1','--port','8778'],{cwd:root,stdio:['ignore','pipe','pipe']});let logs='';server.stdout.on('data',d=>logs+=d);server.stderr.on('data',d=>logs+=d);try{for(let i=0;;i++){if(server.exitCode!==null)throw new Error(logs);try{if((await fetch(base+'/api/teams')).ok)break}catch{}if(i===100)throw new Error(logs);await new Promise(r=>setTimeout(r,100))}await checks()}finally{server.kill()}})().catch(e=>{console.error(e);process.exitCode=1});

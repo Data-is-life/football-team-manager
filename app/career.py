@@ -2,7 +2,7 @@
 from collections import Counter
 from functools import lru_cache
 
-from .draft import build_draft
+from .draft import build_draft, player_payload
 from .simulation import ROSTER_RULES, validate_roster, ranked_players
 from .lineups import lineup_context, replace_lineup_rosters
 from .starter_choices import with_starters
@@ -48,7 +48,18 @@ def offseason(team_id, season, run_seed, choices, dropped, prior=(), roster_cont
     draft, rosters = build_draft(team_id, season, run_seed, choices, prior, roster_context, return_league=True, draft_rounds=draft_rounds)
     if not draft['complete']:
         raise ValueError('Complete all draft picks before dropping players')
-    rosters[team_id] = arrange_depth(drop_players(rosters[team_id], dropped))
+    if getattr(roster_context,'lineup_rules',1) >= 10:
+        from .retirement import fill_roster
+        if len(dropped) != len(set(dropped)): raise ValueError('A player cannot be dropped twice')
+        excluded = []
+        for identity in dropped:
+            rosters[team_id] = drop_players(rosters[team_id], [identity])
+            excluded.append(identity)
+            rosters[team_id] = fill_roster(rosters[team_id],team_id,season,run_seed,excluded)
+        rosters[team_id] = arrange_depth(rosters[team_id])
+        draft['replacements'] = [player_payload(p,roster_context) for p in rosters[team_id] if p.id.startswith(f'replacement-{run_seed}-{season+1}-')]
+    else:
+        rosters[team_id] = arrange_depth(drop_players(rosters[team_id], dropped))
     for other in rosters:
         if other != team_id:
             rosters[other] = cpu_cuts(rosters[other])

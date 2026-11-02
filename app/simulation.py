@@ -66,7 +66,7 @@ def ranked_players(players):
 def lineup_unit_rating(players, positions):
     starters = [p.rating for p in players if p.position in positions and p.depth <= ROSTER_RULES[p.position][1]]
     bench = [p.rating for p in players if p.position in positions and p.depth > ROSTER_RULES[p.position][1]]
-    starter_average = sum(starters) / len(starters)
+    starter_average = sum(starters) / len(starters) if starters else 1
     bench_average = sum(bench) / len(bench) if bench else starter_average
     return max(1, min(99, round(.8 * starter_average + .2 * bench_average)))
 

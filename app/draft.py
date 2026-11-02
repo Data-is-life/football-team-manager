@@ -64,10 +64,14 @@ def draft_order(season: int, run_seed: int, prior_standings: tuple = (), roster_
             for group in groups for team_id in group]
 
 
-def cpu_pick(available, current, additions):
+def cpu_pick(available, current, additions, retirement_rules=False):
     """Shared quality/need/repeat-position policy for CPU and user auto-picks."""
     position_quality = {position: sum(p.rating for p in current if p.position == position)
-                        / sum(p.position == position for p in current) for position in ROSTER_RULES}
+                        / max(1,sum(p.position == position for p in current)) for position in ROSTER_RULES}
+    if retirement_rules:
+        counts = {position:sum(p.position == position for p in current) for position in ROSTER_RULES}
+        shortages = [p for p in available if counts[p.position] < ROSTER_RULES[p.position][1]]
+        if shortages: available = shortages
     return max(available, key=lambda p: (
         p.rating - .25 * position_quality[p.position] - 12 * additions.get(p.position, 0),
         p.rating, p.id))
@@ -93,6 +97,13 @@ def build_draft(team_id: str, season: int, run_seed: int, choices: tuple[str, ..
         raise ValueError('Unknown prospect')
     order = draft_order(season, run_seed, prior_standings, roster_context)
     rosters = {team.id: list(roster_for(team.id, run_seed, roster_context).values()) for team in TEAMS}
+    retirement_rules = getattr(roster_context,'lineup_rules',1) >= 10
+    retired = {}
+    if retirement_rules:
+        from .retirement import retiring, retirement_payload
+        for owner,players in rosters.items():
+            retired[owner] = [retirement_payload(p) for p in players if retiring(p,roster_context)]
+            rosters[owner] = [p for p in players if not retiring(p,roster_context)]
     additions = {team.id: {} for team in TEAMS}
     picks = []
     resolved_choices = list(choices)
@@ -108,21 +119,25 @@ def build_draft(team_id: str, season: int, run_seed: int, choices: tuple[str, ..
         else:
             if owner == team_id and not auto_pick:
                 break
-            prospect = cpu_pick(available.values(), rosters[owner], additions[owner])
+            prospect = cpu_pick(available.values(), rosters[owner], additions[owner], retirement_rules)
             if owner == team_id:
                 resolved_choices.append(prospect.id)
         del available[prospect.id]
-        depth = 1 + max(p.depth for p in rosters[owner] if p.position == prospect.position)
+        depth = 1 + max((p.depth for p in rosters[owner] if p.position == prospect.position),default=0)
         signed = replace(prospect, depth=depth)
         rosters[owner].append(signed)
         additions[owner][signed.position] = additions[owner].get(signed.position, 0) + 1
         picks.append({'overall': overall, 'round': (overall - 1) // len(order) + 1,
                       'team': asdict(TEAM_BY_ID[owner]), 'player': player_payload(signed,roster_context)})
     complete = len(picks) == draft_rounds * len(order)
+    if retirement_rules and complete:
+        from .retirement import fill_roster
+        rosters = {owner:list(fill_roster(players,owner,season,run_seed)) for owner,players in rosters.items()}
     return ({'season': season, 'draft_season': season + 1, 'run_seed': run_seed,
              'team': asdict(TEAM_BY_ID[team_id]), 'rounds': draft_rounds, 'total_picks': draft_rounds * len(order),
              'class_size': CLASS_SIZE, 'order': order, 'picks': picks,
              'available': [player_payload(player,roster_context) for player in prospects if player.id in available],
              'manual_picks': resolved_choices, 'complete': complete,
              'next_pick': None if complete else len(picks) + 1,
-             'next_round': None if complete else len(resolved_choices) + 1}, rosters if return_league else rosters[team_id])
+             'next_round': None if complete else len(resolved_choices) + 1,
+             **({'retirements':retired[team_id], 'replacements':[player_payload(p,roster_context) for p in rosters[team_id] if p.id.startswith(f'replacement-{run_seed}-{season+1}-')]} if retirement_rules else {})}, rosters if return_league else rosters[team_id])
