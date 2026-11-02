@@ -28,6 +28,7 @@ let activePriorStandings = {};
 let careerHistory = [];
 let activeContracts = true;
 let welcomeDismissed = true;
+let ownerUpdateDismissed = 0;
 let regularSnapshot = null;
 let activeDraftChoices = null;
 let activeDraftRounds = 6;
@@ -88,7 +89,7 @@ function rebuildOrigin(context) {
 
 function saveProgress() {
   if (!activeTeamId || restoring) return;
-  const save = { version: 19, welcomeDismissed, draftRounds: activeDraftRounds, careerStartWeek: activeCareerStartWeek, lineupChanges: activeLineupChanges, contracts: activeContracts, teamId: activeTeamId, runSeed: activeRunSeed,
+  const save = { version: 19, welcomeDismissed, ownerUpdateDismissed, draftRounds: activeDraftRounds, careerStartWeek: activeCareerStartWeek, lineupChanges: activeLineupChanges, contracts: activeContracts, teamId: activeTeamId, runSeed: activeRunSeed,
     season: activeSeason, week: currentWeek, lineupRules: activeLineupRules, developmentStart: activeDevelopmentStart, rebuildTeam: activeRebuildTeam,
     priorStandings: activePriorStandings, history: careerHistory,
     draftChoices: activeDraftChoices,
@@ -115,6 +116,8 @@ function readSave() {
       || !(save.playoffRound === null || (save.week === 17 && integer(save.playoffRound, 0, 4)))) {
     throw new Error("Invalid save");
   }
+  if (save.ownerUpdateDismissed === undefined) save.ownerUpdateDismissed = 0;
+  if (!integer(save.ownerUpdateDismissed, 0, save.season)) throw new Error("Invalid owner update state");
   if (save.version < 19) save.welcomeDismissed = true;
   if (typeof save.welcomeDismissed !== "boolean") throw new Error("Invalid welcome state");
   if (save.version === 1) {
@@ -266,6 +269,7 @@ function careerEnded() { return Boolean(currentContract()?.fired); }
 function renderContract() {
   const panel = document.querySelector("#gm-contract");
   panel.hidden = !activeContracts;
+  document.querySelector("#owner-update").hidden = true;
   if (!activeContracts) return;
   const state = currentContract();
   const intro = activeCareerStartWeek === 17 && activeSeason === 1;
@@ -306,7 +310,33 @@ function renderContract() {
       feedback.textContent += " A championship would upgrade this season's extension to five years total.";
     }
   }
+  renderOwnerUpdate(state, intro);
 }
+
+function renderOwnerUpdate(state, intro) {
+  const update = document.querySelector("#owner-update");
+  const qualified = regularSnapshot?.season_complete && regularSnapshot.standings.playoff_race.some(row => row.team.id === activeTeamId);
+  const finished = Boolean(regularSnapshot?.season_complete && (!qualified || playoffState?.eliminated || playoffState?.postseason_complete));
+  update.hidden = !state.fired && (!finished || ownerUpdateDismissed === activeSeason);
+  if (update.hidden) return;
+  const champion = playoffState?.champion?.team.id === activeTeamId;
+  const reward = state.reward ? ` ${state.reward}-year extension.` : " No extension.";
+  document.querySelector("#owner-update-text").textContent = state.fired
+    ? "The owner has ended your contract. You have been fired; your career is over. Review GM Records or start a new career."
+    : intro ? `Season ${activeSeason} complete. Your introductory season earns no extension; your four full contract seasons begin next year.`
+    : `Season ${activeSeason}: ${champion ? "the owner is delighted with your championship!" : qualified ? "the owner is pleased you reached the playoffs." : "the owner is disappointed you missed the playoffs."}${reward} Contract through Season ${state.end}.`;
+  update.dataset.outcome = state.fired ? "loss" : intro ? "neutral" : qualified ? "win" : "warning";
+  document.querySelector("#owner-update-dismiss").hidden = state.fired;
+}
+
+document.querySelector("#owner-update-details").addEventListener("click", () => activateView("gm", { focus: true }));
+document.querySelector("#owner-update-dismiss").addEventListener("click", () => {
+  if (!activeContracts || careerEnded() || document.querySelector("#owner-update").hidden) return;
+  ownerUpdateDismissed = activeSeason;
+  document.querySelector("#owner-update").hidden = true;
+  document.querySelector('.view-tab[aria-selected="true"]').focus({ preventScroll: true });
+  saveProgress();
+});
 
 function managedRecord(snapshot, season = activeSeason) {
   const result = { wins: 0, losses: 0, ties: 0 };
@@ -412,6 +442,7 @@ async function resumeProgress() {
     }
     renderTeamProfile(profile, save.season);
     renderSchedule(schedule, save.runSeed, { priorStandings: save.priorStandings, history: save.history, career: save.career, lineupRules: save.lineupRules, developmentStart: save.developmentStart, rebuildTeam: save.rebuildTeam, contracts: save.contracts, lineupChanges: save.lineupChanges, careerStartWeek: save.careerStartWeek, draftRounds: save.draftRounds });
+    ownerUpdateDismissed = save.ownerUpdateDismissed;
     welcomeDismissed = save.welcomeDismissed;
     renderWelcome();
     setDevelopmentRecap(profile, save.season);
@@ -1457,6 +1488,7 @@ form.addEventListener("submit", async (event) => {
     renderTeamProfile(profile, 1);
     renderSchedule(schedule, runSeed, { rebuildTeam: teamId, careerStartWeek: 17 });
     renderResult(regular);
+    ownerUpdateDismissed = 0;
     welcomeDismissed = false;
     renderWelcome();
     saveProgress();

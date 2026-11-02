@@ -30,6 +30,7 @@ async function checkGuards(p){
 }
 async function checks(){
  let p=await restore({...checkpoint('seattle'),week:0});
+ assert.equal(q(p,'#gm-contract').closest('[role=tabpanel]').id,'panel-gm');assert.equal(q(p,'#owner-update').hidden,true,'No owner banner during the season');
  assert.match(q(p,'#owner-feedback').textContent,/hired.*four-year/);assert.match(q(p,'#contract-status').textContent,/4 years remaining.*Season 4/);
  const status=p.w.contractStatus;
  assert.equal(status([],1).end,4);assert.equal(status([],1).remaining,4);
@@ -51,18 +52,31 @@ async function checks(){
  const ranks=Object.fromEntries(regular.standings.groups.flatMap(g=>g.teams).map(row=>[row.team.id,row.rank]));
  const missed=regular.standings.groups.flatMap(g=>g.teams).find(row=>!final.field.some(f=>f.team.id===row.team.id)).team.id;
  p=await restore(checkpoint(missed));assert.match(q(p,'#owner-feedback').textContent,/disappointed.*monitored closely/);assert.equal(q(p,'#gm-contract').dataset.outcome,'warning');
+ assert.equal(q(p,'#owner-update').hidden,false);assert.match(q(p,'#owner-update-text').textContent,/disappointed/);
+ const beforeDetails=raw(p);q(p,'#owner-update-details').click();assert.equal(q(p,'#panel-gm').hidden,false);assert.equal(raw(p),beforeDetails);
+ q(p,'#owner-update-dismiss').click();assert.equal(q(p,'#owner-update').hidden,true);assert.equal(save(p).ownerUpdateDismissed,1);
+ const dismissed=save(p);p.dom.window.close();p=await restore(dismissed);assert.equal(q(p,'#owner-update').hidden,true,'Dismissed owner update stays dismissed after reload');
  const missedRow=regular.standings.groups.flatMap(g=>g.teams).find(row=>row.team.id===missed);
  assert.match(q(p,'#contract-status').textContent,new RegExp(`Season ${missedRow.wins>missedRow.losses?5:4}`));p.dom.window.close();
- p=await restore(checkpoint(qual));assert.match(q(p,'#owner-feedback').textContent,/2-year extension.*upgrade/);assert.match(q(p,'#contract-status').textContent,/Season 6/);p.dom.window.close();
+ p=await restore(checkpoint(qual));assert.equal(q(p,'#owner-update').hidden,true,'Qualified team is still playing');assert.match(q(p,'#owner-feedback').textContent,/2-year extension.*upgrade/);assert.match(q(p,'#contract-status').textContent,/Season 6/);p.dom.window.close();
  p=await restore({...checkpoint(champion),playoffRound:3});assert.match(q(p,'#contract-status').textContent,/Season 6/);
  q(p,'#playoff-simulate').click();await until(()=>save(p).playoffRound===4);
  assert.match(q(p,'#owner-feedback').textContent,/championship.*5-year extension/);assert.match(q(p,'#contract-status').textContent,/8 years remaining.*Season 9/);
+ assert.equal(q(p,'#owner-update').hidden,false);assert.match(q(p,'#owner-update-text').textContent,/championship.*5-year extension/);
+ q(p,'#owner-update-dismiss').click();assert.equal(q(p,'#owner-update').hidden,true);
  const afterTitle=raw(p);p.w.renderGMRecords();p.w.renderGMRecords();assert.equal(raw(p),afterTitle);assert.match(q(p,'#contract-status').textContent,/Season 9/);
  p.dom.window.close();p=await restore(JSON.parse(afterTitle));assert.match(q(p,'#contract-status').textContent,/8 years remaining.*Season 9/);
  await finishOffseason(p,until);q(p,'#next-season').click();await until(()=>save(p).season===2);
- assert.equal(save(p).contracts,true);assert.match(q(p,'#contract-status').textContent,/8 years remaining.*Season 9/);
+ assert.equal(save(p).contracts,true);assert.equal(q(p,'#owner-update').hidden,true);assert.equal(save(p).ownerUpdateDismissed,1);assert.match(q(p,'#contract-status').textContent,/8 years remaining.*Season 9/);
  q(p,'#simulate-button').click();await until(()=>save(p).week===1);assert.match(q(p,'#contract-status').textContent,/Season 9/);
  const seasonTwo=raw(p);p.dom.window.close();p=await restore(JSON.parse(seasonTwo));assert.match(q(p,'#contract-status').textContent,/Season 9/);p.dom.window.close();
+ // Elimination ends the user's season before the league's final round.
+ const opener=final.rounds[0].games[0],loser=opener.winner.team.id===opener.home.team.id?opener.away.team.id:opener.home.team.id;
+ p=await restore({...checkpoint(loser),playoffRound:0});assert.equal(q(p,'#owner-update').hidden,true);
+ q(p,'#playoff-simulate').click();await until(()=>save(p).playoffRound===1);
+ assert.equal(q(p,'#owner-update').hidden,false);assert.match(q(p,'#owner-update-text').textContent,/pleased.*2-year extension/);
+ q(p,'#owner-update-dismiss').click();q(p,'#playoff-simulate').click();await until(()=>save(p).playoffRound===2);
+ assert.equal(q(p,'#owner-update').hidden,true,'Following the league cannot repeat a dismissed update');p.dom.window.close();
  // Real current-year outcomes paired with prior history exercise both firing paths on restore.
  for(const [year,history,reason] of [[4,miss.slice(0,3),'first four seasons'],[6,long,'not renewed']]){
   const encoded=encodeURIComponent(JSON.stringify(ranks));
@@ -71,16 +85,19 @@ async function checks(){
   const dead=checkpoint(nonqual,year,history,ranks);p=await restore(dead);
   assert.match(q(p,'#contract-status').textContent,/Fired.*Career over/);assert.match(q(p,'#owner-feedback').textContent,new RegExp(reason));
   assert.equal(q(p,'#simulate-button').disabled,true);for(const action of ['simulate-button','simulate-season','stop-season','playoffs-start','playoff-simulate','draft-button','next-season','manage-roster','starter-editor','auto-starters'])assert.equal(q(p,'#'+action).hidden,true);assert.equal(q(p,'#playoffs-start').hidden,true);assert.equal(q(p,'#next-season').hidden,true);
+  assert.equal(q(p,'#owner-update').hidden,false);assert.match(q(p,'#owner-update-text').textContent,/fired.*career is over/);assert.equal(q(p,'#owner-update-dismiss').hidden,true);
+  q(p,'#owner-update-dismiss').click();assert.equal(q(p,'#owner-update').hidden,false,'Terminal career status cannot be hidden');
   await checkGuards(p);assert.equal(raw(p),JSON.stringify(dead));p.dom.window.close();p=await restore(dead);assert.match(q(p,'#contract-status').textContent,/Fired/);p.dom.window.close();
-  const legacy={...dead,version:11};delete legacy.contracts;p=await restore(legacy);assert.equal(q(p,'#gm-contract').hidden,true);assert.equal(q(p,'#playoffs-start').hidden,false);p.dom.window.close();
+  const legacy={...dead,version:11};delete legacy.contracts;p=await restore(legacy);assert.equal(q(p,'#gm-contract').hidden,true);assert.equal(q(p,'#owner-update').hidden,true);assert.equal(q(p,'#playoffs-start').hidden,false);p.dom.window.close();
  }
  const fourth=await api(`/api/season/seattle/week/17?season=4&run_seed=1234&prior_standings=${encodeURIComponent(JSON.stringify(ranks))}`);
  p=await restore(checkpoint(fourth.standings.playoff_race[0].team.id,4,miss.slice(0,3),ranks));assert.doesNotMatch(q(p,'#contract-status').textContent,/Fired/);assert.match(q(p,'#owner-feedback').textContent,/2-year extension/);p.dom.window.close();
  const bad={...checkpoint('seattle'),contracts:'yes'};p=page(bad);await until(()=>/could not be read/.test(q(p,'#save-status').textContent));assert.equal(raw(p),JSON.stringify(bad));p.dom.window.close();
+ for(const value of [-1,2,true,'1']){const badNotice={...checkpoint('seattle'),ownerUpdateDismissed:value};p=page(badNotice);await until(()=>/could not be read/.test(q(p,'#save-status').textContent));assert.equal(raw(p),JSON.stringify(badNotice));p.dom.window.close();}
  // Starting over after firing clears old history, warnings, contract expiry, and records.
  const dead=checkpoint(missed,4,miss.slice(0,3),ranks);p=await restore(dead);
  q(p,'#change-team-button').click();q(p,'#team-select').value='seattle';q(p,'#team-form').dispatchEvent(new p.w.Event('submit',{bubbles:true,cancelable:true}));
- await until(()=>save(p).season===1&&save(p).week===16);assert.equal(save(p).contracts,true);assert.equal(save(p).version,19);assert.equal(save(p).history.length,0);
+ await until(()=>save(p).season===1&&save(p).week===16);assert.equal(save(p).contracts,true);assert.equal(save(p).version,19);assert.equal(save(p).history.length,0);assert.equal(save(p).ownerUpdateDismissed,0);assert.equal(q(p,'#owner-update').hidden,true);
  assert.match(q(p,'#owner-feedback').textContent,/hired.*four-year/);assert.match(q(p,'#contract-status').textContent,/4 years remaining.*Season 5/);assert.equal(q(p,'#simulate-button').disabled,false);p.dom.window.close();
  console.log('GM contract checks passed: hiring, highest-only rewards, ties, four-year deadline, later expiry, fourth-year qualification, guard enforcement, records after firing, reload idempotence, draft/cuts/season rollover, legacy exemption, invalid-save preservation, and new-career reset.');
 }
