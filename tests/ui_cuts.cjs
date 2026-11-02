@@ -38,7 +38,7 @@ async function checks(){
  }
  const checkpoint=JSON.stringify({version:11,rebuildTeam:owner,teamId:owner,runSeed:1234,lineupRules:6,developmentStart:1,season:1,week:17,playoffRound:4,priorStandings:{},history:[],draftChoices:choices,dropped:[],career:[]});
  let p=await restore(checkpoint);assert.equal(q(p,'#manage-roster').hidden,false);assert.equal(p.d.querySelectorAll('#roster-groups .roster-player').length,42);
- q(p,'#view-roster').click();assert.equal(q(p,'#panel-roster').hidden,false);assert.equal(q(p,'#roster-management').hidden,false);assert.equal(q(p,'#cut-dialog'),null);assert.equal(p.d.querySelectorAll('#roster-groups [data-drop-id]').length,42);assert.match(q(p,'#cut-count').textContent,/42\/38/);
+ q(p,'#view-roster').click();assert.equal(q(p,'#panel-roster').hidden,false);assert.equal(q(p,'#roster-management').hidden,false);assert.equal(q(p,'#cut-dialog'),null);assert.equal(p.d.querySelectorAll('#roster-groups [data-drop-id]').length,42);assert.match(q(p,'#cut-count').textContent,/42\/38/);assert.match(q(p,'#cut-count').textContent,/Drop 4 more players to continue/);assert.match(q(p,'#draft-summary').textContent,/Drop 4 more players to continue/);
  const confirmation=q(p,'#cut-confirmation');confirmation.getBoundingClientRect=()=>({bottom:p.w.innerHeight+80});
  q(p,`[data-drop-id="${owner}-qb1"]`).click();assert.equal(p.state.y,96,'A below-fold confirmation only reveals the nearby controls');
  delete confirmation.getBoundingClientRect;
@@ -71,7 +71,7 @@ async function checks(){
   assert.equal(selected.nextElementSibling.className,'cut-confirmation-row');
   assert.equal(selected.nextElementSibling.contains(q(p,'#cut-confirm')),true);
   assert.equal(p.state.y,600,'Opening inline confirmation must not jump the viewport');
-  if(index===0){const old=raw(p);p.state.failCut=true;q(p,'#cut-confirm').click();await until(()=>!q(p,'#cut-error').hidden);assert.equal(raw(p),old);assert.equal(p.d.querySelectorAll('#roster-groups .roster-player').length,42);assert.equal(p.d.activeElement.id,'cut-confirm');assert.equal(q(p,'#cut-error').closest('.cut-confirmation-row')!==null,true);p.state.failCut=false;}
+  if(index===0){const old=raw(p);p.state.failCut=true;q(p,'#cut-confirm').click();await until(()=>!q(p,'#cut-error').hidden);assert.equal(raw(p),old);assert.equal(p.d.querySelectorAll('#roster-groups .roster-player').length,42);assert.equal(p.d.activeElement.id,'cut-confirm');assert.match(q(p,'#cut-count').textContent,/Drop 4 more players to continue/);assert.equal(q(p,'#cut-error').closest('.cut-confirmation-row')!==null,true);p.state.failCut=false;}
   if(index===2)p.state.holdCut=true;
   const calls=p.state.cutCalls;q(p,'#cut-confirm').click();q(p,'#cut-confirm').click();assert.equal(p.state.cutCalls,calls+1);
   if(index===2){await until(()=>p.state.releaseCut);q(p,'#view-schedule').click();p.state.releaseCut();}
@@ -87,12 +87,16 @@ async function checks(){
   const nextDrop=nearby.querySelector('[data-drop-id]');
   if(index!==2)assert.equal(p.d.activeElement,nextDrop.disabled?nearby.closest('.roster-group').querySelector('summary'):nextDrop);
   assert.equal(p.d.querySelectorAll('.cut-confirmation-row').length,0);
+  const remaining=3-index;
+  const message=remaining?`Drop ${remaining} more ${remaining===1?'player':'players'} to continue.`:'No more cuts needed. Ready for next season.';
+  assert.ok(q(p,'#cut-count').textContent.endsWith(message));assert.ok(q(p,'#draft-summary').textContent.includes(message));
+
   assert.equal(q(p,'#next-season').disabled,index<3);assert.equal(q(p,'#next-season').hidden,index<3);assert.equal(q(p,'#manage-roster').hidden,false);assert.equal(q(p,'#playoff-simulate').hidden,true);assert.equal(q(p,'#simulate-season').hidden,true);
   if(index===1){
    const qb=p.d.querySelectorAll('#roster-groups [data-position="QB"] .roster-player');assert.equal(qb.length,1);assert.equal(qb[0].querySelector('button').disabled,true);assert.equal(qb[0].querySelector('button').textContent,'Minimum reached');
    const blocked=await fetch(base+'/api/career/'+owner,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'cuts',season:1,run_seed:1234,lineup_rules:6,rebuild_team:owner,manual_picks:choices,dropped:[...save(p).dropped,choices[0]]})});assert.equal(blocked.status,422);
   }
-  const saved=raw(p);p.dom.window.close();p=await restore(saved);q(p,'#manage-roster').click();assert.equal(p.d.querySelectorAll('#roster-groups [data-drop-id]').length,41-index);assert.equal(q(p,'#next-season').hidden,index<3);
+  const saved=raw(p);p.dom.window.close();p=await restore(saved);q(p,'#manage-roster').click();assert.equal(p.d.querySelectorAll('#roster-groups [data-drop-id]').length,41-index);assert.equal(q(p,'#next-season').hidden,index<3);assert.ok(q(p,'#cut-count').textContent.endsWith(message),'Reload preserves the exact remaining count');
  }
  const retained=[...p.d.querySelectorAll('#roster-groups .roster-player')].map(row=>row.dataset.playerId);
  for(const id of choices)assert.ok(retained.includes(id),'Rookie retained');

@@ -1567,13 +1567,19 @@ function renderPlayoffBracket(data) {
   }).join("");
 }
 
+function rosterCutStatus(count) {
+  const remaining = Math.max(0, count - 38);
+  return remaining ? `Drop ${remaining} more ${remaining === 1 ? "player" : "players"} to continue.`
+    : "No more cuts needed. Ready for next season.";
+}
+
 function updateOffseasonActions() {
   const finished = !careerEnded() && Boolean(playoffState?.postseason_complete) && activeSeason < 999;
   const drafted = Boolean(draftState?.complete) && activeDraftChoices?.length === activeDraftRounds;
   const oversized = (rosterProfile?.roster.length ?? 0) > 38;
   updatePhaseActions();
   nextSeasonButton.disabled = !finished || !drafted || oversized || draftBusy || cutBusy || advancingSeason;
-  nextSeasonButton.textContent = !drafted ? "Finish rookie draft" : oversized ? "Roster limit: 38" : `Continue to Season ${activeSeason + 1}`;
+  nextSeasonButton.textContent = !drafted ? "Finish rookie draft" : oversized ? rosterCutStatus(rosterProfile.roster.length) : `Continue to Season ${activeSeason + 1}`;
 }
 
 function renderPostseason(data) {
@@ -1751,7 +1757,7 @@ function applyDraft(data) {
   const summary = document.querySelector("#draft-summary");
   summary.hidden = false;
   summary.textContent = data.complete
-    ? `Draft complete · ${count}/38 players. ${count > 38 ? "Use Manage roster to drop players before the next season." : "Roster ready for next season."}`
+    ? `Draft complete · ${count}/38 players. ${rosterCutStatus(count)}`
     : `Draft in progress · ${activeDraftChoices.length} of ${activeDraftRounds} picks made · ${count} players.`;
   if (data.retirements) summary.textContent += ` ${data.retirements.length} retired; ${(data.replacements ?? []).length} low-rated replacements added after the draft.`;
   renderDraft();
@@ -1918,7 +1924,7 @@ function renderCuts() {
   // Reuse the rating rows so ages, trends, rookies, and starters stay together.
   for (const cell of document.querySelectorAll("#roster-groups .roster-cut-action")) cell.remove();
   if (!available || !rosterProfile) return;
-  document.querySelector("#cut-count").textContent = `${rosterProfile.roster.length}/38 players · Keep each position at or above its minimum.`;
+  document.querySelector("#cut-count").textContent = `${rosterProfile.roster.length}/38 players · ${rosterCutStatus(rosterProfile.roster.length)}`;
   for (const group of document.querySelectorAll("#roster-groups .roster-group")) {
     const rule = rosterProfile.roster_rules.find(rule => rule.position === group.dataset.position);
     const count = rosterProfile.roster.filter(player => player.position === rule.position).length;
