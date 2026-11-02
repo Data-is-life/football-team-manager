@@ -361,3 +361,7 @@ tr.selected-team td { color: var(--cyan); background: rgba(72,230,210,0.07); }
 .owner-update[data-outcome="win"] { border-color: #6ee7a0; color: #6ee7a0; }
 .owner-update[data-outcome="warning"] { border-color: #fbbf24; color: #fbbf24; }
 .owner-update[data-outcome="loss"] { border-color: var(--danger); color: var(--danger); }
+
+.retirement-badge { display: inline-block; margin-left: 6px; padding: 3px 6px; border: 1px solid #fbbf24; border-radius: 6px; color: #fbbf24; font-size: .8rem; white-space: normal; }
+#retirement-summary { padding: 12px 16px; margin: 16px 0; border: 1px solid var(--line); border-radius: 10px; }
+#retirement-list { line-height: 1.7; }

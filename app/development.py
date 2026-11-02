@@ -65,7 +65,7 @@ def initial_state(player, seed, kicker_potential=False):
     maximum = min(18, max(0, 2 * (decline - player.age)))
     minimum = min(6, maximum) if player.age <= develop else 0
     room = minimum + number(seed, player.id, 'potential') % (maximum - minimum + 1)
-    return DevelopmentState(min(99, player.rating + room), player.rating, kicker_development=player.position == 'K' and kicker_potential)
+    return DevelopmentState(min(60 if player.id.startswith('replacement-') and kicker_potential else 99, player.rating + room), player.rating, kicker_development=player.position == 'K' and kicker_potential)
 
 
 def with_rosters(context, rosters):
@@ -81,6 +81,9 @@ def rating_view(player, context):
         result['potential_change'] = state.potential_change
         if state.rookie_revealed and player.id.startswith('rookie-') and int(player.id.split('-')[-2]) == context.season:
             result['rookie_outcome'] = state.rookie_outcome
+    if context.lineup_rules >= 10:
+        from .retirement import retiring
+        result['retiring_after_season'] = retiring(player,context)
     return result
 
 
@@ -186,7 +189,7 @@ def advance_context(context, run_seed, season, development_start=1, lineup_rules
     if rebuild_team is None and current_rules >= 3:
         rebuild_team = context.rebuild_team
     lineup_rules = lineup_rules if lineup_rules is not None else max(3, current_rules)
-    if lineup_rules not in (3, 4, 5, 6, 7, 8, 9) or current_rules > lineup_rules:
+    if lineup_rules not in (3, 4, 5, 6, 7, 8, 9, 10) or current_rules > lineup_rules:
         raise ValueError('Invalid development rules')
     if not 1 <= development_start <= season <= 999:
         raise ValueError('Invalid development season')
