@@ -26,9 +26,10 @@ async function start(p){await until(()=>q(p,'#team-select').options.length===31)
 const record=r=>`${r.wins}–${r.losses}–${r.ties}`;
 async function checks(){
  let p=page();await start(p);
- assert.equal(save(p).version,18);assert.equal(q(p,'#development-recap-button').hidden,true);assert.equal(q(p,'#development-dialog').open,false);assert.equal(q(p,'#development-recap-rows').children.length,0);assert.equal(save(p).careerStartWeek,17);assert.deepEqual(p.state.weeks,[16]);assert.equal(q(p,'#simulate-button').textContent,'Simulate Week 17');
+ assert.equal(save(p).version,19);assert.equal(q(p,'#development-recap-button').hidden,true);assert.equal(q(p,'#development-dialog').open,false);assert.equal(q(p,'#development-recap-rows').children.length,0);assert.equal(save(p).careerStartWeek,17);assert.deepEqual(p.state.weeks,[16]);assert.equal(q(p,'#simulate-button').textContent,'Simulate Week 17');
  assert.equal(p.d.querySelectorAll('#schedule .completed').length,16);assert.equal(q(p,'#gm-regular').textContent,'0–0–0');assert.equal(q(p,'#gm-appearances').textContent,'0');assert.equal(q(p,'#career-start-note').hidden,false);assert.equal(q(p,'#gm-tenure-note').hidden,false);
  assert.match(q(p,'#result-week').textContent,/Before your hiring/);assert.match(q(p,'#owner-feedback').textContent,/four-year contract covering Seasons 2–5/);assert.match(q(p,'#contract-status').textContent,/4 years remaining.*Season 5/);
+ q(p,'#welcome-dismiss').click();assert.equal(save(p).welcomeDismissed,true);
  const inherited=save(p),fullRecord=p.state.lastWeek.record;
  assert.equal(fullRecord.wins+fullRecord.losses+fullRecord.ties,16);q(p,'#roster-stats-button').click();assert.match(q(p,'#roster-stats-status').textContent,/16 team games/);
  assert.deepEqual(JSON.parse(JSON.stringify(p.w.managedRecord({record:{wins:8,losses:8,ties:1},game_results:[{week:1,outcome:'W'},{week:17,outcome:'T'}]}))),{wins:0,losses:0,ties:1});
@@ -53,7 +54,7 @@ async function checks(){
  const full=p.state.lastWeek.record,completed=save(p);p.dom.window.close();p=await restore(completed);assert.equal(q(p,'#gm-regular').textContent,record(managed));
  q(p,'#playoffs-start').click();await until(()=>save(p).playoffRound===0);for(let round=1;round<=4;round++){q(p,'#playoff-simulate').click();await until(()=>save(p).playoffRound===round)}
  assert.equal(q(p,'#next-season').hidden,true);await finishOffseason(p,until);q(p,'#next-season').click();await until(()=>save(p).season===2);
- assert.equal(save(p).week,0);assert.equal(save(p).careerStartWeek,17);assert.deepEqual(save(p).history[0].gmRecord,JSON.parse(JSON.stringify(managed)));
+ assert.equal(q(p,'#career-welcome').hidden,true);assert.equal(save(p).welcomeDismissed,true);assert.equal(save(p).week,0);assert.equal(save(p).careerStartWeek,17);assert.deepEqual(save(p).history[0].gmRecord,JSON.parse(JSON.stringify(managed)));
  for(const k of ['wins','losses','ties'])assert.equal(save(p).history[0][k],full[k]);assert.equal(q(p,'#gm-regular').textContent,record(managed));assert.equal(q(p,'#career-start-note').hidden,true);assert.equal(q(p,'#gm-tenure-note').hidden,false);assert.match(q(p,'#owner-feedback').textContent,/first full contract season/);
  assert.match(q(p,'#contract-status').textContent,/4 years remaining.*Season 5/);assert.equal(q(p,'#simulate-button').textContent,'Simulate Week 1');assert.equal(p.d.querySelectorAll('#schedule .completed').length,0);assert.match(q(p,'#season-history-rows').textContent,/\(team /);
  const yearTwo=save(p);p.dom.window.close();p=await restore(yearTwo);assert.equal(q(p,'#gm-regular').textContent,record(managed));assert.equal(q(p,'#simulate-button').textContent,'Simulate Week 1');
@@ -61,7 +62,7 @@ async function checks(){
  // Legacy careers keep Week 1 and their original four-year deadline after autosave.
  const old={version:13,contracts:true,lineupChanges:[],teamId:'seattle',runSeed:1234,season:1,week:0,playoffRound:null,lineupRules:6,developmentStart:1,rebuildTeam:'seattle',priorStandings:{},history:[],career:[],draftChoices:null,dropped:[]};
  p=await restore(old);assert.equal(q(p,'#simulate-button').textContent,'Simulate Week 1');assert.match(q(p,'#contract-status').textContent,/Season 4/);assert.equal(q(p,'#career-start-note').hidden,true);
- q(p,'#simulate-button').click();await until(()=>save(p).week===1&&!q(p,'#simulate-button').disabled);assert.equal(save(p).careerStartWeek,1);assert.equal(save(p).version,18);
+ q(p,'#simulate-button').click();await until(()=>save(p).week===1&&!q(p,'#simulate-button').disabled);assert.equal(save(p).careerStartWeek,1);assert.equal(save(p).version,19);
  const oldSaved=raw(p);p.state.failStart=true;q(p,'#change-team-button').click();q(p,'#team-select').value='seattle';q(p,'#team-form').dispatchEvent(new p.w.Event('submit',{cancelable:true}));await until(()=>!q(p,'#error').hidden);assert.equal(raw(p),oldSaved);assert.equal(save(p).careerStartWeek,1);p.dom.window.close();
  for(const input of [{...inherited,week:0},{...inherited,careerStartWeek:16},{...yearTwo,history:yearTwo.history.map(({gmRecord,...entry})=>entry)}]){
   p=page(input);await until(()=>/could not be read/.test(q(p,'#save-status').textContent));assert.equal(raw(p),JSON.stringify(input));p.dom.window.close();

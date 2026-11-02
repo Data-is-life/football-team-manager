@@ -27,6 +27,7 @@ let activeRebuildTeam = null;
 let activePriorStandings = {};
 let careerHistory = [];
 let activeContracts = true;
+let welcomeDismissed = true;
 let regularSnapshot = null;
 let activeDraftChoices = null;
 let activeDraftRounds = 6;
@@ -87,7 +88,7 @@ function rebuildOrigin(context) {
 
 function saveProgress() {
   if (!activeTeamId || restoring) return;
-  const save = { version: 18, draftRounds: activeDraftRounds, careerStartWeek: activeCareerStartWeek, lineupChanges: activeLineupChanges, contracts: activeContracts, teamId: activeTeamId, runSeed: activeRunSeed,
+  const save = { version: 19, welcomeDismissed, draftRounds: activeDraftRounds, careerStartWeek: activeCareerStartWeek, lineupChanges: activeLineupChanges, contracts: activeContracts, teamId: activeTeamId, runSeed: activeRunSeed,
     season: activeSeason, week: currentWeek, lineupRules: activeLineupRules, developmentStart: activeDevelopmentStart, rebuildTeam: activeRebuildTeam,
     priorStandings: activePriorStandings, history: careerHistory,
     draftChoices: activeDraftChoices,
@@ -107,13 +108,15 @@ function readSave() {
   if (!raw) return null;
   const save = JSON.parse(raw);
   const integer = (value, min, max) => Number.isInteger(value) && value >= min && value <= max;
-  if (!save || ![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18].includes(save.version) || typeof save.teamId !== "string"
+  if (!save || ![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19].includes(save.version) || typeof save.teamId !== "string"
       || ![...select.options].some(option => option.value && option.value === save.teamId)
       || !integer(save.runSeed, 0, 4294967295) || !integer(save.season, 1, 999)
       || !integer(save.week, 0, 17)
       || !(save.playoffRound === null || (save.week === 17 && integer(save.playoffRound, 0, 4)))) {
     throw new Error("Invalid save");
   }
+  if (save.version < 19) save.welcomeDismissed = true;
+  if (typeof save.welcomeDismissed !== "boolean") throw new Error("Invalid welcome state");
   if (save.version === 1) {
     // PR #31 only created first-season saves. Upgrade without changing its seed or results.
     if (save.season !== 1) throw new Error("Invalid legacy save");
@@ -409,6 +412,8 @@ async function resumeProgress() {
     }
     renderTeamProfile(profile, save.season);
     renderSchedule(schedule, save.runSeed, { priorStandings: save.priorStandings, history: save.history, career: save.career, lineupRules: save.lineupRules, developmentStart: save.developmentStart, rebuildTeam: save.rebuildTeam, contracts: save.contracts, lineupChanges: save.lineupChanges, careerStartWeek: save.careerStartWeek, draftRounds: save.draftRounds });
+    welcomeDismissed = save.welcomeDismissed;
+    renderWelcome();
     setDevelopmentRecap(profile, save.season);
     if (regular) renderResult(regular);
     if (postseason) { renderPostseason(postseason); activateView("playoffs"); }
@@ -575,7 +580,82 @@ document.querySelector("#leaders-retry").addEventListener("click", loadLeaders);
 document.querySelector("#leaders-close").addEventListener("click", () => leadersDialog.close());
 leadersDialog.addEventListener("close", () => { ++leadersRequest; leadersBusy = false; });
 
+function renderWelcome() {
+  document.querySelector("#career-welcome").hidden = !activeTeamId || welcomeDismissed;
+}
+document.querySelector("#welcome-dismiss").addEventListener("click", () => {
+  welcomeDismissed = true;
+  renderWelcome();
+  document.querySelector('.view-tab[aria-selected="true"]').focus({ preventScroll: true });
+  saveProgress();
+});
+document.querySelector("#welcome-help").addEventListener("click", () => activateView("help", { focus: true }));
+
+function renderHelp() {
+  const target = document.querySelector("#help-topics");
+  target.replaceChildren();
+  for (const source of document.querySelectorAll(".info-control")) {
+    if (source.id === "contract-info" && !activeContracts) continue;
+    const section = document.createElement("section"), title = document.createElement("h3");
+    title.textContent = source.querySelector("summary").textContent.replace("ⓘ", "").trim();
+    section.append(title);
+    for (const paragraph of source.querySelectorAll(".info-body p")) {
+      if ((paragraph.hidden && paragraph.id !== "roster-stats-note") || !paragraph.textContent.trim()) continue;
+      const copy = document.createElement("p");
+      copy.textContent = paragraph.id === "draft-format"
+        ? paragraph.textContent.replace(/^(Six|[0-9]+) rounds/, `${activeDraftRounds} rounds`)
+        : paragraph.textContent;
+      section.append(copy);
+    }
+    if (source.id === "schedule-rules-info") {
+      const formula = document.createElement("p");
+      formula.textContent = "17 games: 8 within your group, 5 against same-place teams, and 4 rotating opponents.";
+      section.append(formula);
+    }
+    target.append(section);
+  }
+}
+
+// Native summaries remain click/keyboard/touch controls; hover/focus previews
+// can be dismissed with Escape. A clicked preview stays open until dismissed.
+for (const help of document.querySelectorAll(".info-control")) {
+  const summary = help.querySelector("summary"), body = help.querySelector(".info-body");
+  body.tabIndex = 0;
+  body.setAttribute("role", "region");
+  body.setAttribute("aria-label", summary.textContent.replace("ⓘ", "").trim());
+  let hovering = false, pinned = false, dismissed = false;
+  function open() {
+    if (dismissed) return;
+    help.open = true;
+    body.style.top = "100%";
+    body.style.bottom = "auto";
+    const rect = help.getBoundingClientRect();
+    const preview = body.getBoundingClientRect();
+    if (preview.bottom > window.innerHeight && rect.top >= preview.height) {
+      body.style.top = "auto";
+      body.style.bottom = "100%";
+    }
+    const left = rect.left;
+    body.style.left = `${Math.min(0, window.innerWidth - left - body.getBoundingClientRect().width - 16)}px`;
+  }
+  function close() { help.open = false; pinned = false; }
+  help.addEventListener("pointerenter", event => { if (event.pointerType === "mouse") { hovering = true; open(); } });
+  help.addEventListener("pointerleave", () => { hovering = false; dismissed = false; if (!pinned && !help.contains(document.activeElement)) close(); });
+  help.addEventListener("focusin", open);
+  help.addEventListener("focusout", event => { if (!help.contains(event.relatedTarget)) { dismissed = false; if (!hovering && !pinned) close(); } });
+  summary.addEventListener("click", event => {
+    event.preventDefault();
+    if (pinned) { close(); dismissed = true; }
+    else { dismissed = false; pinned = true; open(); }
+  });
+  help.addEventListener("keydown", event => {
+    if (event.key === "Escape" && help.open) { event.preventDefault(); event.stopPropagation(); close(); dismissed = true; summary.focus({ preventScroll: true }); }
+  });
+  document.addEventListener("click", event => { if (!help.contains(event.target)) { close(); dismissed = false; } });
+}
+
 function activateView(id, { focus = false } = {}) {
+  if (id === "help") renderHelp();
   for (const tab of viewTabs) {
     const selected = tab.id === `view-${id}`;
     tab.setAttribute("aria-selected", String(selected));
@@ -1377,6 +1457,8 @@ form.addEventListener("submit", async (event) => {
     renderTeamProfile(profile, 1);
     renderSchedule(schedule, runSeed, { rebuildTeam: teamId, careerStartWeek: 17 });
     renderResult(regular);
+    welcomeDismissed = false;
+    renderWelcome();
     saveProgress();
   } catch (error) {
     showError(error.message);
@@ -2002,6 +2084,7 @@ nextSeasonButton.addEventListener("click", async () => {
     }
     renderTeamProfile(profile, nextSeason);
     renderSchedule(schedule, activeRunSeed, { priorStandings: ranks, history, career, lineupRules, developmentStart, rebuildTeam: activeRebuildTeam, contracts: activeContracts, lineupChanges, careerStartWeek: activeCareerStartWeek });
+    renderWelcome();
     setDevelopmentRecap(profile, nextSeason);
     saveProgress();
     if (developmentRecap) developmentDialog.showModal();
