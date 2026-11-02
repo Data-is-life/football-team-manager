@@ -67,7 +67,7 @@ async function checkUI() {
    for(const dialog of dialogs)dialog.close();for(const detail of closed)detail.open=false;for(const node of hidden)node.hidden=true;
   }
   assert.equal(w.localStorage.getItem('arcade-league-save'),beforeHelp,'Reading help cannot alter saved progress');
-  for(const selector of ['[role="status"]','[role="alert"]','#starter-timing','#cut-count','#cut-confirmation','#qualification-status','#gm-legacy-note']){
+  for(const selector of ['[role="status"]','[role="alert"]','#cut-count','#cut-confirmation','#qualification-status','#gm-legacy-note']){
    for(const node of d.querySelectorAll(selector))assert.equal(node.closest('.info-control'),null,'Progress, warnings and action timing stay outside help');
   }
   assert.equal(d.querySelector('#rating-method').closest('.info-control').id,'team-ratings-info');
@@ -435,7 +435,7 @@ async function checkUI() {
    assert.equal(advance.hidden,state.postseason_complete);assert.equal(start.hidden,true);
    assert.equal(d.querySelector('#simulate-button').hidden,true);assert.equal(d.querySelector('#simulate-season').hidden,true);
    assert.equal(d.querySelector('#draft-button').hidden,!state.postseason_complete);
-   assert.equal(d.querySelector('#starter-editor').hidden,!state.qualified||state.eliminated||state.postseason_complete);assert.equal(d.querySelector('#auto-starters').hidden,d.querySelector('#starter-editor').hidden);
+   assert.equal(d.querySelector('#starter-editor'),null);assert.equal(d.querySelector('#auto-starters'),null);
    go('roster');checkRoster(state.roster_stats,'playoffs');checkRoster(regularFinal,'regular');checkRoster(state.roster_stats,'playoffs');go('playoffs');
    const latest=state.rounds.at(-1);
    const own=latest.games.find(g=>g.home.team.id===id||g.away.team.id===id);

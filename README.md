@@ -408,16 +408,11 @@ The team header offers **Simulate remaining season** alongside the existing week
 Both simulation buttons are blocked while a week/batch is running; career replacement is blocked during a season batch. A failed or mismatched response stops the batch without committing that week; retry continues from the next unplayed week. Browser storage failures retain in-page progress and the existing save warning. Regular-season simulation stops before revealing or simulating playoffs, drafting, cuts, or next-season progression. Qualification/owner messages and GM firing rules still apply. Existing saved careers can use this immediately; no save-format change or new career is needed.
 
 
-## Choose your starters
+## Automatic starters and historical lineups
 
-Open **Roster → Choose starters** to select the required players at every position (22 total starter slots). Save the lineup, or use **Select best starters** to return to the highest current ratings. Duplicate players and incorrect position counts are rejected. Within a position, selected starters are ordered by current rating; reserves continue the existing position-specific rotations. QB1 and K1 get the work, starting OL dominate, and modern team ratings still use 80% starters plus 20% bench.
+The best current-rated players start automatically. Roster highlighting and existing position-specific rotations remain, while manual starter selectors and reset/save buttons are removed. Highest-rated retained players are selected again after development and draft/cuts at each new season.
 
-Choices apply from the next unplayed week, or the next unplayed playoff round. Every completed game's original lineup, score and player production is preserved. A reset is also future-effective; it does not delete earlier decisions. Changes are blocked while a game, season batch or lineup request is running, after elimination/nonqualification, in the completed postseason/draft, and after firing. The editor can be opened in Ratings or Season Stats; saving preserves displayed totals, competition and collapsed position groups. Other teams remain read-only.
-
-Save version 13 stores current-season `lineupChanges` and each past offseason's `lineup_changes` so restoration and historical draft replay use the correct lineups. Existing versions 1–12 adopt empty histories and keep their results until you choose a lineup. Drafts and cuts remain mandatory. Each new season automatically selects the best current-rated retained players at every position after development and draft/cuts. Prior-season manual choices remain in historical replay, but are not copied into the new season. New careers clear all choices. Player development retains its existing role-based estimate; the final active lineup supplies the participation role for the offseason youth bonus.
-
-The career API accepts bounded, immutable, effective-week starter events. Score caches retain the complete timeline in their context keys, and regular-season/playoff games resolve the correct event for their actual week. No arbitrary player ratings or rosters are accepted from the client. Existing no-choice simulation payloads remain reproducible.
-
+Saved week-effective manual choices remain available to replay completed games and past offseasons. Loading a career with an active manual preference adds an automatic reset at the next unplayed week/round; it does not overwrite the checkpoint until a successful autosave. Finished postseasons remain historical until the usual automatic new-season selection. The career API retains bounded, immutable lineup-event support for compatibility; UI controls cannot create new manual choices.
 
 ## Late-season career introduction
 
@@ -472,7 +467,7 @@ This is a read-only presentation change: no extra API calls, save fields, growth
 
 ## Compact mechanics help
 
-Longer explanations for team ratings, player development, roster limits, cuts, starter selection, career records, playoff format and draft/auto-draft rules now sit behind labeled **ⓘ info controls**. Each native details/summary control starts collapsed, expands in place on click or tap, and supports keyboard Enter/Space with a visible focus outline. Screen readers receive the native disclosure state; the decorative icon is hidden from assistive technology. Controls have a 44px minimum height and the expanded help uses readable text. No hover-only content or new navigation is required.
+Longer explanations for team ratings, player development, roster limits, cuts, automatic starters, career records, playoff format and draft/auto-draft rules now sit behind labeled **ⓘ info controls**. Each native details/summary control starts collapsed, offers a contextual preview on hover/focus or click/tap, and supports keyboard Enter/Space with a visible focus outline. Screen readers receive the native disclosure state; the decorative icon is hidden from assistive technology. Controls have a 44px minimum height and the expanded help uses readable text. The complete guidance is also available in Help & Rules; no content requires a mouse.
 
 Live progress, errors, roster counts, action timing, qualification/outcome messages and data limitations stay visible. Dynamic text inside help (including legacy rating formulas, development rules and saved four-round draft rules) continues to update normally. Opening help is read-only and does not change saves, requests or gameplay.
 
@@ -481,16 +476,9 @@ Live progress, errors, roster counts, action timing, qualification/outcome messa
 
 Regular-season simulation buttons appear only while games remain. During a full-season simulation, **Stop after this week** replaces both simulation choices; stopping or a failed request restores them at the last completed week. After Week 17, **View playoffs** is the next action. Only the next playoff-round simulation remains visible while the postseason is running, including for eliminated/nonqualifying teams following the league to the draft. It disappears after the championship.
 
-The completed postseason offers **Start/Resume draft**, then **Review draft** and **Manage roster** once the draft is complete. **Continue to Season N** appears only after the roster reaches at most 38 players; the existing draft summary and roster counts explain required cuts. Starter editing is shown only while your team has games remaining, stays visible but disabled during temporary requests, and returns next season. A fired career has no simulation/draft/cut/continuation actions, while results, records and starting a new career remain available. Season 999 remains terminal after its postseason.
+The completed postseason offers **Start/Resume draft**, then **Review draft** and **Manage roster** once the draft is complete. **Continue to Season N** appears only after the roster reaches at most 38 players; the existing draft summary and roster counts explain required cuts. Starters are selected automatically; no lineup editing actions are shown. A fired career has no simulation/draft/cut/continuation actions, while results, records and starting a new career remain available. Season 999 remains terminal after its postseason.
 
 Visibility derives from the existing restored career state; there are no new save fields or gameplay changes. Existing request guards remain, with playoff actions additionally rejecting attempts to replay an earlier round or start before Week 17.
-
-
-## Best-rated starters each season
-
-Every successful season rollover starts with automatic highest-current-rating starters at all ten positions, using the existing 22 starter slots and tie-breaking rules. Development and rookie reassessments are applied before selection. The prior season's manual lineup timeline remains in career history so historical results, draft order and growth roles are preserved. Restoring an existing current season keeps its saved choices; this policy applies at its next rollover.
-
-**Select best starters** is available directly in the Roster controls in either Ratings or Season Stats. It selects all positions together, from the next unplayed game onward, using the existing future-effective automatic-lineup event. You may still choose manual starters afterward. Feedback stays visible outside the collapsed editor. The button is disabled during requests and hidden when your team has no games remaining, matching the editor. Failed requests keep the previous choices/save; clicking never replays completed games. No new save fields or backend rules are introduced.
 
 
 ## League leaders
@@ -537,3 +525,4 @@ DOM checks cover welcome persistence/reset, legacy saves, new-season dismissal r
 GM Records contains the full contract status, owner feedback and contextual contract rules. The main screen shows a brief owner update only when your team's season finishes: missing the playoffs at the end of the regular season, elimination, or a completed championship. Qualified teams still playing do not get an early season-end update. Introductory seasons remain extension-free. **View GM Records** opens full details; **Dismiss** hides the summary for that season through reloads and later league rounds. The next season can show its own update. Firing remains a persistent, non-dismissible career-over notice with existing action guards intact.
 
 Save version 19 gains an optional `ownerUpdateDismissed` season number (default 0 for existing saves); other career metadata and contract calculations are unchanged. New careers reset it, and season transitions preserve it without repeating old notices. No additional API requests are needed.
+
