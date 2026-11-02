@@ -10,12 +10,20 @@ function page(checkpoint){
  w.localStorage.setItem(key,checkpoint);
  w.HTMLElement.prototype.scrollIntoView=()=>{};
  w.HTMLDialogElement.prototype.close=function(){this.open=false;this.dispatchEvent(new w.Event('close'))};w.HTMLDialogElement.prototype.showModal=function(){this.open=true};
- const state={failCut:false,failProfile:false,cutCalls:0,urls:[]};
+ const state={failCut:false,failProfile:false,cutCalls:0,urls:[],holdCut:false,releaseCut:null,y:0,scrolls:[]};
+ Object.defineProperty(w,'scrollY',{get:()=>state.y});
+ w.scrollTo=options=>{state.y=options.top;state.scrolls.push(options)};
+ w.HTMLElement.prototype.getBoundingClientRect=function(){
+  const group=this.closest('.roster-group');
+  const groups=[...d.querySelectorAll('#roster-groups .roster-group')];
+  const rows=group?[...group.querySelectorAll('tr')]:[];
+  return {top:(groups.indexOf(group)+1)*500+Math.max(0,rows.indexOf(this))*40-state.y};
+ };
  w.fetch=async(url,init)=>{
   state.urls.push(url);
   if(state.failProfile && url.startsWith('/api/career/') && JSON.parse(init.body).action==='profile')return {ok:false,json:async()=>({detail:'Profile load failed'})};
   if(url.startsWith('/api/career/') && JSON.parse(init.body).action==='cuts'){
-   state.cutCalls++;if(state.failCut)return {ok:false,json:async()=>({detail:'Simulated cut failure'})};
+   state.cutCalls++;if(state.holdCut)await new Promise(resolve=>{state.releaseCut=resolve});if(state.failCut)return {ok:false,json:async()=>({detail:'Simulated cut failure'})};
   }
   return fetch(new URL(url,base),init);
  };
@@ -31,18 +39,54 @@ async function checks(){
  const checkpoint=JSON.stringify({version:11,rebuildTeam:owner,teamId:owner,runSeed:1234,lineupRules:6,developmentStart:1,season:1,week:17,playoffRound:4,priorStandings:{},history:[],draftChoices:choices,dropped:[],career:[]});
  let p=await restore(checkpoint);assert.equal(q(p,'#manage-roster').hidden,false);assert.equal(p.d.querySelectorAll('#roster-groups .roster-player').length,42);
  q(p,'#view-roster').click();assert.equal(q(p,'#panel-roster').hidden,false);assert.equal(q(p,'#roster-management').hidden,false);assert.equal(q(p,'#cut-dialog'),null);assert.equal(p.d.querySelectorAll('#roster-groups [data-drop-id]').length,42);assert.match(q(p,'#cut-count').textContent,/42\/38/);
- q(p,`[data-drop-id="${owner}-qb1"]`).click();q(p,'#cut-cancel').click();assert.equal(raw(p),checkpoint);assert.equal(p.d.activeElement.dataset.dropId,`${owner}-qb1`);
+ const confirmation=q(p,'#cut-confirmation');confirmation.getBoundingClientRect=()=>({bottom:p.w.innerHeight+80});
+ q(p,`[data-drop-id="${owner}-qb1"]`).click();assert.equal(p.state.y,96,'A below-fold confirmation only reveals the nearby controls');
+ delete confirmation.getBoundingClientRect;
+ q(p,'#cut-cancel').click();assert.equal(raw(p),checkpoint);assert.equal(p.d.activeElement.dataset.dropId,`${owner}-qb1`);
+ // Releasing the last row keeps the preceding player in place, including
+ // keyboard fallback to the position summary when its minimum is reached.
+ const lastPage=await restore(checkpoint);q(lastPage,'#view-roster').click();lastPage.state.y=1800;
+ const kickers=[...lastPage.d.querySelectorAll('[data-position="K"] .roster-player')];
+ const previousTop=kickers[0].getBoundingClientRect().top;
+ const released=kickers.at(-1).dataset.playerId,remaining=kickers[0].dataset.playerId;
+ kickers.at(-1).querySelector('[data-drop-id]').click();q(lastPage,'#cut-confirm').click();
+ await until(()=>save(lastPage).dropped.length===1);
+ const kept=q(lastPage,`[data-player-id="${remaining}"]`);
+ assert.equal(q(lastPage,`[data-player-id="${released}"]`),null);
+ assert.equal(kept.getBoundingClientRect().top,previousTop);
+ assert.equal(lastPage.d.activeElement,kept.closest('.roster-group').querySelector('summary'));
+ lastPage.dom.window.close();
  q(p,'#roster-stats-button').click();q(p,'#view-schedule').click();q(p,'#manage-roster').click();assert.equal(q(p,'#panel-roster').hidden,false);assert.equal(q(p,'#roster-ratings-button').getAttribute('aria-pressed'),'true');
  q(p,'#roster-groups [data-position="OL"]').open=false;
  const cuts=[`${owner}-qb1`,`${owner}-qb2`,`${owner}-rb1`,`${owner}-rb2`];
  for(const [index,id] of cuts.entries()){
+  p.state.y=600;
+  const selected=q(p,`[data-player-id="${id}"]`),group=selected.closest('.roster-group');
+  const peers=[...group.querySelectorAll('.roster-player')],i=peers.indexOf(selected);
+  const neighbor=peers[i+1]??peers[i-1];
+  const expectedTop=(peers[i+1]?selected:neighbor).getBoundingClientRect().top;
+  const neighborId=neighbor.dataset.playerId;
+  group.querySelector('.roster-rating-wrap').scrollLeft=120;
   q(p,`[data-drop-id="${id}"]`).click();assert.equal(q(p,'#cut-confirmation').hidden,false);
-  if(index===0){const old=raw(p);p.state.failCut=true;q(p,'#cut-confirm').click();await until(()=>!q(p,'#cut-error').hidden);assert.equal(raw(p),old);assert.equal(p.d.querySelectorAll('#roster-groups .roster-player').length,42);p.state.failCut=false;}
+  assert.equal(selected.nextElementSibling.className,'cut-confirmation-row');
+  assert.equal(selected.nextElementSibling.contains(q(p,'#cut-confirm')),true);
+  assert.equal(p.state.y,600,'Opening inline confirmation must not jump the viewport');
+  if(index===0){const old=raw(p);p.state.failCut=true;q(p,'#cut-confirm').click();await until(()=>!q(p,'#cut-error').hidden);assert.equal(raw(p),old);assert.equal(p.d.querySelectorAll('#roster-groups .roster-player').length,42);assert.equal(p.d.activeElement.id,'cut-confirm');assert.equal(q(p,'#cut-error').closest('.cut-confirmation-row')!==null,true);p.state.failCut=false;}
+  if(index===2)p.state.holdCut=true;
   const calls=p.state.cutCalls;q(p,'#cut-confirm').click();q(p,'#cut-confirm').click();assert.equal(p.state.cutCalls,calls+1);
+  if(index===2){await until(()=>p.state.releaseCut);q(p,'#view-schedule').click();p.state.releaseCut();}
   await until(()=>save(p).dropped?.length===index+1);
+  if(index===2){assert.equal(q(p,'#panel-schedule').hidden,false,'A delayed cut must not navigate back to Roster');q(p,'#view-roster').click();}
   assert.equal(p.d.querySelectorAll('#roster-groups .roster-player').length,41-index);assert.match(q(p,'#cut-count').textContent,new RegExp(`${41-index}/38`));assert.equal(q(p,'#panel-roster').hidden,false);
   if(index===0)assert.equal(q(p,'#roster-groups [data-position="OL"]').open,false,'Cuts preserve collapsed groups');
   assert.equal(q(p,`#roster-groups [data-player-id="${id}"]`),null);
+  const nearby=q(p,`[data-player-id="${neighborId}"]`);
+  if(index!==2)assert.equal(nearby.getBoundingClientRect().top,expectedTop,'Remaining row stays at the release location');
+  assert.equal(nearby.closest('.roster-group').querySelector('.roster-rating-wrap').scrollLeft,120);
+  assert.notEqual(p.d.activeElement.id,'roster-title');
+  const nextDrop=nearby.querySelector('[data-drop-id]');
+  if(index!==2)assert.equal(p.d.activeElement,nextDrop.disabled?nearby.closest('.roster-group').querySelector('summary'):nextDrop);
+  assert.equal(p.d.querySelectorAll('.cut-confirmation-row').length,0);
   assert.equal(q(p,'#next-season').disabled,index<3);assert.equal(q(p,'#next-season').hidden,index<3);assert.equal(q(p,'#manage-roster').hidden,false);assert.equal(q(p,'#playoff-simulate').hidden,true);assert.equal(q(p,'#simulate-season').hidden,true);
   if(index===1){
    const qb=p.d.querySelectorAll('#roster-groups [data-position="QB"] .roster-player');assert.equal(qb.length,1);assert.equal(qb[0].querySelector('button').disabled,true);assert.equal(qb[0].querySelector('button').textContent,'Minimum reached');

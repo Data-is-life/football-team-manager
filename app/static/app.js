@@ -40,6 +40,7 @@ let cutBusy = false;
 let advancingSeason = false;
 let pendingCut = null;
 const rosterManagement = document.querySelector("#roster-management");
+const cutConfirmation = document.querySelector("#cut-confirmation");
 const manageRoster = document.querySelector("#manage-roster");
 let draftBusy = false;
 let draftPendingChoice = null;
@@ -776,6 +777,8 @@ function renderTeamProfile(profile, latestDraftSeason = activeSeason) {
   rosterTotals = { regular: profile.roster_stats, playoffs: profile.roster_stats };
   document.querySelector("#offense-rating").textContent = profile.ratings.offense;
   document.querySelector("#defense-rating").textContent = profile.ratings.defense;
+  // Keep the shared inline confirmation alive when replacing roster rows.
+  rosterManagement.append(cutConfirmation);
   const groups = createRosterGroups(profile);
   document.querySelector("#roster-groups").replaceChildren(...groups);
   document.querySelector("#development-note").textContent = profile.lineup_rules >= 3
@@ -1806,7 +1809,47 @@ document.querySelector("#draft-prospects").addEventListener("click", event => {
   if (button && !button.disabled) loadDraft(button.dataset.draftId);
 });
 
+function captureCutPlace(id, removing = false) {
+  const row = [...document.querySelectorAll("#roster-groups .roster-player")]
+    .find(row => row.dataset.playerId === id);
+  if (!row) return null;
+  const group = row.closest(".roster-group");
+  const peers = [...group.querySelectorAll(".roster-player")];
+  const index = peers.indexOf(row);
+  const neighbor = removing ? peers[index + 1] ?? peers[index - 1] : row;
+  return {
+    id: neighbor?.dataset.playerId,
+    visible: !document.querySelector("#panel-roster").hidden && rosterMode === "ratings" && group.open,
+    // The next player takes the released player's place; the previous player
+    // stays where it was when cutting the last row of a position.
+    top: (removing && peers[index + 1] ? row : neighbor ?? row).getBoundingClientRect().top,
+    x: window.scrollX,
+    horizontal: [...document.querySelectorAll("#roster-groups .roster-group")]
+      .map(group => [group.dataset.position, group.querySelector(".roster-rating-wrap").scrollLeft]),
+  };
+}
+
+function restoreCutPlace(place) {
+  if (!place) return;
+  for (const [position, left] of place.horizontal) {
+    document.querySelector(`#roster-groups [data-position="${position}"] .roster-rating-wrap`).scrollLeft = left;
+  }
+  if (!place.visible || document.querySelector("#panel-roster").hidden) return;
+  const row = [...document.querySelectorAll("#roster-groups .roster-player")]
+    .find(row => row.dataset.playerId === place.id);
+  if (!row) return;
+  const button = row.querySelector("[data-drop-id]");
+  // A position at its minimum has only disabled Drop buttons. Its summary is
+  // the nearby keyboard destination rather than the top of the whole roster.
+  const target = button && !button.disabled ? button : row.closest(".roster-group").querySelector("summary");
+  target.focus({ preventScroll: true });
+  window.scrollTo({ left: place.x, top: window.scrollY + row.getBoundingClientRect().top - place.top, behavior: "instant" });
+}
+
 function renderCuts() {
+  // Park the same controls before removing/rebuilding their surrounding row.
+  rosterManagement.append(cutConfirmation);
+  for (const row of document.querySelectorAll("#roster-groups .cut-confirmation-row")) row.remove();
   const available = !careerEnded() && Boolean(draftState?.complete);
   rosterManagement.hidden = !available;
   // Reuse the rating rows so ages, trends, rookies, and starters stay together.
@@ -1836,6 +1879,19 @@ function renderCuts() {
       row.append(cell);
     }
   }
+  if (pendingCut && !cutConfirmation.hidden) {
+    const selected = [...document.querySelectorAll("#roster-groups .roster-player")]
+      .find(row => row.dataset.playerId === pendingCut);
+    if (selected) {
+      const row = document.createElement("tr");
+      row.className = "cut-confirmation-row";
+      const cell = document.createElement("td");
+      cell.colSpan = selected.children.length;
+      cell.append(cutConfirmation);
+      row.append(cell);
+      selected.after(row);
+    }
+  }
 }
 function openCuts() {
   if (careerEnded() || !draftState?.complete || cutBusy || advancingSeason) return;
@@ -1847,12 +1903,12 @@ function openCuts() {
 }
 manageRoster.addEventListener("click", openCuts);
 function cancelCut() {
-  const id = pendingCut;
+  const place = captureCutPlace(pendingCut);
   pendingCut = null;
   document.querySelector("#cut-confirmation").hidden = true;
   document.querySelector("#cut-error").hidden = true;
-  const button = [...document.querySelectorAll("#roster-groups [data-drop-id]")].find(button => button.dataset.dropId === id);
-  button?.focus();
+  renderCuts();
+  restoreCutPlace(place);
 }
 document.querySelector("#cut-cancel").addEventListener("click", cancelCut);
 document.querySelector("#roster-groups").addEventListener("click", event => {
@@ -1862,8 +1918,13 @@ document.querySelector("#roster-groups").addEventListener("click", event => {
   const player = rosterProfile.roster.find(p => p.id === pendingCut);
   document.querySelector("#cut-error").hidden = true;
   document.querySelector("#cut-confirm-text").textContent = `Drop ${player.name} (${player.position})? This removes the player from your next-season roster.`;
-  document.querySelector("#cut-confirmation").hidden = false;
-  document.querySelector("#cut-confirm").focus();
+  cutConfirmation.hidden = false;
+  renderCuts();
+  // Confirmation is now beside the chosen player, not above the whole roster.
+  document.querySelector("#cut-confirm").focus({ preventScroll: true });
+  const bottom = cutConfirmation.getBoundingClientRect().bottom;
+  if (bottom > window.innerHeight) window.scrollTo({ left: window.scrollX,
+    top: window.scrollY + bottom - window.innerHeight + 16, behavior: "instant" });
 });
 document.querySelector("#cut-confirm").addEventListener("click", async () => {
   if (lineupBusy || careerEnded() || !pendingCut || cutBusy || advancingSeason || !draftState?.complete) return;
@@ -1874,13 +1935,14 @@ document.querySelector("#cut-confirm").addEventListener("click", async () => {
   document.querySelector("#change-team-button").disabled = true;
   nextSeasonButton.disabled = true;
   renderCuts();
+  let place;
   try {
     const data = await careerRequest("cuts", { manual_picks: activeDraftChoices, dropped: [...activeDropped, pendingCut] });
+    place = captureCutPlace(pendingCut, true);
+    pendingCut = null;
+    cutConfirmation.hidden = true;
     applyDraft(data);
     saveProgress();
-    pendingCut = null;
-    document.querySelector("#cut-confirmation").hidden = true;
-    document.querySelector("#roster-title").focus();
   } catch (error) {
     document.querySelector("#cut-error").textContent = error.message;
     document.querySelector("#cut-error").hidden = false;
@@ -1891,6 +1953,8 @@ document.querySelector("#cut-confirm").addEventListener("click", async () => {
     document.querySelector("#change-team-button").disabled = false;
     updateOffseasonActions();
     renderCuts();
+    if (place) restoreCutPlace(place);
+    else if (pendingCut && !document.querySelector("#panel-roster").hidden) document.querySelector("#cut-confirm").focus({ preventScroll: true });
   }
 });
 
