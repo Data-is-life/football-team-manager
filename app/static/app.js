@@ -67,8 +67,12 @@ const developmentDialog = document.querySelector("#development-dialog");
 let rosterMode = "ratings";
 let rosterTotals = null;
 const rosterDialog = document.querySelector("#team-roster-dialog");
+// Retained for later: set true to restore the League Leaders launcher in Standings.
+const LEAGUE_LEADERS_ENABLED = false;
 const leadersDialog = document.querySelector("#leaders-dialog");
 const leadersButton = document.querySelector("#league-leaders-button");
+leadersButton.hidden = !LEAGUE_LEADERS_ENABLED;
+leadersDialog.hidden = !LEAGUE_LEADERS_ENABLED;
 let leadersRequest = 0;
 let leadersBusy = false;
 let scoutingRequest = 0;
@@ -585,6 +589,7 @@ function renderLeaders(data) {
 }
 
 async function loadLeaders() {
+  if (!LEAGUE_LEADERS_ENABLED) return;
   if (!activeTeamId || weekSimulationBusy || advancingSeason || restoring || leadersBusy) return;
   leadersBusy = true;
   const request = ++leadersRequest;
@@ -990,7 +995,8 @@ function hasLineupContext(context = null) {
 }
 
 function updatePhaseActions() {
-  leadersButton.disabled = !activeTeamId || weekSimulationBusy || advancingSeason || restoring;
+  leadersButton.hidden = !LEAGUE_LEADERS_ENABLED;
+  leadersButton.disabled = !LEAGUE_LEADERS_ENABLED || !activeTeamId || weekSimulationBusy || advancingSeason || restoring;
   const live = Boolean(activeTeamId) && !careerEnded();
   const regular = live && currentWeek < 17;
   simulateButton.hidden = !regular || seasonSimulationActive;

@@ -480,7 +480,11 @@ The completed postseason offers **Start/Resume draft**, then **Review draft** an
 Visibility derives from the existing restored career state; there are no new save fields or gameplay changes. Existing request guards remain, with playoff actions additionally rejecting attempts to replay an earlier round or start before Week 17.
 
 
-## League leaders
+## League leaders (disabled for now)
+
+League Leaders is hidden from the shipped interface to reduce clutter. Its frontend, dialog, backend aggregation, API and styles remain available for later restoration. To restore the existing entry point in Standings, set `LEAGUE_LEADERS_ENABLED = true` in `app/static/app.js`; startup/phase handling removes its initial hidden attributes. No user setting or new tab is added. The false setting also guards opening/retry handlers, so disabled code makes no leaders requests even if a stale control fires. The dedicated UI suite verifies the default disabled behavior and explicitly opts in to keep the retained functionality covered.
+
+The behavior retained behind the flag is described below.
 
 Open **Standings → League leaders** for the top 10 players in passing yards, rushing yards, receiving yards, sacks and defensive interceptions. Each list shows rank, player/position, city and total. Your players have a highlight and explicit Your team badge; your best positive-total player is shown separately with their league rank if outside the displayed 10. Only positive totals qualify. Equal totals share competition rank (1, 1, 3); stable team/player IDs order tied rows and keep each list to 10 players. Categories without production explain the empty state.
 
