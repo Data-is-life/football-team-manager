@@ -279,7 +279,7 @@
             </section>
           </div>
           <div id="panel-standings" class="view-panel" role="tabpanel" aria-labelledby="view-standings" tabindex="0" hidden>
-            <button id="league-leaders-button" class="secondary-button" type="button" aria-haspopup="dialog" aria-controls="leaders-dialog">League leaders</button>
+            <button id="league-leaders-button" hidden class="secondary-button" type="button" aria-haspopup="dialog" aria-controls="leaders-dialog">League leaders</button>
             <div id="standings-empty" class="empty-state"><h2>Group Standings</h2><p>Simulate Week 1 to see updated standings for all six groups.</p></div>
             <section id="standings-section" class="standings-section" hidden>
               <div class="section-title-row">
@@ -342,7 +342,7 @@
       <button id="scout-retry" class="secondary-button" type="button" hidden>Retry</button>
       <div id="scout-groups" class="roster-groups"></div>
     </dialog>
-    <dialog id="leaders-dialog" class="team-roster-dialog" aria-labelledby="leaders-title">
+    <dialog id="leaders-dialog" hidden class="team-roster-dialog" aria-labelledby="leaders-title">
       <div class="scout-heading"><h2 id="leaders-title">League leaders</h2>
         <button id="leaders-close" class="secondary-button" type="button" autofocus>Close leaders</button></div>
       <p id="leaders-status" class="roster-note" role="status" aria-atomic="true"></p>

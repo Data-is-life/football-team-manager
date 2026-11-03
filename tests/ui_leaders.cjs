@@ -5,7 +5,7 @@ const script=fs.readFileSync(path.join(root,'app/static/app.js'),'utf8'),html=fs
 const q=(p,s)=>p.d.querySelector(s),raw=p=>p.w.localStorage.getItem(key),save=p=>JSON.parse(raw(p));
 async function until(check){for(let i=0;i<3000;i++){if(check())return;await new Promise(r=>setTimeout(r,10))}throw new Error('Leaders UI timed out')}
 async function api(body,owner='seattle'){const r=await fetch(base+'/api/career/'+owner,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});assert.equal(r.ok,true);return r.json()}
-function page(checkpoint){const dom=new JSDOM(html,{url:base,runScripts:'outside-only'}),w=dom.window,d=w.document,state={leaders:[],fail:false,hold:false,mismatch:false};
+function page(checkpoint,enableLeaders=false){const dom=new JSDOM(html,{url:base,runScripts:'outside-only'}),w=dom.window,d=w.document,state={leaders:[],fail:false,hold:false,mismatch:false};
  w.localStorage.setItem(key,JSON.stringify(checkpoint));w.HTMLElement.prototype.scrollIntoView=()=>{};
  w.HTMLDialogElement.prototype.showModal=function(){this.open=true};w.HTMLDialogElement.prototype.close=function(){this.open=false;this.dispatchEvent(new w.Event('close'))};
  Object.defineProperty(w.crypto,'getRandomValues',{value:a=>{a[0]=5678;return a}});
@@ -18,9 +18,11 @@ function page(checkpoint){const dom=new JSDOM(html,{url:base,runScripts:'outside
   }
   return fetch(new URL(url,base),init);
  };
- w.eval(script);return {dom,w,d,state};
+ // Archived behavior stays tested with an explicit test-only opt-in.
+ const flag='const LEAGUE_LEADERS_ENABLED = false;';assert.ok(script.includes(flag));
+ w.eval(enableLeaders?script.replace(flag,'const LEAGUE_LEADERS_ENABLED = true;'):script);return {dom,w,d,state};
 }
-async function restore(checkpoint){const p=page(checkpoint);await until(()=>/restored|could not/.test(q(p,'#save-status').textContent));assert.match(q(p,'#save-status').textContent,/restored/);assert.equal(p.state.leaders.length,0,'Restore never eagerly computes leaders');return p}
+async function restore(checkpoint,enableLeaders=true){const p=page(checkpoint,enableLeaders);await until(()=>/restored|could not/.test(q(p,'#save-status').textContent));assert.match(q(p,'#save-status').textContent,/restored/);assert.equal(p.state.leaders.length,0,'Restore never eagerly computes leaders');return p}
 async function loaded(p){await until(()=>q(p,'#leaders-status').textContent.includes('Regular season through')||!q(p,'#leaders-retry').hidden)}
 function check(p,data){
  const sections=[...p.d.querySelectorAll('#leaders-lists .leaders-category')];assert.equal(sections.length,5);
@@ -43,6 +45,18 @@ function check(p,data){
 }
 const checkpoint={version:16,draftRounds:6,careerStartWeek:1,lineupChanges:[],contracts:false,teamId:'seattle',runSeed:1234,season:1,week:8,playoffRound:null,lineupRules:7,developmentStart:1,rebuildTeam:'seattle',priorStandings:{},history:[],career:[],draftChoices:null,dropped:[]};
 async function checks(){
+ // The shipped configuration is disabled, including stale/forced handlers.
+ let disabled=await restore(checkpoint,false);const unchanged=raw(disabled);
+ assert.equal(q(disabled,'#league-leaders-button').hidden,true);assert.equal(q(disabled,'#league-leaders-button').disabled,true);assert.equal(q(disabled,'#leaders-dialog').hidden,true);
+ for(const view of ['roster','schedule','standings','league','race','playoffs','gm','help'])q(disabled,'#view-'+view).click();
+ q(disabled,'#league-leaders-button').hidden=false;q(disabled,'#league-leaders-button').disabled=false;q(disabled,'#league-leaders-button').click();
+ q(disabled,'#leaders-retry').click();await disabled.w.loadLeaders();
+ assert.equal(disabled.state.leaders.length,0);assert.equal(q(disabled,'#leaders-dialog').open,false);assert.equal(raw(disabled),unchanged);
+ disabled.w.updatePhaseActions();assert.equal(q(disabled,'#league-leaders-button').hidden,true);assert.equal(q(disabled,'#league-leaders-button').disabled,true);
+ q(disabled,'#simulate-button').click();await until(()=>save(disabled).week===9);
+ assert.equal(disabled.state.leaders.length,0);assert.equal(q(disabled,'#league-leaders-button').hidden,true);disabled.dom.window.close();
+ disabled=await restore({...checkpoint,week:17,playoffRound:4},false);assert.equal(q(disabled,'#league-leaders-button').hidden,true);assert.equal(disabled.state.leaders.length,0);disabled.dom.window.close();
+ // Re-enabling one flag still restores the existing implementation.
  let p=await restore({...checkpoint,week:0});const first=raw(p);q(p,'#league-leaders-button').click();assert.equal(q(p,'#leaders-dialog').open,true);assert.match(q(p,'#leaders-status').textContent,/Play Week 1/);assert.equal(p.state.leaders.length,0);assert.equal(raw(p),first);p.dom.window.close();
  p=await restore(checkpoint);q(p,'#view-standings').click();assert.equal(q(p,'#league-leaders-button').closest('#panel-standings').id,'panel-standings');
  const before=raw(p);p.state.fail=true;q(p,'#league-leaders-button').click();await until(()=>!q(p,'#leaders-retry').hidden);assert.equal(raw(p),before);assert.equal(q(p,'#leaders-lists').children.length,0);
@@ -60,6 +74,6 @@ async function checks(){
  const later=JSON.parse(fs.readFileSync(path.join(root,'benchmarks/year4.json'),'utf8'));p=await restore(later);const saved=raw(p);q(p,'#league-leaders-button').click();await loaded(p);assert.deepEqual(p.state.leaders.at(-1).career,later.career.map(step=>({...step,draft_rounds:4})));check(p,await api(p.state.leaders.at(-1)));assert.equal(raw(p),saved);
  q(p,'#leaders-close').click();p.state.hold=true;q(p,'#league-leaders-button').click();await until(()=>Boolean(p.state.release));const stale=p.state.release;q(p,'#leaders-close').click();
  q(p,'#change-team-button').click();q(p,'#team-select').value='seattle';q(p,'#team-form').dispatchEvent(new p.w.Event('submit',{cancelable:true}));await until(()=>save(p).runSeed===5678);stale();await new Promise(r=>setTimeout(r,100));assert.equal(q(p,'#leaders-dialog').open,false);assert.equal(q(p,'#leaders-lists').children.length,0);assert.equal(q(p,'#leaders-status').textContent,'');p.dom.window.close();
- console.log('League leaders UI checks passed: lazy loading, Week 0, five exact top-10 tables, own-team highlights/outside rank, read-only saves, failure/retry/mismatch handling, duplicate guards, close/reopen stale response, weekly cutoff/invalidation, regular-only postseason totals, career/draft-cut context, and replacement reset.');
+ console.log('League leaders UI checks passed: shipped feature disabled with no requests, flag-only re-enable,  lazy loading, Week 0, five exact top-10 tables, own-team highlights/outside rank, read-only saves, failure/retry/mismatch handling, duplicate guards, close/reopen stale response, weekly cutoff/invalidation, regular-only postseason totals, career/draft-cut context, and replacement reset.');
 }
 (async()=>{const server=spawn(process.env.PYTHON||'python',['-m','uvicorn','app.main:app','--host','127.0.0.1','--port','8781'],{cwd:root,stdio:['ignore','pipe','pipe']});let logs='';server.stdout.on('data',d=>logs+=d);server.stderr.on('data',d=>logs+=d);try{for(let i=0;;i++){if(server.exitCode!==null)throw new Error(logs);try{if((await fetch(base+'/api/teams')).ok)break}catch{}if(i===100)throw new Error(logs);await new Promise(r=>setTimeout(r,100))}await checks()}finally{server.kill()}})().catch(e=>{console.error(e);process.exitCode=1});
