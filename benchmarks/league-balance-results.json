@@ -1,0 +1,693 @@
+{
+  "method": "Eight paired seeds/cities per version; six-round auto-draft and lowest-rated legal cuts; Seasons 2\u20135 are the initial full contract window. No user trades or additional choices. Descriptive sample, not a forecast.",
+  "versions": {
+    "11": {
+      "initial_opponent_mean": 80.67887931034483,
+      "average_full_season_wins": 5.71875,
+      "full_season_playoff_appearances": 2,
+      "careers_with_playoffs_in_first_four_full_seasons": 2,
+      "careers": [
+        {
+          "seed": 1,
+          "team": "seattle",
+          "initial_opponent_mean": 81.89655172413794,
+          "seasons": [
+            {
+              "season": 1,
+              "wins": 4,
+              "losses": 13,
+              "ties": 0,
+              "playoffs": false
+            },
+            {
+              "season": 2,
+              "wins": 3,
+              "losses": 14,
+              "ties": 0,
+              "playoffs": false
+            },
+            {
+              "season": 3,
+              "wins": 4,
+              "losses": 13,
+              "ties": 0,
+              "playoffs": false
+            },
+            {
+              "season": 4,
+              "wins": 9,
+              "losses": 8,
+              "ties": 0,
+              "playoffs": true
+            },
+            {
+              "season": 5,
+              "wins": 7,
+              "losses": 10,
+              "ties": 0,
+              "playoffs": false
+            }
+          ]
+        },
+        {
+          "seed": 2,
+          "team": "miami",
+          "initial_opponent_mean": 80.5,
+          "seasons": [
+            {
+              "season": 1,
+              "wins": 6,
+              "losses": 11,
+              "ties": 0,
+              "playoffs": false
+            },
+            {
+              "season": 2,
+              "wins": 5,
+              "losses": 12,
+              "ties": 0,
+              "playoffs": false
+            },
+            {
+              "season": 3,
+              "wins": 3,
+              "losses": 14,
+              "ties": 0,
+              "playoffs": false
+            },
+            {
+              "season": 4,
+              "wins": 6,
+              "losses": 11,
+              "ties": 0,
+              "playoffs": false
+            },
+            {
+              "season": 5,
+              "wins": 8,
+              "losses": 9,
+              "ties": 0,
+              "playoffs": false
+            }
+          ]
+        },
+        {
+          "seed": 3,
+          "team": "dallas",
+          "initial_opponent_mean": 80.93103448275862,
+          "seasons": [
+            {
+              "season": 1,
+              "wins": 3,
+              "losses": 14,
+              "ties": 0,
+              "playoffs": false
+            },
+            {
+              "season": 2,
+              "wins": 3,
+              "losses": 14,
+              "ties": 0,
+              "playoffs": false
+            },
+            {
+              "season": 3,
+              "wins": 5,
+              "losses": 12,
+              "ties": 0,
+              "playoffs": false
+            },
+            {
+              "season": 4,
+              "wins": 7,
+              "losses": 10,
+              "ties": 0,
+              "playoffs": false
+            },
+            {
+              "season": 5,
+              "wins": 7,
+              "losses": 10,
+              "ties": 0,
+              "playoffs": false
+            }
+          ]
+        },
+        {
+          "seed": 4,
+          "team": "las-vegas",
+          "initial_opponent_mean": 81.15517241379311,
+          "seasons": [
+            {
+              "season": 1,
+              "wins": 4,
+              "losses": 13,
+              "ties": 0,
+              "playoffs": false
+            },
+            {
+              "season": 2,
+              "wins": 4,
+              "losses": 13,
+              "ties": 0,
+              "playoffs": false
+            },
+            {
+              "season": 3,
+              "wins": 4,
+              "losses": 13,
+              "ties": 0,
+              "playoffs": false
+            },
+            {
+              "season": 4,
+              "wins": 3,
+              "losses": 14,
+              "ties": 0,
+              "playoffs": false
+            },
+            {
+              "season": 5,
+              "wins": 7,
+              "losses": 10,
+              "ties": 0,
+              "playoffs": false
+            }
+          ]
+        },
+        {
+          "seed": 5,
+          "team": "seattle",
+          "initial_opponent_mean": 79.96551724137932,
+          "seasons": [
+            {
+              "season": 1,
+              "wins": 6,
+              "losses": 11,
+              "ties": 0,
+              "playoffs": false
+            },
+            {
+              "season": 2,
+              "wins": 5,
+              "losses": 12,
+              "ties": 0,
+              "playoffs": false
+            },
+            {
+              "season": 3,
+              "wins": 8,
+              "losses": 9,
+              "ties": 0,
+              "playoffs": false
+            },
+            {
+              "season": 4,
+              "wins": 6,
+              "losses": 11,
+              "ties": 0,
+              "playoffs": false
+            },
+            {
+              "season": 5,
+              "wins": 11,
+              "losses": 5,
+              "ties": 1,
+              "playoffs": true
+            }
+          ]
+        },
+        {
+          "seed": 6,
+          "team": "miami",
+          "initial_opponent_mean": 80.62068965517241,
+          "seasons": [
+            {
+              "season": 1,
+              "wins": 3,
+              "losses": 14,
+              "ties": 0,
+              "playoffs": false
+            },
+            {
+              "season": 2,
+              "wins": 5,
+              "losses": 12,
+              "ties": 0,
+              "playoffs": false
+            },
+            {
+              "season": 3,
+              "wins": 7,
+              "losses": 9,
+              "ties": 1,
+              "playoffs": false
+            },
+            {
+              "season": 4,
+              "wins": 2,
+              "losses": 15,
+              "ties": 0,
+              "playoffs": false
+            },
+            {
+              "season": 5,
+              "wins": 9,
+              "losses": 8,
+              "ties": 0,
+              "playoffs": false
+            }
+          ]
+        },
+        {
+          "seed": 7,
+          "team": "dallas",
+          "initial_opponent_mean": 80.24137931034483,
+          "seasons": [
+            {
+              "season": 1,
+              "wins": 8,
+              "losses": 9,
+              "ties": 0,
+              "playoffs": false
+            },
+            {
+              "season": 2,
+              "wins": 4,
+              "losses": 13,
+              "ties": 0,
+              "playoffs": false
+            },
+            {
+              "season": 3,
+              "wins": 3,
+              "losses": 14,
+              "ties": 0,
+              "playoffs": false
+            },
+            {
+              "season": 4,
+              "wins": 8,
+              "losses": 9,
+              "ties": 0,
+              "playoffs": false
+            },
+            {
+              "season": 5,
+              "wins": 7,
+              "losses": 10,
+              "ties": 0,
+              "playoffs": false
+            }
+          ]
+        },
+        {
+          "seed": 8,
+          "team": "las-vegas",
+          "initial_opponent_mean": 80.12068965517241,
+          "seasons": [
+            {
+              "season": 1,
+              "wins": 4,
+              "losses": 13,
+              "ties": 0,
+              "playoffs": false
+            },
+            {
+              "season": 2,
+              "wins": 5,
+              "losses": 12,
+              "ties": 0,
+              "playoffs": false
+            },
+            {
+              "season": 3,
+              "wins": 5,
+              "losses": 11,
+              "ties": 1,
+              "playoffs": false
+            },
+            {
+              "season": 4,
+              "wins": 5,
+              "losses": 11,
+              "ties": 1,
+              "playoffs": false
+            },
+            {
+              "season": 5,
+              "wins": 8,
+              "losses": 9,
+              "ties": 0,
+              "playoffs": false
+            }
+          ]
+        }
+      ]
+    },
+    "12": {
+      "initial_opponent_mean": 75.0,
+      "average_full_season_wins": 6.84375,
+      "full_season_playoff_appearances": 7,
+      "careers_with_playoffs_in_first_four_full_seasons": 5,
+      "careers": [
+        {
+          "seed": 1,
+          "team": "seattle",
+          "initial_opponent_mean": 75.0,
+          "seasons": [
+            {
+              "season": 1,
+              "wins": 5,
+              "losses": 12,
+              "ties": 0,
+              "playoffs": false
+            },
+            {
+              "season": 2,
+              "wins": 5,
+              "losses": 12,
+              "ties": 0,
+              "playoffs": false
+            },
+            {
+              "season": 3,
+              "wins": 6,
+              "losses": 11,
+              "ties": 0,
+              "playoffs": false
+            },
+            {
+              "season": 4,
+              "wins": 9,
+              "losses": 7,
+              "ties": 1,
+              "playoffs": true
+            },
+            {
+              "season": 5,
+              "wins": 7,
+              "losses": 10,
+              "ties": 0,
+              "playoffs": false
+            }
+          ]
+        },
+        {
+          "seed": 2,
+          "team": "miami",
+          "initial_opponent_mean": 75.0,
+          "seasons": [
+            {
+              "season": 1,
+              "wins": 8,
+              "losses": 9,
+              "ties": 0,
+              "playoffs": false
+            },
+            {
+              "season": 2,
+              "wins": 7,
+              "losses": 10,
+              "ties": 0,
+              "playoffs": false
+            },
+            {
+              "season": 3,
+              "wins": 5,
+              "losses": 12,
+              "ties": 0,
+              "playoffs": false
+            },
+            {
+              "season": 4,
+              "wins": 7,
+              "losses": 10,
+              "ties": 0,
+              "playoffs": false
+            },
+            {
+              "season": 5,
+              "wins": 8,
+              "losses": 9,
+              "ties": 0,
+              "playoffs": false
+            }
+          ]
+        },
+        {
+          "seed": 3,
+          "team": "dallas",
+          "initial_opponent_mean": 75.0,
+          "seasons": [
+            {
+              "season": 1,
+              "wins": 4,
+              "losses": 13,
+              "ties": 0,
+              "playoffs": false
+            },
+            {
+              "season": 2,
+              "wins": 4,
+              "losses": 13,
+              "ties": 0,
+              "playoffs": false
+            },
+            {
+              "season": 3,
+              "wins": 4,
+              "losses": 13,
+              "ties": 0,
+              "playoffs": false
+            },
+            {
+              "season": 4,
+              "wins": 10,
+              "losses": 7,
+              "ties": 0,
+              "playoffs": true
+            },
+            {
+              "season": 5,
+              "wins": 10,
+              "losses": 6,
+              "ties": 1,
+              "playoffs": true
+            }
+          ]
+        },
+        {
+          "seed": 4,
+          "team": "las-vegas",
+          "initial_opponent_mean": 75.0,
+          "seasons": [
+            {
+              "season": 1,
+              "wins": 6,
+              "losses": 11,
+              "ties": 0,
+              "playoffs": false
+            },
+            {
+              "season": 2,
+              "wins": 10,
+              "losses": 7,
+              "ties": 0,
+              "playoffs": true
+            },
+            {
+              "season": 3,
+              "wins": 6,
+              "losses": 11,
+              "ties": 0,
+              "playoffs": false
+            },
+            {
+              "season": 4,
+              "wins": 6,
+              "losses": 11,
+              "ties": 0,
+              "playoffs": false
+            },
+            {
+              "season": 5,
+              "wins": 8,
+              "losses": 9,
+              "ties": 0,
+              "playoffs": false
+            }
+          ]
+        },
+        {
+          "seed": 5,
+          "team": "seattle",
+          "initial_opponent_mean": 75.0,
+          "seasons": [
+            {
+              "season": 1,
+              "wins": 8,
+              "losses": 9,
+              "ties": 0,
+              "playoffs": false
+            },
+            {
+              "season": 2,
+              "wins": 9,
+              "losses": 8,
+              "ties": 0,
+              "playoffs": true
+            },
+            {
+              "season": 3,
+              "wins": 8,
+              "losses": 9,
+              "ties": 0,
+              "playoffs": false
+            },
+            {
+              "season": 4,
+              "wins": 9,
+              "losses": 8,
+              "ties": 0,
+              "playoffs": false
+            },
+            {
+              "season": 5,
+              "wins": 9,
+              "losses": 8,
+              "ties": 0,
+              "playoffs": true
+            }
+          ]
+        },
+        {
+          "seed": 6,
+          "team": "miami",
+          "initial_opponent_mean": 75.0,
+          "seasons": [
+            {
+              "season": 1,
+              "wins": 3,
+              "losses": 14,
+              "ties": 0,
+              "playoffs": false
+            },
+            {
+              "season": 2,
+              "wins": 6,
+              "losses": 11,
+              "ties": 0,
+              "playoffs": false
+            },
+            {
+              "season": 3,
+              "wins": 4,
+              "losses": 13,
+              "ties": 0,
+              "playoffs": false
+            },
+            {
+              "season": 4,
+              "wins": 7,
+              "losses": 10,
+              "ties": 0,
+              "playoffs": false
+            },
+            {
+              "season": 5,
+              "wins": 6,
+              "losses": 11,
+              "ties": 0,
+              "playoffs": false
+            }
+          ]
+        },
+        {
+          "seed": 7,
+          "team": "dallas",
+          "initial_opponent_mean": 75.0,
+          "seasons": [
+            {
+              "season": 1,
+              "wins": 10,
+              "losses": 7,
+              "ties": 0,
+              "playoffs": true
+            },
+            {
+              "season": 2,
+              "wins": 5,
+              "losses": 11,
+              "ties": 1,
+              "playoffs": false
+            },
+            {
+              "season": 3,
+              "wins": 7,
+              "losses": 10,
+              "ties": 0,
+              "playoffs": false
+            },
+            {
+              "season": 4,
+              "wins": 8,
+              "losses": 8,
+              "ties": 1,
+              "playoffs": true
+            },
+            {
+              "season": 5,
+              "wins": 8,
+              "losses": 9,
+              "ties": 0,
+              "playoffs": false
+            }
+          ]
+        },
+        {
+          "seed": 8,
+          "team": "las-vegas",
+          "initial_opponent_mean": 75.0,
+          "seasons": [
+            {
+              "season": 1,
+              "wins": 6,
+              "losses": 11,
+              "ties": 0,
+              "playoffs": false
+            },
+            {
+              "season": 2,
+              "wins": 2,
+              "losses": 15,
+              "ties": 0,
+              "playoffs": false
+            },
+            {
+              "season": 3,
+              "wins": 7,
+              "losses": 10,
+              "ties": 0,
+              "playoffs": false
+            },
+            {
+              "season": 4,
+              "wins": 6,
+              "losses": 11,
+              "ties": 0,
+              "playoffs": false
+            },
+            {
+              "season": 5,
+              "wins": 6,
+              "losses": 11,
+              "ties": 0,
+              "playoffs": false
+            }
+          ]
+        }
+      ]
+    }
+  }
+}
