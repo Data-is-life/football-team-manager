@@ -73,13 +73,9 @@ async function checks() {
  assert.match(p.d.querySelector('#help-topics').textContent,/20% boom/);
  assert.match(p.d.querySelector('#help-topics').textContent,/Seasons 2–5/);
  assert.equal(new Set([...p.d.querySelectorAll('[id]')].map(n=>n.id)).size,p.d.querySelectorAll('[id]').length);
- const topic=p.d.querySelector('#team-ratings-info'),summary=topic.querySelector('summary');
- const enter=new p.w.Event('pointerenter');Object.defineProperty(enter,'pointerType',{value:'mouse'});topic.dispatchEvent(enter);
- assert.equal(topic.open,true);topic.dispatchEvent(new p.w.Event('pointerleave'));assert.equal(topic.open,false);
- summary.focus();assert.equal(topic.open,true);
- summary.dispatchEvent(new p.w.KeyboardEvent('keydown',{key:'Escape',bubbles:true,cancelable:true}));assert.equal(topic.open,false);
- summary.click();assert.equal(topic.open,true);topic.dispatchEvent(new p.w.Event('pointerleave'));assert.equal(topic.open,true,'Touch/click preview stays open');
- p.d.querySelector('#team-name').click();assert.equal(topic.open,false);
+ assert.equal(p.d.querySelector('#view-help').textContent,'How to Play');
+ assert.equal(p.d.querySelectorAll('.info-control,.info-body').length,0);
+ assert.ok([...p.d.querySelectorAll('#rating-method,#development-note,#contract-rules,#draft-format,#rotation-note,#tiebreaker-note')].every(node=>node.closest('#panel-help')));
  assert.equal(saved(p),undismissed,'Opening help must not change a save');
  p.d.querySelector('#welcome-dismiss').click();assert.equal(p.d.querySelector('#career-welcome').hidden,true);
  assert.equal(JSON.parse(saved(p)).welcomeDismissed,true);

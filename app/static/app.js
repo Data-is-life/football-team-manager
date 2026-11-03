@@ -630,66 +630,8 @@ document.querySelector("#welcome-dismiss").addEventListener("click", () => {
 document.querySelector("#welcome-help").addEventListener("click", () => activateView("help", { focus: true }));
 
 function renderHelp() {
-  const target = document.querySelector("#help-topics");
-  target.replaceChildren();
-  for (const source of document.querySelectorAll(".info-control")) {
-    if (source.id === "contract-info" && !activeContracts) continue;
-    const section = document.createElement("section"), title = document.createElement("h3");
-    title.textContent = source.querySelector("summary").textContent.replace("ⓘ", "").trim();
-    section.append(title);
-    for (const paragraph of source.querySelectorAll(".info-body p")) {
-      if ((paragraph.hidden && paragraph.id !== "roster-stats-note") || !paragraph.textContent.trim()) continue;
-      const copy = document.createElement("p");
-      copy.textContent = paragraph.id === "draft-format"
-        ? paragraph.textContent.replace(/^(Six|[0-9]+) rounds/, `${activeDraftRounds} rounds`)
-        : paragraph.textContent;
-      section.append(copy);
-    }
-    if (source.id === "schedule-rules-info") {
-      const formula = document.createElement("p");
-      formula.textContent = "17 games: 8 within your group, 5 against same-place teams, and 4 rotating opponents.";
-      section.append(formula);
-    }
-    target.append(section);
-  }
-}
-
-// Native summaries remain click/keyboard/touch controls; hover/focus previews
-// can be dismissed with Escape. A clicked preview stays open until dismissed.
-for (const help of document.querySelectorAll(".info-control")) {
-  const summary = help.querySelector("summary"), body = help.querySelector(".info-body");
-  body.tabIndex = 0;
-  body.setAttribute("role", "region");
-  body.setAttribute("aria-label", summary.textContent.replace("ⓘ", "").trim());
-  let hovering = false, pinned = false, dismissed = false;
-  function open() {
-    if (dismissed) return;
-    help.open = true;
-    body.style.top = "100%";
-    body.style.bottom = "auto";
-    const rect = help.getBoundingClientRect();
-    const preview = body.getBoundingClientRect();
-    if (preview.bottom > window.innerHeight && rect.top >= preview.height) {
-      body.style.top = "auto";
-      body.style.bottom = "100%";
-    }
-    const left = rect.left;
-    body.style.left = `${Math.min(0, window.innerWidth - left - body.getBoundingClientRect().width - 16)}px`;
-  }
-  function close() { help.open = false; pinned = false; }
-  help.addEventListener("pointerenter", event => { if (event.pointerType === "mouse") { hovering = true; open(); } });
-  help.addEventListener("pointerleave", () => { hovering = false; dismissed = false; if (!pinned && !help.contains(document.activeElement)) close(); });
-  help.addEventListener("focusin", open);
-  help.addEventListener("focusout", event => { if (!help.contains(event.relatedTarget)) { dismissed = false; if (!hovering && !pinned) close(); } });
-  summary.addEventListener("click", event => {
-    event.preventDefault();
-    if (pinned) { close(); dismissed = true; }
-    else { dismissed = false; pinned = true; open(); }
-  });
-  help.addEventListener("keydown", event => {
-    if (event.key === "Escape" && help.open) { event.preventDefault(); event.stopPropagation(); close(); dismissed = true; summary.focus({ preventScroll: true }); }
-  });
-  document.addEventListener("click", event => { if (!help.contains(event.target)) { close(); dismissed = false; } });
+  document.querySelector("#contract-info").hidden = !activeContracts;
+  document.querySelector("#draft-format").textContent = `${activeDraftRounds} rounds · Same order each round · CPU teams balance player quality and position needs. Rookies join your roster without replacing anyone. The regular-season limit is 38.`;
 }
 
 function activateView(id, { focus = false } = {}) {
@@ -955,7 +897,6 @@ function renderRosterStats() {
   document.querySelector("#roster-competition-control").hidden = !showStats;
   const status = document.querySelector("#roster-stats-status");
   status.hidden = !showStats;
-  document.querySelector("#roster-stats-note").hidden = !showStats;
   const snapshot = rosterTotals[rosterCompetition.value];
   const competition = rosterCompetition.value === "regular" ? "Regular season" : "Playoffs";
   status.textContent = `${competition} · ${snapshot.games} team game${snapshot.games === 1 ? "" : "s"} recorded.${snapshot.games ? "" : " No completed games in this competition."}`;
@@ -1089,7 +1030,7 @@ function renderSchedule(data, runSeed, { priorStandings = {}, history = [], care
   document.querySelector("#rebuild-note").hidden = !rebuildTeam || activeSeason !== 1;
   document.querySelector("#rating-method").textContent = lineupRules >= 2
     ? "Team ratings: 80% starters + 20% bench, using current ability. Kickers are separate. Highlighted players are starters."
-    : "This saved season keeps its original rating formula. Starter choices affect future games; 80%/20% team ratings apply next season.";
+    : "This saved season keeps its original rating formula. Automatic starters and 80%/20% team ratings apply next season.";
   activePriorStandings = priorStandings;
   careerHistory = history;
   activeContracts = contracts;

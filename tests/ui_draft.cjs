@@ -151,6 +151,7 @@ async function checks(){
    lineupRules:1,developmentStart:null,rebuildTeam:null,career:[],dropped:[],draftChoices:oldDraft.manual_picks.slice(0,count)};
   const expected=await post({manual_picks:oldSave.draftChoices});
   p=await restore(JSON.stringify(oldSave));checkRecap(p,p.state.last.picks);assert.equal(p.state.last.rounds,4);assert.deepEqual(p.state.last.picks,expected.picks);
+  const beforeGuide=raw(p);q(p,'#view-help').click();assert.match(q(p,'#draft-format').textContent,/4 rounds/);assert.equal(q(p,'#draft-format').closest('[role=tabpanel]').id,'panel-help');assert.equal(q(p,'#contract-info').hidden,true);assert.equal(raw(p),beforeGuide);
   q(p,'#draft-button').click();assert.match(q(p,'#draft-format').textContent,/4 rounds/);
   if(count<4){
    q(p,'#auto-draft').click();await until(()=>save(p).draftChoices.length===4);
