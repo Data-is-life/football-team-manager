@@ -3,7 +3,7 @@ from collections import Counter
 from functools import lru_cache
 
 from .draft import build_draft, player_payload
-from .simulation import ROSTER_RULES, validate_roster, ranked_players
+from .simulation import ROSTER_RULES, validate_roster, ranked_players, roster_limit
 from .lineups import lineup_context, replace_lineup_rosters
 from .starter_choices import with_starters
 
@@ -32,9 +32,9 @@ def arrange_depth(players):
     return ranked_players(players)
 
 
-def cpu_cuts(players):
+def cpu_cuts(players, limit=ROSTER_MAX):
     remaining = list(players)
-    while len(remaining) > ROSTER_MAX:
+    while len(remaining) > limit:
         counts = Counter(p.position for p in remaining)
         eligible = [p for p in remaining if counts[p.position] > ROSTER_RULES[p.position][1]]
         if not eligible:
@@ -55,14 +55,14 @@ def offseason(team_id, season, run_seed, choices, dropped, prior=(), roster_cont
         for identity in dropped:
             rosters[team_id] = drop_players(rosters[team_id], [identity])
             excluded.append(identity)
-            rosters[team_id] = fill_roster(rosters[team_id],team_id,season,run_seed,excluded)
+            rosters[team_id] = fill_roster(rosters[team_id],team_id,season,run_seed,excluded,context=roster_context)
         rosters[team_id] = arrange_depth(rosters[team_id])
         draft['replacements'] = [player_payload(p,roster_context) for p in rosters[team_id] if p.id.startswith(f'replacement-{run_seed}-{season+1}-')]
     else:
         rosters[team_id] = arrange_depth(drop_players(rosters[team_id], dropped))
     for other in rosters:
         if other != team_id:
-            rosters[other] = cpu_cuts(rosters[other])
+            rosters[other] = cpu_cuts(rosters[other], roster_limit(roster_context))
     context = tuple((owner, tuple(rosters[owner])) for owner in sorted(rosters))
     context = replace_lineup_rosters(roster_context,context)
     return draft, context
@@ -81,7 +81,7 @@ def replay_career(team_id: str, run_seed: int, steps: tuple, lineup_rules: int =
         if season <= previous:
             raise ValueError('Career offseason years must be in increasing order')
         _, context = offseason(team_id, season, run_seed, choices, dropped, prior, context, step[6] if len(step) > 6 else 4)
-        if len(dict(context)[team_id]) > ROSTER_MAX:
-            raise ValueError('Finalize each past roster at 38 players or fewer')
+        if len(dict(context)[team_id]) > roster_limit(context):
+            raise ValueError(f'Finalize each past roster at {roster_limit(context)} players or fewer')
         previous = season
     return lineup_context(context, run_seed, lineup_rules, target_season, development_start, rebuild_team)

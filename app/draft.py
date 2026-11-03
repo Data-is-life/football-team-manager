@@ -132,7 +132,7 @@ def build_draft(team_id: str, season: int, run_seed: int, choices: tuple[str, ..
     complete = len(picks) == draft_rounds * len(order)
     if retirement_rules and complete:
         from .retirement import fill_roster
-        rosters = {owner:list(fill_roster(players,owner,season,run_seed)) for owner,players in rosters.items()}
+        rosters = {owner:list(fill_roster(players,owner,season,run_seed,context=roster_context)) for owner,players in rosters.items()}
     return ({'season': season, 'draft_season': season + 1, 'run_seed': run_seed,
              'team': asdict(TEAM_BY_ID[team_id]), 'rounds': draft_rounds, 'total_picks': draft_rounds * len(order),
              'class_size': CLASS_SIZE, 'order': order, 'picks': picks,

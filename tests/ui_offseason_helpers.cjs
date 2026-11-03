@@ -10,7 +10,7 @@ async function finishOffseason(page, until) {
   await until(()=>save().draftChoices.length===count+1);
  }
  q('#draft-close').click();q('#manage-roster').click();
- while(page.d.querySelectorAll('#roster-groups .roster-player').length>38){
+ while(page.d.querySelectorAll('#roster-groups .roster-player').length>(save().lineupRules>=11?31:38)){
   const count=save().dropped.length;
   q('#roster-groups [data-drop-id]:not([disabled])').click();q('#cut-confirm').click();
   await until(()=>save().dropped.length===count+1);
