@@ -68,7 +68,10 @@
             </div>
             <div class="season-actions">
               <button id="simulate-button" type="button">Simulate Week 1</button>
-              <button id="simulate-season" type="button">Simulate remaining season</button>
+              <details id="simulation-more" class="simulation-more" hidden>
+                <summary>More actions</summary>
+                <button id="simulate-season" class="secondary-button" type="button" aria-haspopup="dialog" aria-controls="season-confirm-dialog">Simulate Season</button>
+              </details>
               <button id="stop-season" type="button" hidden>Stop after this week</button>
               <button id="playoffs-start" type="button" hidden>View playoffs</button>
               <button id="playoff-simulate" type="button" hidden></button>
@@ -333,6 +336,14 @@
         </section>
       </section>
     </main>
+    <dialog id="season-confirm-dialog" class="season-confirm-dialog" aria-labelledby="season-confirm-title" aria-describedby="season-confirm-message">
+      <h2 id="season-confirm-title">Simulate remaining season?</h2>
+      <p id="season-confirm-message"></p>
+      <div class="season-confirm-actions">
+        <button id="season-confirm-cancel" class="secondary-button" type="button" autofocus>Cancel</button>
+        <button id="season-confirm-start" type="button">Simulate games</button>
+      </div>
+    </dialog>
     <dialog id="team-roster-dialog" class="team-roster-dialog" aria-labelledby="scout-title">
       <div class="scout-heading">
         <div><p class="eyebrow">Scouting roster</p><h2 id="scout-title">Team roster</h2></div>

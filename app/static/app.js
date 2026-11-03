@@ -5,6 +5,9 @@ const scheduleList = document.querySelector("#schedule");
 const errorBox = document.querySelector("#error");
 const simulateButton = document.querySelector("#simulate-button");
 const simulateSeasonButton = document.querySelector("#simulate-season");
+const simulationMore = document.querySelector("#simulation-more");
+const seasonConfirmDialog = document.querySelector("#season-confirm-dialog");
+let pendingSeasonSimulation = null;
 const stopSeasonButton = document.querySelector("#stop-season");
 const seasonSimulationStatus = document.querySelector("#season-simulation-status");
 let weekSimulationBusy = false;
@@ -1014,6 +1017,11 @@ function updatePhaseActions() {
   const regular = live && currentWeek < 17;
   simulateButton.hidden = !regular || seasonSimulationActive;
   simulateSeasonButton.hidden = !regular || seasonSimulationActive;
+  simulationMore.hidden = !regular || seasonSimulationActive;
+  if (simulationMore.hidden) {
+    simulationMore.open = false;
+    closeSeasonConfirmation(false);
+  }
   stopSeasonButton.hidden = !regular || !seasonSimulationActive;
   playoffsStart.hidden = !live || currentWeek !== 17 || playoffState !== null;
   playoffSimulate.hidden = !live || !playoffState || playoffState.postseason_complete;
@@ -1030,6 +1038,8 @@ function createRunSeed() {
 }
 
 function renderSchedule(data, runSeed, { priorStandings = {}, history = [], career = [], lineupRules = 11, developmentStart = 1, rebuildTeam = null, contracts = true, lineupChanges = [], careerStartWeek = 1, draftRounds = 6 } = {}) {
+  closeSeasonConfirmation(false);
+  simulationMore.open = false;
   clearLeaders();
   if (rosterDialog.open) rosterDialog.close();
   weekSimulationBusy = false;
@@ -1347,6 +1357,8 @@ async function loadTeams() {
 
 document.querySelector("#change-team-button").addEventListener("click", () => {
   if (playoffBusy || seasonSimulationActive || restoring) return;
+  closeSeasonConfirmation(false);
+  simulationMore.open = false;
   scheduleSection.hidden = true;
   franchiseSetup.hidden = false;
   cancelTeamChange.hidden = false;
@@ -1419,16 +1431,39 @@ function updateSimulationControls() {
   simulateSeasonButton.disabled = disabled;
   simulateButton.textContent = ended ? "Career over" : complete ? "Regular season complete"
     : weekSimulationBusy ? "Simulating…" : `Simulate Week ${currentWeek + 1}`;
-  simulateSeasonButton.textContent = seasonSimulationActive ? `Simulating Week ${Math.min(17, currentWeek + 1)} of 17…` : "Simulate remaining season";
+  simulateSeasonButton.textContent = "Simulate Season";
   stopSeasonButton.hidden = !seasonSimulationActive;
   stopSeasonButton.disabled = stopSeasonRequested;
   document.querySelector("#change-team-button").disabled = seasonSimulationActive;
   updatePhaseActions();
 }
 
+function canSimulate() {
+  return !weekSimulationBusy && !restoring && !advancingSeason && !careerEnded() && activeTeamId && currentWeek < 17
+    && !form.querySelector('button[type="submit"]').disabled;
+}
+
+function closeSeasonConfirmation(returnFocus = true) {
+  pendingSeasonSimulation = null;
+  if (!seasonConfirmDialog.open) return;
+  seasonConfirmDialog.close();
+  if (returnFocus && !simulationMore.hidden) simulationMore.querySelector("summary").focus({ preventScroll: true });
+}
+
+function openSeasonConfirmation() {
+  if (!canSimulate() || seasonConfirmDialog.open || !franchiseSetup.hidden) return;
+  const count = 17 - currentWeek;
+  pendingSeasonSimulation = { teamId: activeTeamId, runSeed: activeRunSeed, season: activeSeason, week: currentWeek };
+  document.querySelector("#season-confirm-message").textContent =
+    `This will simulate ${count} regular-season ${count === 1 ? "game" : "games"} (${count === 1 ? "Week 17" : `Weeks ${currentWeek + 1}–17`}). Each completed week is saved. Playoffs and the draft wait for you.`;
+  document.querySelector("#season-confirm-start").textContent = `Simulate ${count} ${count === 1 ? "game" : "games"}`;
+  simulationMore.open = false;
+  seasonConfirmDialog.showModal();
+  document.querySelector("#season-confirm-cancel").focus({ preventScroll: true });
+}
+
 async function simulateWeeks(wholeSeason = false) {
-  if (weekSimulationBusy || restoring || advancingSeason || careerEnded() || !activeTeamId || currentWeek >= 17
-      || form.querySelector('button[type="submit"]').disabled) return;
+  if (!canSimulate() || seasonConfirmDialog.open) return;
   weekSimulationBusy = true;
   seasonSimulationActive = wholeSeason;
   stopSeasonRequested = false;
@@ -1476,7 +1511,27 @@ async function simulateWeeks(wholeSeason = false) {
 }
 
 simulateButton.addEventListener("click", () => simulateWeeks());
-simulateSeasonButton.addEventListener("click", () => simulateWeeks(true));
+simulateSeasonButton.addEventListener("click", openSeasonConfirmation);
+document.querySelector("#season-confirm-cancel").addEventListener("click", () => closeSeasonConfirmation());
+seasonConfirmDialog.addEventListener("cancel", event => {
+  event.preventDefault();
+  closeSeasonConfirmation();
+});
+seasonConfirmDialog.addEventListener("close", () => {
+  if (!seasonConfirmDialog.open) pendingSeasonSimulation = null;
+});
+document.querySelector("#season-confirm-start").addEventListener("click", () => {
+  const pending = pendingSeasonSimulation;
+  if (!seasonConfirmDialog.open || !pending) return;
+  const current = pending.teamId === activeTeamId && pending.runSeed === activeRunSeed
+    && pending.season === activeSeason && pending.week === currentWeek;
+  const ready = current && canSimulate() && franchiseSetup.hidden;
+  closeSeasonConfirmation(false);
+  if (ready) {
+    simulateWeeks(true);
+    if (!stopSeasonButton.hidden) stopSeasonButton.focus({ preventScroll: true });
+  }
+});
 stopSeasonButton.addEventListener("click", () => {
   if (!seasonSimulationActive || currentWeek >= 17 || careerEnded()) return;
   stopSeasonRequested = true;

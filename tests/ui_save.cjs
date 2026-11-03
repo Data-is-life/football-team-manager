@@ -99,7 +99,7 @@ async function checks() {
   const again=await restored(saved(p));
   assert.deepEqual(snapshot(again),before,'Reload preserves all rendered results and stats');
   for(const restoredPage of [p,again]){
-   const hidden={'simulate-button':week>=17,'simulate-season':week>=17,'stop-season':true,
+   const hidden={'simulation-more':week>=17,'simulate-button':week>=17,'simulate-season':week>=17,'stop-season':true,
     'playoffs-start':week<17||round!==null,'playoff-simulate':round===null||round===4,
     'draft-button':round!==4,'next-season':true,'manage-roster':true};
    for(const [action,expected] of Object.entries(hidden))assert.equal(restoredPage.d.querySelector('#'+action).hidden,expected,`Restored ${action} visibility at week ${week}, round ${round}`);

@@ -30,48 +30,75 @@ function page(checkpoint,options={}){
 async function restore(checkpoint,options){const p=page(checkpoint,options);await until(()=>/restored|could not/.test(q(p,'#save-status').textContent));assert.match(q(p,'#save-status').textContent,/restored/);p.state.weeks=[];p.state.other=[];p.state.saved=[];return p}
 async function finished(p,week=17){await until(()=>save(p).week===week&&q(p,'#stop-season').hidden)}
 function snapshot(p){return ['#season-record','#schedule','#roster-groups','#standings-section','#playoff-section','#gm-regular','#qualification-status'].map(id=>q(p,id).textContent)}
+function openConfirmation(p, count=17-save(p).week) {
+ const before=raw(p),requests=p.state.weeks.length;
+ assert.equal(q(p,'#simulation-more').hidden,false);
+ assert.equal(q(p,'#simulate-season').closest('details').id,'simulation-more');
+ if(!q(p,'#simulation-more').open)q(p,'#simulation-more > summary').click();
+ q(p,'#simulate-season').click();
+ assert.equal(q(p,'#season-confirm-dialog').open,true);
+ assert.equal(q(p,'#simulation-more').open,false);
+ assert.equal(q(p,'#season-confirm-start').textContent,`Simulate ${count} ${count===1?'game':'games'}`);
+ assert.ok(q(p,'#season-confirm-message').textContent.includes(`${count} regular-season ${count===1?'game':'games'}`));
+ assert.equal(p.d.activeElement,q(p,'#season-confirm-cancel'));
+ assert.equal(p.state.weeks.length,requests);assert.equal(raw(p),before);
+}
+function startSeason(p) { openConfirmation(p);q(p,'#season-confirm-start').click();assert.equal(q(p,'#season-confirm-dialog').open,false);assert.equal(p.d.activeElement,q(p,'#stop-season')); }
 async function checks(){
- let p=await restore(legacy());q(p,'#view-roster').click();q(p,'#simulate-season').click();q(p,'#simulate-season').click();q(p,'#simulate-button').click();
+ let p=await restore(legacy(8));
+ assert.equal(q(p,'#simulation-more').open,false);assert.equal(q(p,'#simulate-button').hidden,false);
+ const untouched=raw(p);openConfirmation(p,9);assert.match(q(p,'#season-confirm-message').textContent,/Weeks 9–17/);
+ q(p,'#simulate-button').click();assert.equal(p.state.weeks.length,0,'No weekly requests behind a modal');
+ q(p,'#season-confirm-cancel').click();assert.equal(q(p,'#season-confirm-dialog').open,false);
+ assert.equal(p.d.activeElement,q(p,'#simulation-more > summary'));assert.equal(raw(p),untouched);
+ q(p,'#season-confirm-start').click();assert.equal(p.state.weeks.length,0,'Cancelled confirmation cannot start simulation');
+ openConfirmation(p,9);const escape=new p.w.Event('cancel',{cancelable:true});q(p,'#season-confirm-dialog').dispatchEvent(escape);
+ assert.equal(escape.defaultPrevented,true);assert.equal(q(p,'#season-confirm-dialog').open,false);assert.equal(raw(p),untouched);
+ openConfirmation(p,9);q(p,'#change-team-button').click();assert.equal(q(p,'#season-confirm-dialog').open,false);
+ q(p,'#season-confirm-start').click();assert.equal(p.state.weeks.length,0);assert.equal(raw(p),untouched);p.dom.window.close();
+ p=await restore(legacy(8));openConfirmation(p,9);p.w.renderResult(await api('/api/season/seattle/week/9?run_seed=1234'));q(p,'#season-confirm-start').click();
+ assert.equal(p.state.weeks.length,0,'Stale week count cannot confirm');assert.equal(raw(p),untouched);p.dom.window.close();
+ p=await restore(legacy());q(p,'#view-roster').click();startSeason(p);q(p,'#season-confirm-start').click();q(p,'#simulate-season').click();q(p,'#simulate-button').click();
  await finished(p);assert.deepEqual(p.state.weeks.map(r=>r.week),Array.from({length:17},(_,i)=>i+1));assert.deepEqual(p.state.saved,Array.from({length:17},(_,i)=>i+1));assert.equal(p.state.maxActive,1);
  assert.equal(q(p,'#view-roster').getAttribute('aria-selected'),'true');assert.equal(q(p,'#simulate-season').disabled,true);assert.equal(q(p,'#simulate-button').disabled,true);assert.equal(q(p,'#simulate-button').hidden,true);assert.equal(q(p,'#simulate-season').hidden,true);
- assert.equal(save(p).playoffRound,null);assert.equal(save(p).draftChoices,null);assert.equal(save(p).season,1);assert.equal(q(p,'#next-season').hidden,true);assert.equal(q(p,'#playoffs-start').hidden,false);assert.equal(p.state.other.length,0,'Batch must not reveal/simulate postseason, draft, or new season');
+ assert.equal(q(p,'#simulation-more').hidden,true);assert.equal(q(p,'#season-confirm-dialog').open,false);assert.equal(save(p).playoffRound,null);assert.equal(save(p).draftChoices,null);assert.equal(save(p).season,1);assert.equal(q(p,'#next-season').hidden,true);assert.equal(q(p,'#playoffs-start').hidden,false);assert.equal(p.state.other.length,0,'Batch must not reveal/simulate postseason, draft, or new season');
  const whole=snapshot(p);p.dom.window.close();p=await restore(legacy());
  for(let week=1;week<=17;week++){q(p,'#simulate-button').click();await until(()=>save(p).week===week&&!q(p,'#simulate-button').textContent.includes('Simulating'))}
  assert.deepEqual(snapshot(p),whole,'Whole-season and manual-week results/stats/standings must match');p.dom.window.close();
- p=await restore(legacy(8));q(p,'#simulate-season').click();await finished(p);assert.deepEqual(p.state.weeks.map(r=>r.week),[9,10,11,12,13,14,15,16,17]);p.dom.window.close();
+ p=await restore(legacy(8));startSeason(p);await finished(p);assert.deepEqual(p.state.weeks.map(r=>r.week),[9,10,11,12,13,14,15,16,17]);p.dom.window.close();
  // Stop waits for the current response/save; forced duplicate actions cannot create a second loop or replace the career.
- p=await restore(legacy(),{holdWeek:3});q(p,'#simulate-season').click();await until(()=>Boolean(p.state.release));assert.equal(save(p).week,2);assert.equal(q(p,'#change-team-button').disabled,true);assert.equal(q(p,'#simulate-button').hidden,true);assert.equal(q(p,'#simulate-season').hidden,true);assert.equal(q(p,'#stop-season').hidden,false);
+ p=await restore(legacy(),{holdWeek:3});startSeason(p);await until(()=>Boolean(p.state.release));assert.equal(save(p).week,2);assert.equal(q(p,'#change-team-button').disabled,true);assert.equal(q(p,'#simulate-button').hidden,true);assert.equal(q(p,'#simulate-season').hidden,true);assert.equal(q(p,'#stop-season').hidden,false);
  q(p,'#simulate-season').disabled=false;q(p,'#simulate-season').click();q(p,'#simulate-button').disabled=false;q(p,'#simulate-button').click();
  q(p,'#change-team-button').disabled=false;q(p,'#change-team-button').click();assert.equal(q(p,'#franchise-setup').hidden,true);
  q(p,'#team-select').value='miami';q(p,'#team-form').dispatchEvent(new p.w.Event('submit',{cancelable:true}));assert.equal(p.state.other.length,0);
  q(p,'#stop-season').click();assert.match(q(p,'#season-simulation-status').textContent,/Stopping/);p.state.release();await finished(p,3);
  assert.deepEqual(p.state.weeks.map(r=>r.week),[1,2,3]);assert.deepEqual(p.state.saved,[1,2,3]);assert.equal(q(p,'#simulate-season').disabled,false);assert.equal(q(p,'#simulate-season').hidden,false);assert.equal(q(p,'#simulate-button').hidden,false);assert.equal(q(p,'#change-team-button').disabled,false);
  const stopped=save(p);p.dom.window.close();p=await restore(stopped);assert.equal(p.state.weeks.length,0,'Reload must not resume a batch automatically');assert.equal(q(p,'#stop-season').hidden,true);assert.equal(q(p,'#season-simulation-status').textContent,'');
- q(p,'#simulate-season').click();await finished(p);assert.equal(p.state.weeks[0].week,4);p.dom.window.close();
+ startSeason(p);await finished(p);assert.equal(p.state.weeks[0].week,4);p.dom.window.close();
  for(const failure of ['failWeek','mismatchWeek']){
-  p=await restore(legacy(),{[failure]:4});q(p,'#simulate-season').click();await until(()=>!q(p,'#error').hidden&&q(p,'#stop-season').hidden);
+  p=await restore(legacy(),{[failure]:4});startSeason(p);await until(()=>!q(p,'#error').hidden&&q(p,'#stop-season').hidden);
   assert.equal(save(p).week,3);assert.deepEqual(p.state.saved,[1,2,3]);assert.match(q(p,'#season-simulation-status').textContent,/Week 4/);assert.equal(q(p,'#simulate-season').disabled,false);assert.equal(q(p,'#simulate-season').hidden,false);assert.equal(q(p,'#simulate-button').hidden,false);
-  p.state[failure]=null;q(p,'#simulate-season').click();await finished(p);assert.deepEqual(p.state.weeks.map(r=>r.week),[1,2,3,4,...Array.from({length:14},(_,i)=>i+4)]);p.dom.window.close();
+  p.state[failure]=null;startSeason(p);await finished(p);assert.deepEqual(p.state.weeks.map(r=>r.week),[1,2,3,4,...Array.from({length:14},(_,i)=>i+4)]);p.dom.window.close();
  }
  // A storage failure keeps in-page progress moving and preserves the last durable checkpoint.
  p=await restore(legacy());const checkpointBeforeQuota=raw(p);
  p.w.Storage.prototype.setItem=function(){throw new Error('Quota exceeded')};
- q(p,'#simulate-season').click();await until(()=>/Regular season complete/.test(q(p,'#season-simulation-status').textContent)&&q(p,'#stop-season').hidden);
+ startSeason(p);await until(()=>/Regular season complete/.test(q(p,'#season-simulation-status').textContent)&&q(p,'#stop-season').hidden);
  assert.equal(raw(p),checkpointBeforeQuota);assert.match(q(p,'#save-status').textContent,/could not be saved/);assert.equal(q(p,'#simulate-season').disabled,true);assert.equal(p.state.weeks.length,17);p.dom.window.close();
  // Career requests preserve all drafted/cut rosters and use the current season's actual context.
- const later=JSON.parse(fs.readFileSync(path.join(root,'benchmarks/year8.json'),'utf8'));p=await restore(later);q(p,'#simulate-season').click();await finished(p);
+ const later=JSON.parse(fs.readFileSync(path.join(root,'benchmarks/year8.json'),'utf8'));p=await restore(later);startSeason(p);await finished(p);
  assert.deepEqual(p.state.weeks.map(r=>r.week),[9,10,11,12,13,14,15,16,17]);
  for(const r of p.state.weeks){assert.equal(r.body.action,'week');assert.equal(r.body.season,8);assert.equal(r.body.lineup_rules,6);assert.deepEqual(r.body.career,later.career.map(step=>({...step,draft_rounds:4})))}
  assert.equal(save(p).season,8);assert.equal(save(p).playoffRound,null);assert.deepEqual(save(p).career,later.career.map(step=>({...step,draft_rounds:4})));p.dom.window.close();
  // New contract careers still show qualification/owner feedback; fourth-year failure ends play.
  const modern={version:12,contracts:true,teamId:'seattle',runSeed:1234,season:1,week:16,playoffRound:null,lineupRules:6,developmentStart:1,rebuildTeam:'seattle',priorStandings:{},history:[],career:[],draftChoices:null,dropped:[]};
- p=await restore(modern);q(p,'#simulate-season').click();await finished(p);assert.equal(q(p,'#qualification-status').hidden,false);assert.ok(q(p,'#owner-feedback').textContent);p.dom.window.close();
+ p=await restore(modern);startSeason(p);await finished(p);assert.equal(q(p,'#qualification-status').hidden,false);assert.ok(q(p,'#owner-feedback').textContent);p.dom.window.close();
  const regular=await api('/api/season/seattle/week/17?season=4&run_seed=1234');const ranks=Object.fromEntries(regular.standings.groups.flatMap(g=>g.teams).map(r=>[r.team.id,r.rank]));
  const final=await api(`/api/season/seattle/week/17?season=4&run_seed=1234&prior_standings=${encodeURIComponent(JSON.stringify(ranks))}`);
  const id=final.standings.groups.flatMap(g=>g.teams).find(row=>!final.standings.playoff_race.some(f=>f.team.id===row.team.id)).team.id;
  const dead={...modern,teamId:id,season:4,lineupRules:1,developmentStart:null,rebuildTeam:null,priorStandings:ranks,history:[1,2,3].map(season=>({season,wins:6,losses:11,ties:0,championId:'seattle',playoffFinish:'Missed playoffs'}))};
- p=await restore(dead);q(p,'#simulate-season').click();await finished(p);assert.match(q(p,'#contract-status').textContent,/Fired/);assert.match(q(p,'#season-simulation-status').textContent,/career has ended/);assert.equal(q(p,'#playoffs-start').hidden,true);assert.equal(q(p,'#simulate-season').disabled,true);
+ p=await restore(dead);startSeason(p);await finished(p);assert.match(q(p,'#contract-status').textContent,/Fired/);assert.match(q(p,'#season-simulation-status').textContent,/career has ended/);assert.equal(q(p,'#playoffs-start').hidden,true);assert.equal(q(p,'#simulate-season').disabled,true);
  const count=p.state.weeks.length;q(p,'#simulate-season').disabled=false;q(p,'#simulate-season').click();assert.equal(p.state.weeks.length,count);p.dom.window.close();
- console.log('Season simulation UI checks passed: 17 sequential weekly saves, manual-result parity, partial saves, safe stop/reload/resume, duplicate and team-change guards, failed/mismatched-response recovery, later-season roster context, postseason/draft boundaries, qualification messages, and firing.');
+ console.log('Season simulation UI checks passed: secondary More actions, exact game counts/ranges, safe Cancel/Escape/default focus, no requests before confirmation, stale/duplicate confirmations, phase visibility,  17 sequential weekly saves, manual-result parity, partial saves, safe stop/reload/resume, duplicate and team-change guards, failed/mismatched-response recovery, later-season roster context, postseason/draft boundaries, qualification messages, and firing.');
 }
 (async()=>{const server=spawn(process.env.PYTHON||'python',['-m','uvicorn','app.main:app','--host','127.0.0.1','--port','8777'],{cwd:root,stdio:['ignore','pipe','pipe']});let logs='';server.stdout.on('data',d=>logs+=d);server.stderr.on('data',d=>logs+=d);try{for(let i=0;;i++){if(server.exitCode!==null)throw new Error(logs);try{if((await fetch(base+'/api/teams')).ok)break}catch{}if(i===100)throw new Error(logs);await new Promise(r=>setTimeout(r,100))}await checks()}finally{server.kill()}})().catch(e=>{console.error(e);process.exitCode=1});
