@@ -316,15 +316,6 @@ tr.selected-team td { color: var(--cyan); background: rgba(72,230,210,0.07); }
 .development-declined { color: var(--danger); }
 #development-recap-scroll:focus-visible { outline: 2px solid var(--cyan); outline-offset: 3px; }
 
-.info-controls { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 4px 12px; }
-.info-control { margin: 6px 0; }
-.info-control > summary { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; color: var(--ink); background: var(--panel-2); font-size: .95rem; font-weight: 600; line-height: 1.4; cursor: pointer; list-style: none; }
-.info-control > summary::-webkit-details-marker { display: none; }
-.info-control > summary::marker { content: ""; }
-.info-control > summary:hover, .info-control[open] > summary { border-color: var(--cyan); }
-.info-control > summary:focus-visible { outline: 2px solid var(--cyan); outline-offset: 3px; }
-.info-control[open] { flex-basis: 100%; }
-.info-control .roster-note { font-size: .95rem; line-height: 1.6; padding: 8px 10px; margin: 0; }
 
 #league-leaders-button { margin-bottom: 16px; }
 .leaders-category { margin: 24px 0; }
@@ -344,11 +335,7 @@ tr.selected-team td { color: var(--cyan); background: rgba(72,230,210,0.07); }
 #roster-groups { overflow-anchor: none; }
 .cut-confirmation-row .empty-state { max-width: min(36rem, calc(100vw - 5rem)); }
 
-/* Compact contextual previews; the complete readable guide lives in its tab. */
-.info-control { position: relative; }
-.info-control[open] { flex-basis: auto; }
-.info-body { position: absolute; top: 100%; left: 0; z-index: 20; width: min(32rem, calc(100vw - 3rem)); max-height: min(60vh, 28rem); overflow: auto; padding: 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); box-shadow: 0 8px 24px #0006; }
-.info-body p { margin: 8px 0; font-size: 1rem; line-height: 1.6; white-space: normal; }
+/* Readable guidance is confined to How to Play. */
 #help-topics { max-width: 65ch; }
 #help-topics section { margin: 24px 0; }
 #help-topics p { font-size: 1rem; line-height: 1.65; }

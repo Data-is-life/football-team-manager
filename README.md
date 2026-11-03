@@ -465,12 +465,11 @@ Reopen **Development recap** from Roster throughout the season and offseason. It
 This is a read-only presentation change: no extra API calls, save fields, growth rules, boom/bust probabilities or future rookie disclosures. Historical development browsing is outside this change.
 
 
-## Compact mechanics help
+## How to Play
 
-Longer explanations for team ratings, player development, roster limits, cuts, automatic starters, career records, playoff format and draft/auto-draft rules now sit behind labeled **ⓘ info controls**. Each native details/summary control starts collapsed, offers a contextual preview on hover/focus or click/tap, and supports keyboard Enter/Space with a visible focus outline. Screen readers receive the native disclosure state; the decorative icon is hidden from assistive technology. Controls have a 44px minimum height and the expanded help uses readable text. The complete guidance is also available in Help & Rules; no content requires a mouse.
+All instructions and rules live in the **How to Play** tab. Ratings, development, roster limits/cuts, automatic starters, career timing/contracts, GM records, schedule, draft and playoff guidance are grouped under readable headings. Other screens have no ⓘ controls or hover/focus previews. Current ratings, record, status, owner updates, warnings and errors stay beside their actions.
 
-Live progress, errors, roster counts, action timing, qualification/outcome messages and data limitations stay visible. Dynamic text inside help (including legacy rating formulas, development rules and saved four-round draft rules) continues to update normally. Opening help is read-only and does not change saves, requests or gameplay.
-
+The guide uses the original live rule elements, with unique IDs, so seed/season-specific guidance and legacy four/six-round drafts remain accurate. Opening it needs no API calls and does not save or change progress. The once-per-career welcome links to How to Play and retains its existing dismissal behavior. Keyboard navigation still covers all nine tabs.
 
 ## Actions follow the season phase
 
@@ -512,13 +511,13 @@ Offseason Drop confirmation and retry errors appear directly beneath the selecte
 
 Regression checks simulate viewport geometry in jsdom for repeated cuts, last-row releases, minimum-roster focus, cancellation/retry, horizontal offsets and delayed responses after tab changes. They verify DOM/state and scroll calculations; they do not verify native browser layout or mobile rendering.
 
-### Welcome and Help & Rules
+### Welcome and How to Play
 
 Each successfully created career starts with a brief welcome guide. **Got it** dismisses it for that career; save version 19 stores `welcomeDismissed`, preserves it through reloads and season transitions, and resets it when a new career is successfully created. Versions 1–18 remain readable and skip the welcome guide so existing careers are not interrupted. Storage failures retain the usual visible save warning.
 
-The **Help & Rules** tab collects the current career's detailed instructions, including ratings, development, roster limits/cuts, starters, records, career timing/contracts, schedule, draft and playoffs/tiebreakers. Text is copied from the live contextual guidance when the tab opens so legacy rules and four/six-round drafts remain accurate. Contextual ⓘ summaries offer mouse-hover and keyboard-focus previews, touch/click to pin open, Escape to dismiss, and outside-click dismissal. Long previews scroll and can be focused by keyboard. Status, owner feedback, qualification messages, errors, roster counts and action timing remain beside the relevant actions.
+The **How to Play** tab is the sole home for detailed guidance. The gameplay screens keep current state, owner feedback and errors visible while removing the former contextual help buttons. The original live rule elements reside directly in the guide, including legacy-specific text and active draft-round counts.
 
-DOM checks cover welcome persistence/reset, legacy saves, new-season dismissal retention, current help content without duplicate IDs or extra API calls, ninth-tab keyboard navigation, hover/focus/Escape/touch-style click interactions and all prior UI flows. Native browser/mobile layout is not verified by jsdom.
+DOM checks cover welcome persistence/reset, legacy saves, new-season dismissal retention, current help content without duplicate IDs or extra API calls, ninth-tab keyboard navigation, centralized rule placement and all prior UI flows. Native browser/mobile layout is not verified by jsdom.
 
 ### Contract details and season-end owner updates
 
