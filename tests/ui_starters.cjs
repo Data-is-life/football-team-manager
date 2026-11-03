@@ -66,7 +66,16 @@ async function checks(){
  const retirementCareer={...checkpoint,runSeed:1,lineupRules:10,week:16};
  p=await restore(retirementCareer);q(p,'#view-roster').click();
  const planned=[...p.d.querySelectorAll('#roster-groups .retirement-badge')].map(b=>b.closest('[data-player-id]').dataset.playerId);
- assert.equal(planned.length,5);assert.ok([...p.d.querySelectorAll('#roster-groups .retirement-badge')].every(b=>b.textContent==='Retiring after this season'));
+ assert.equal(planned.length,5);
+ for(const badge of p.d.querySelectorAll('#roster-groups .retirement-badge')){
+  assert.equal(badge.tagName,'DETAILS');assert.equal(badge.open,false);
+  const marker=badge.querySelector('summary');assert.equal(marker.textContent,'*');
+  assert.equal(marker.title,'Retiring after this season');assert.equal(marker.getAttribute('aria-label'),'Retiring after this season');
+  assert.equal(badge.querySelector('.retirement-explanation').textContent,'Retiring after this season');
+ }
+ const unchanged=raw(p),marker=q(p,'#roster-groups .retirement-badge > summary');
+ marker.click();assert.equal(marker.parentElement.open,true);marker.click();assert.equal(marker.parentElement.open,false);
+ assert.equal(raw(p),unchanged,'Opening a retirement explanation does not change progress');
  const savedPlan=raw(p);p.dom.window.close();p=await restore(JSON.parse(savedPlan));
  assert.equal(p.d.querySelectorAll('#roster-groups .retirement-badge').length,5);
  q(p,'#simulate-button').click();await until(()=>save(p).week===17);

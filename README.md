@@ -532,7 +532,7 @@ Save version 19 gains an optional `ownerUpdateDismissed` season number (default 
 
 ## Position- and rating-based retirement (rules 10)
 
-New careers and future season transitions adopt lineup rules 10/save version 20; existing current seasons and in-progress drafts retain their saved rules. New retirement rules first announce departures during that season, then remove them from the active roster after the league postseason, before its draft. Completed scores, box scores, regular/playoff season stats, leaders and historical replay retain the players who actually played. Ratings/scouting show **Retiring after this season**; completed-season stats and the roster retirement recap identify retired players.
+New careers and future season transitions adopt lineup rules 10/save version 20; existing current seasons and in-progress drafts retain their saved rules. New retirement rules first announce departures during that season, then remove them from the active roster after the league postseason, before its draft. Completed scores, box scores, regular/playoff season stats, leaders and historical replay retain the players who actually played. Ratings/scouting show a compact yellow **\*** for players retiring after this season. Hover for its meaning, or focus and activate/tap the marker to expand the explanation; completed-season stats and the roster retirement recap identify retired players.
 
 | Position | Base final playing age |
 | --- | ---: |
