@@ -55,7 +55,7 @@ Tabs support Left/Right arrows (including wraparound), Home, and End. The tab ba
 
 Click any team name in Group Standings to open its scouting roster in a separate dialog. Inspect players by position, including age, current rating, and potential rating, plus the team's offense and defense ratings. Close the dialog or press Escape to return to Standings. Browsing preserves your managed team, season progress, and roster settings. A failed load can be retried inside the dialog; browsing does not simulate games.
 
-New careers start with 31 fictional players per team (lineup rules 11, save version 21). Existing careers retain their 38-player format, including future seasons and unfinished drafts: starting a new career is required for the smaller format. This avoids deleting retained veterans or draft picks and preserves completed results. Expand or collapse each position group to inspect its players, depth order, and current/potential ratings.
+New careers start with 31 fictional players per team (lineup rules 12, save version 22). Existing 38-player careers retain their format, including future seasons and unfinished drafts: starting a new career is required for the smaller format. This avoids deleting retained veterans or draft picks and preserves completed results. Expand or collapse each position group to inspect its players, depth order, and current/potential ratings.
 
 Both Ratings and Season Stats show each player's age in years. Initial ages are 21–36: a deterministic entry age of 21–24 plus the player's existing 0–12 years of experience. Ages stay fixed during a season and are regenerated for each new run. Under current career rules, age and experience increase once per offseason. Development and decline follow the positional curves below; retirement follows the rules described later. Existing saved seasons keep their original rules until their next season transition.
 
@@ -549,7 +549,7 @@ Current rating below 60 brings retirement forward two years; above 80 delays it 
 
 The GM has six draft picks to address vacancies. CPU/auto-draft picks prioritize positions below their minimum. **After the draft finishes**, remaining minimum shortages receive generated players, then vacancies are filled toward the versioned position targets up to 31 (38 for legacy rules). Existing surplus picks are not discarded; if filling required minimums leaves more players than the limit, legal cuts remain mandatory. Generated replacements start at **40–55 current**, have potential capped at 60, are not draft rookies, and do not receive rookie boom/bust assessments. A legal cut below the career limit receives another weak replacement; released IDs never reappear. Draft quality and roster planning remain the GM's responsibility. CPU teams follow the same roster rules. No free-agency market or signing controls are added.
 
-The ages follow the earlier design review of official NFL player profiles (Rodgers 42, Folk 41, Abdullah 33, Allen 34, Kelce 37, Williams 38, Campbell 40, Davis 37, Jones 33, Smith 37), which illustrate longevity exceptions rather than averages. Retirement runs under rules 10 and later; rules 1–9 payloads and historical draft classes remain reproducible. Save versions 1–21 remain readable.
+The ages follow the earlier design review of official NFL player profiles (Rodgers 42, Folk 41, Abdullah 33, Allen 34, Kelce 37, Williams 38, Campbell 40, Davis 37, Jones 33, Smith 37), which illustrate longevity exceptions rather than averages. Retirement runs under rules 10 and later; rules 1–9 payloads and historical draft classes remain reproducible. Save versions 1–22 remain readable.
 
 Official profiles used in the retirement design review: [Rodgers](https://www.nfl.com/players/aaron-rodgers/), [Folk](https://www.nfl.com/players/nick-folk/), [Abdullah](https://www.nfl.com/players/ameer-abdullah/), [Allen](https://www.nfl.com/players/keenan-allen/), [Kelce](https://www.nfl.com/players/travis-kelce/), [Williams](https://www.nfl.com/players/trent-williams/), [Campbell](https://www.nfl.com/players/calais-campbell/), [Davis](https://www.nfl.com/players/demario-davis/), [Jones](https://www.nfl.com/players/jonathan-jones/), [Smith](https://www.nfl.com/players/harrison-smith/).
 
@@ -561,3 +561,24 @@ After drafting, the draft summary and roster-management status show the exact nu
 
 The Schedule view uses a chronological, compact list instead of game cards. Each row keeps the week, home/away matchup, scheduling reason, latest opponent record and result (your score first, with overtime when applicable). Rows stack their details on narrow screens. Simulation, restored results and season transitions use the same list.
 
+
+## Opponent strength (rules 12)
+
+New careers seed the other 29 teams from an approximately normal strength distribution centered at **75**, with a standard deviation near **4** for combined offense/defense. A shared team-strength draw plus a smaller offensive/defensive skew gives teams distinct identities. Each unit's targets are centered and rounded to an exact 75 average; bounded 60–90 targets prevent extreme starting teams. This is a game-balance choice, not an NFL estimate.
+
+These are actual player abilities, not display-only ratings or hidden win bonuses. Ability shifts preserve IDs, names, ages, experience and positional order; attributes are regenerated to match. Uniform shifts retain ability gaps, apart from ability bounds and a possible one-point reserve correction for half-even rounding. Kickers remain separate. The managed rebuilding team is unchanged at 70 ± 2 under the existing creation rules. Current/potential and age development continue normally.
+
+Existing 31-player careers retain their current season and adopt rules 12 at the next season transition, after normal aging. Only opponents are recalibrated at that one-time upgrade; potential, baseline and development deltas move consistently with ability. Later seasons are not re-centered: draft decisions and development determine their strength. Old 38-player careers keep their legacy format and balance. Existing saves remain readable; new saves use version 22. GM contract rules and playoff qualification are unchanged—this improves the starting gap without guaranteeing success.
+
+`python benchmarks/league_balance.py` compares eight paired seeded careers per version using six-round auto-drafts and lowest-rated legal cuts through Seasons 1–5. The full contract window is Seasons 2–5. `benchmarks/league-balance-results.json` records the sample, including initial opponent means, wins and playoff qualification; it is descriptive rather than a survival forecast.
+
+Seeded check (eight careers per version, four full seasons each):
+
+| Measure | Previous rules 11 | Balanced rules 12 |
+| --- | ---: | ---: |
+| Initial opponent mean | 80.68 | 75.00 |
+| Mean wins per full season | 5.72 | 6.84 |
+| Playoff appearances across 32 full seasons | 2 | 7 |
+| Careers making playoffs within four full seasons | 2 of 8 | 5 of 8 |
+
+The small sample uses a fixed auto-draft/cut policy, so it demonstrates behavior under that policy rather than estimating every player's chance of keeping the job.
