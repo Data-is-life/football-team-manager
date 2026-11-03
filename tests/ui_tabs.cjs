@@ -66,6 +66,17 @@ async function checkUI() {
   assert.equal(d.querySelector('#development-note').closest('#panel-help').id,'panel-help');
   assert.match(d.querySelector('#rating-method').textContent,/80% starters/);
   assert.match(d.querySelector('#development-note').textContent,/Ratings change once each offseason/);
+  const scheduleList=d.querySelector('#schedule');
+  assert.equal(scheduleList.tagName,'OL');
+  assert.equal(scheduleList.getAttribute('aria-label'),'Regular season schedule');
+  assert.equal(scheduleList.children.length,17);
+  [...scheduleList.children].forEach((row,i)=>{
+   assert.equal(row.tagName,'LI');
+   assert.equal(row.querySelector('.week').textContent,`Week ${i+1}`);
+   assert.ok(row.querySelector('.schedule-matchup strong').textContent);
+   assert.match(row.querySelector('.venue').getAttribute('title'),/^(Home|Away)$/);
+   assert.ok(row.querySelector('.reason').textContent);
+  });
   assert.equal(d.querySelectorAll('#schedule .opponent-record').length,17);
   for(const record of d.querySelectorAll('#schedule .opponent-record')) assert.equal(record.textContent,'Record: 0–0');
   assert.equal(d.querySelectorAll('.roster-player').length,38);
@@ -316,7 +327,7 @@ async function checkUI() {
    });
    const history=weekData.game_results;
    go('roster');checkRoster(weekData.roster_stats,'regular');checkRoster(api.roster_stats,'playoffs');go(selected);
-   const cards=d.querySelectorAll('#schedule .game-card');
+   const cards=d.querySelectorAll('#schedule .schedule-row');
    const opponentRows=new Map(weekData.standings.groups.flatMap(group=>group.teams).map(row=>[row.team.id,row]));
    cards.forEach(card=>{
     const row=opponentRows.get(card.dataset.opponentId);

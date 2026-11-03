@@ -82,7 +82,7 @@ async function checks() {
  let raw=rawSave(p);p.dom.window.close();p=await restore(raw);
  assert.equal(q(p,'#season-display').textContent,'2');assert.equal(q(p,'#draft-recap').hidden,true);assert.equal(q(p,'#draft-recap-rows').children.length,0);assert.deepEqual(save(p).priorStandings,ranks);
  const expectedSchedule=await api(`/api/schedule/${id}?season=2&prior_standings=${encodeURIComponent(JSON.stringify(ranks))}`);
- assert.deepEqual([...p.d.querySelectorAll('#schedule .game-card')].map(c=>c.dataset.opponentId),expectedSchedule.games.map(g=>g.opponent_id));
+ assert.deepEqual([...p.d.querySelectorAll('#schedule .schedule-row')].map(c=>c.dataset.opponentId),expectedSchedule.games.map(g=>g.opponent_id));
  const history=save(p).history;
  for(let week=1;week<=17;week++) {
   q(p,'#simulate-button').click();await until(()=>save(p).week===week);

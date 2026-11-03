@@ -1,7 +1,7 @@
 const form = document.querySelector("#team-form");
 const select = document.querySelector("#team-select");
 const scheduleSection = document.querySelector("#schedule-section");
-const scheduleGrid = document.querySelector("#schedule");
+const scheduleList = document.querySelector("#schedule");
 const errorBox = document.querySelector("#error");
 const simulateButton = document.querySelector("#simulate-button");
 const simulateSeasonButton = document.querySelector("#simulate-season");
@@ -1095,20 +1095,22 @@ function renderSchedule(data, runSeed, { priorStandings = {}, history = [], care
   document.querySelector("#rotation-note").textContent =
     `Season ${data.season} rotation: ${data.rotating_group} · Scores show your team first. Opponent records reflect the latest completed week.`;
 
-  scheduleGrid.replaceChildren();
+  scheduleList.replaceChildren();
   for (const game of data.games) {
-    const article = document.createElement("article");
-    article.className = "game-card";
-    article.dataset.opponentId = game.opponent_id;
-    article.innerHTML = `
+    const row = document.createElement("li");
+    row.className = "schedule-row";
+    row.dataset.opponentId = game.opponent_id;
+    row.innerHTML = `
       <span class="week">Week ${game.week}</span>
-      <span class="venue ${game.venue.toLowerCase()}">${game.venue === "Home" ? "vs" : "at"}</span>
-      <strong>${game.opponent}</strong>
+      <span class="schedule-matchup">
+        <span class="venue ${game.venue.toLowerCase()}" title="${game.venue}">${game.venue === "Home" ? "vs" : "at"}</span>
+        <strong>${game.opponent}</strong>
+        <span class="reason">${game.reason}</span>
+      </span>
       <span class="opponent-record">Record: 0–0</span>
       <span class="game-final">Not played</span>
-      <span class="reason">${game.reason}</span>
     `;
-    scheduleGrid.append(article);
+    scheduleList.append(row);
   }
   document.querySelector("#season-record").textContent = "0–0";
   simulateButton.textContent = "Simulate Week 1";
@@ -1277,15 +1279,15 @@ function renderResult(data) {
 
   const opponentRecords = new Map(data.standings.groups.flatMap(group => group.teams)
     .map(row => [row.team.id, `${row.wins}–${row.losses}${row.ties ? `–${row.ties}` : ""}`]));
-  for (const card of scheduleGrid.children) {
-    card.querySelector(".opponent-record").textContent = `Record: ${opponentRecords.get(card.dataset.opponentId)}`;
+  for (const row of scheduleList.children) {
+    row.querySelector(".opponent-record").textContent = `Record: ${opponentRecords.get(row.dataset.opponentId)}`;
   }
   for (const game of data.game_results) {
-    const card = scheduleGrid.children[game.week - 1];
-    if (!card) continue;
-    card.classList.add("completed");
-    card.dataset.outcome = game.outcome;
-    const final = card.querySelector(".game-final");
+    const row = scheduleList.children[game.week - 1];
+    if (!row) continue;
+    row.classList.add("completed");
+    row.dataset.outcome = game.outcome;
+    const final = row.querySelector(".game-final");
     final.textContent = `${game.outcome} · ${game.team_score}–${game.opponent_score}${game.overtime ? " · OT" : ""}`;
     const outcome = game.outcome === "W" ? "Win" : game.outcome === "L" ? "Loss" : "Tie";
     final.setAttribute("aria-label",

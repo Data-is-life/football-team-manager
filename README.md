@@ -554,3 +554,7 @@ Official profiles used in the retirement design review: [Rodgers](https://www.nf
 ### Exact cuts remaining
 
 After drafting, the draft summary and roster-management status show the exact number of players still needing to be dropped before continuing: **Drop 6 more players to continue**, **Drop 1 more player to continue**, or **No more cuts needed. Ready for next season.** The count uses the actual roster after retirements, drafting, replacements and saved cuts. It updates after successful drops and reloads; a failed cut leaves it unchanged. The existing 38-player limit, position minimums and season-continuation guards remain unchanged.
+
+## Schedule list
+
+The Schedule view uses a chronological, compact list instead of game cards. Each row keeps the week, home/away matchup, scheduling reason, latest opponent record and result (your score first, with overtime when applicable). Rows stack their details on narrow screens. Simulation, restored results and season transitions use the same list.
