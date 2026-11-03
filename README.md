@@ -403,7 +403,9 @@ Local repeated benchmarks found empty-cache Season 4 restoration fell from 6.983
 
 ## Simulate the remaining season
 
-The team header offers **Simulate remaining season** alongside the existing weekly button. It simulates each remaining regular-season week through Week 17, using the same requests and results as manual weekly play. Every completed week renders normally and autosaves. Progress text shows the active week; **Stop after this week** finishes and saves the in-flight week before stopping. Reloading restores the last saved week and never resumes a batch automatically.
+The team header keeps **Simulate Week N** as the primary action. Open **More actions → Simulate Season** for bulk simulation. A modal confirmation shows the exact remaining game count and week range (including the one-game late-season start); Cancel is focused by default, and Cancel/Escape leave progress unchanged. Confirming simulates each remaining regular-season week through Week 17, using the same requests and results as manual weekly play. Every completed week renders normally and autosaves. Progress text shows the active week; **Stop after this week** finishes and saves the in-flight week before stopping. Reloading restores the last saved week and never resumes a batch automatically.
+
+The More actions disclosure and confirmation close when the career changes and disappear outside regular-season play or while a batch runs. Confirmation rechecks the team, seed, season and completed week before starting; a stale or repeated confirmation cannot launch another batch.
 
 Both simulation buttons are blocked while a week/batch is running; career replacement is blocked during a season batch. A failed or mismatched response stops the batch without committing that week; retry continues from the next unplayed week. Browser storage failures retain in-page progress and the existing save warning. Regular-season simulation stops before revealing or simulating playoffs, drafting, cuts, or next-season progression. Qualification/owner messages and GM firing rules still apply. Existing saved careers can use this immediately; no save-format change or new career is needed.
 
@@ -558,3 +560,4 @@ After drafting, the draft summary and roster-management status show the exact nu
 ## Schedule list
 
 The Schedule view uses a chronological, compact list instead of game cards. Each row keeps the week, home/away matchup, scheduling reason, latest opponent record and result (your score first, with overtime when applicable). Rows stack their details on narrow screens. Simulation, restored results and season transitions use the same list.
+

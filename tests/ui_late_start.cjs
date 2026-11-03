@@ -51,7 +51,7 @@ async function checks(){
  assert.equal(status([intro,...misses,{...misses[0],season:5,playoffFinish:'Lost in Wild Card'}],6,null,2).fired,false);
  p.dom.window.close();p=await restore(inherited);assert.equal(q(p,'#gm-regular').textContent,'0–0–0');assert.equal(q(p,'#simulate-button').textContent,'Simulate Week 17');assert.equal(raw(p),JSON.stringify(inherited));
  assert.equal(q(p,'#starter-form'),null);assert.deepEqual(save(p).lineupChanges,[]);
- p.state.weeks=[];q(p,'#simulate-season').click();await until(()=>save(p).week===17&&q(p,'#stop-season').hidden);assert.deepEqual(p.state.weeks,[17]);assert.equal(save(p).playoffRound,null);assert.equal(save(p).draftChoices,null);
+ p.state.weeks=[];q(p,'#simulation-more > summary').click();q(p,'#simulate-season').click();assert.match(q(p,'#season-confirm-message').textContent,/1 regular-season game \(Week 17\)/);assert.equal(p.state.weeks.length,0);q(p,'#season-confirm-start').click();await until(()=>save(p).week===17&&q(p,'#stop-season').hidden);assert.deepEqual(p.state.weeks,[17]);assert.equal(save(p).playoffRound,null);assert.equal(save(p).draftChoices,null);
  const managed=p.w.managedRecord(p.state.lastWeek);assert.equal(managed.wins+managed.losses+managed.ties,1);assert.equal(q(p,'#gm-regular').textContent,record(managed));assert.match(q(p,'#contract-status').textContent,/4 years remaining.*Season 5/);
  // Opponent records update with Week 17, but inherited score results cannot change.
  for(let i=0;i<16;i++){assert.ok(p.d.querySelectorAll('#schedule .game-final')[i].textContent.includes(p.state.lastWeek.game_results[i].team_score+'–'+p.state.lastWeek.game_results[i].opponent_score))}
