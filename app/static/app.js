@@ -689,11 +689,23 @@ function renderTeamOptions(teams) {
   }
 }
 
+function updateRetirementBadge(badge, ended) {
+  const label = ended ? "Retired" : "Retiring after this season";
+  const summary = document.createElement("summary");
+  summary.textContent = ended ? "Retired" : "*";
+  summary.title = label;
+  summary.setAttribute("aria-label", label);
+  const explanation = document.createElement("span");
+  explanation.className = "retirement-explanation";
+  explanation.textContent = label;
+  badge.replaceChildren(summary, explanation);
+}
+
 function addRetirementBadge(cell, player) {
   if (!player.retiring_after_season) return;
-  const badge = document.createElement("span");
+  const badge = document.createElement("details");
   badge.className = "retirement-badge";
-  badge.textContent = playoffState?.postseason_complete ? "Retired" : "Retiring after this season";
+  updateRetirementBadge(badge, playoffState?.postseason_complete);
   cell.append(document.createTextNode(" "), badge);
 }
 
@@ -710,7 +722,7 @@ function renderRetirements() {
   }
   const retiredIds = new Set(ended ? seasonRetirees.map(p => p.id) : []);
   for (const row of document.querySelectorAll("#roster-groups .roster-rating-wrap .roster-player")) row.hidden = retiredIds.has(row.dataset.playerId);
-  for (const badge of document.querySelectorAll("#roster-groups .retirement-badge")) badge.textContent = ended ? "Retired" : "Retiring after this season";
+  for (const badge of document.querySelectorAll("#roster-groups .retirement-badge")) updateRetirementBadge(badge, ended);
   const count = rosterProfile?.roster.filter(p => !retiredIds.has(p.id)).length ?? 0;
   if (rosterProfile) document.querySelector("#roster-title").textContent = `Roster · ${count} players`;
   for (const group of document.querySelectorAll("#roster-groups .roster-group")) {
