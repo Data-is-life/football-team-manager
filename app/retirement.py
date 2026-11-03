@@ -1,7 +1,7 @@
 """Rules 10: seeded retirements and low-quality offseason roster fillers."""
 from collections import Counter
 import random
-from .simulation import Player, ROSTER_RULES, ranked_players, _run_number
+from .simulation import Player, ranked_players, _run_number, roster_rules, roster_limit
 from .attributes import generate_attributes
 from .names import FIRST_NAMES, LAST_NAMES
 
@@ -23,8 +23,8 @@ def retirement_payload(player):
     return dict(id=player.id,name=player.name,position=player.position,age=player.age,current_rating=player.rating)
 
 
-def fill_roster(players, owner, season, seed, excluded=()):
-    """Fill minimums, then vacancies toward position targets up to 38.
+def fill_roster(players, owner, season, seed, excluded=(), context=()):
+    """Fill minimums, then vacancies toward the versioned roster limit.
 
     Minimums can require temporary oversizing after an imbalanced draft; normal
     cuts still apply. Excluded IDs prevent released fillers from returning.
@@ -34,9 +34,9 @@ def fill_roster(players, owner, season, seed, excluded=()):
     names = {p.name for p in remaining}
     counts = Counter(p.position for p in remaining)
     for minimum_only in (True, False):
-        for position,(target,minimum) in ROSTER_RULES.items():
+        for position,(target,minimum) in roster_rules(context).items():
             needed = max(0,(minimum if minimum_only else target)-counts[position])
-            if not minimum_only: needed = min(needed,max(0,38-len(remaining)))
+            if not minimum_only: needed = min(needed,max(0,roster_limit(context)-len(remaining)))
             for _ in range(needed):
                 index = 1
                 identity = f'replacement-{seed}-{season+1}-{owner}-{position}-{index}'

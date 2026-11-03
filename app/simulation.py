@@ -20,6 +20,21 @@ ROSTER_RULES = {
     "QB": (2, 1), "WR": (4, 2), "TE": (2, 1), "RB": (2, 1),
     "OL": (8, 5), "K": (2, 1), "DL": (6, 4), "LB": (5, 3), "CB": (4, 2), "S": (3, 2),
 }
+# Rules 1–10 retain the original shape for deterministic saved-career replay.
+COMPACT_ROSTER_RULES = {
+    "QB": (2, 1), "WR": (3, 2), "TE": (2, 1), "RB": (2, 1),
+    "OL": (6, 5), "K": (1, 1), "DL": (5, 4), "LB": (4, 3), "CB": (3, 2), "S": (3, 2),
+}
+
+
+def roster_rules(context=()):
+    return COMPACT_ROSTER_RULES if getattr(context, 'lineup_rules', 1) >= 11 else ROSTER_RULES
+
+
+def roster_limit(context=()):
+    return sum(target for target, _ in roster_rules(context).values())
+
+
 POSITIONS = tuple(ROSTER_RULES)
 ROSTER_SLOTS = tuple(
     (position, depth)
