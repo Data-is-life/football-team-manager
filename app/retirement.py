@@ -53,6 +53,6 @@ def fill_roster(players, owner, season, seed, excluded=(), context=(), identity_
                 if getattr(context,'lineup_rules',1) >= 15:
                     from dataclasses import replace
                     from .player_contracts import starting_contract
-                    player = replace(player,contract=starting_contract(player,season+1))
+                    player = replace(player,contract=starting_contract(player,season+1,getattr(context,"lineup_rules",1)))
                 remaining.append(player);ids.add(identity);counts[position] += 1
     return ranked_players(remaining)
