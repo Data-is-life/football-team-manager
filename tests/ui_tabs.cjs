@@ -94,10 +94,10 @@ async function checkUI() {
    for (const rule of profile.roster_rules) {
     const group=d.querySelector(`#roster-groups .roster-group[data-position="${rule.position}"]`);
     const headings=[...group.querySelectorAll('.roster-rating-wrap th')].map(cell=>cell.textContent);
-    assert.deepEqual(headings,['Depth','Player','Age','Current','Potential']);
+    assert.deepEqual(headings,['Depth','Player','Age','Current','Potential',...(profile.lineup_rules>=15?['Salary / term']:[])]);
     for(const player of profile.roster.filter(player=>player.position===rule.position)) {
      const cells=group.querySelector(`.roster-player[data-player-id="${player.id}"]`).children;
-     assert.deepEqual([...cells].map((cell,index)=>index===1?cell.firstChild.textContent:cell.textContent),[`${player.position}${player.depth}`,player.name,String(player.age),String(player.current_rating),String(player.potential_rating)]);
+     assert.deepEqual([...cells].map((cell,index)=>index===1?cell.firstChild.textContent:cell.textContent),[`${player.position}${player.depth}`,player.name,String(player.age),String(player.current_rating),String(player.potential_rating),...(player.contract?[`$${(player.contract.annual_salary/1000000).toFixed(2)}M/yr · ${player.contract.years_remaining} ${player.contract.years_remaining===1?'yr':'yrs'} left`]:[])]);
      assert.equal(group.querySelector(`.roster-player[data-player-id="${player.id}"]`).dataset.starter,String(player.depth<=rule.minimum));
      assert.equal(player.current_rating,player.rating);
      assert.ok(player.potential_rating>=player.current_rating);
@@ -270,7 +270,7 @@ async function checkUI() {
      const row=d.querySelector(`#scout-groups [data-player-id="${player.id}"]`);
      assert.ok(row);
      const rule=profile.roster_rules.find(rule=>rule.position===player.position);
-     assert.deepEqual([...row.children].map(cell=>cell.textContent),[`${player.position}${player.depth}`,player.name,String(player.age),String(player.current_rating),String(player.potential_rating)]);
+     assert.deepEqual([...row.children].map(cell=>cell.textContent),[`${player.position}${player.depth}`,player.name,String(player.age),String(player.current_rating),String(player.potential_rating),...(player.contract?[`$${(player.contract.annual_salary/1000000).toFixed(2)}M/yr · ${player.contract.years_remaining} ${player.contract.years_remaining===1?'yr':'yrs'} left`]:[])]);
     }
     d.querySelector('#scout-close').click();
     assert.equal(dialog.open,false);
@@ -495,7 +495,7 @@ async function checkUI() {
   assert.equal(d.querySelector('#gm-regular').textContent,'0–0–0');
   assert.equal(d.querySelector('#roster-ratings-button').getAttribute('aria-pressed'),'true');
   assert.equal(d.querySelector('#roster-competition').value,'regular');
-  const freshProfile=await (await fetch(base+`/api/team/seattle?run_seed=${fixtureSeed+2}&lineup_rules=14&rebuild_team=seattle`)).json();
+  const freshProfile=await (await fetch(base+`/api/team/seattle?run_seed=${fixtureSeed+2}&lineup_rules=15&rebuild_team=seattle`)).json();
   const oldSeattle=await (await fetch(base+`/api/team/seattle?run_seed=${fixtureSeed}`)).json();
   checkRatings(freshProfile);
   assert.notDeepEqual(freshProfile.roster.map(player=>player.name),oldSeattle.roster.map(player=>player.name));
@@ -521,7 +521,7 @@ async function checkUI() {
   d.querySelector('#simulate-button').click();
   await until(()=>d.querySelector('#simulate-button').textContent==='Regular season complete');
   assert.equal(usedSeeds.at(-1),fixtureSeed+2);
-  const freshGame=await (await fetch(base+`/api/season/seattle/week/17?run_seed=${fixtureSeed+2}&lineup_rules=14&rebuild_team=seattle`)).json();
+  const freshGame=await (await fetch(base+`/api/season/seattle/week/17?run_seed=${fixtureSeed+2}&lineup_rules=15&rebuild_team=seattle`)).json();
   assert.equal(d.querySelector('#season-record').textContent,`${freshGame.record.wins}–${freshGame.record.losses}${freshGame.record.ties?`–${freshGame.record.ties}`:''}`);
   assert.equal(d.querySelector('#schedule .game-final').textContent,`${freshGame.game_results[0].outcome} · ${freshGame.game_results[0].team_score}–${freshGame.game_results[0].opponent_score}${freshGame.game_results[0].overtime?' · OT':''}`);
   if(index===0) {

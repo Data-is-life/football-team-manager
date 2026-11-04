@@ -55,7 +55,7 @@ Tabs support Left/Right arrows (including wraparound), Home, and End. The tab ba
 
 Click any team name in Group Standings to open its scouting roster in a separate dialog. Inspect players by position, including age, current rating, and potential rating, plus the team's offense and defense ratings. Close the dialog or press Escape to return to Standings. Browsing preserves your managed team, season progress, and roster settings. A failed load can be retried inside the dialog; browsing does not simulate games.
 
-New careers start with 35 fictional players per team (lineup rules 14, save version 24). Existing 38-player careers retain their format, including future seasons and unfinished drafts: starting a new career is required for the smaller format. This avoids deleting retained veterans or draft picks and preserves completed results. Expand or collapse each position group to inspect its players, depth order, and current/potential ratings.
+New careers start with 35 fictional players per team (lineup rules 15, save version 25). Existing 38-player careers retain their format, including future seasons and unfinished drafts: starting a new career is required for the smaller format. This avoids deleting retained veterans or draft picks and preserves completed results. Expand or collapse each position group to inspect its players, depth order, and current/potential ratings.
 
 Both Ratings and Season Stats show each player's age in years. Initial ages are 21–36: a deterministic entry age of 21–24 plus the player's existing 0–12 years of experience. Ages stay fixed during a season and are regenerated for each new run. Under current career rules, age and experience increase once per offseason. Development and decline follow the positional curves below; retirement follows the rules described later. Existing saved seasons keep their original rules until their next season transition.
 
@@ -549,7 +549,7 @@ Current rating below 60 brings retirement forward two years; above 80 delays it 
 
 The GM has six draft picks to address vacancies. CPU/auto-draft picks prioritize positions below their minimum. **After the draft finishes**, remaining minimum shortages receive generated players, then vacancies are filled toward the versioned position targets up to 35 for current careers (31 under rules 11–13, or 38 for legacy rules). Existing surplus picks are not discarded; if filling required minimums leaves more players than the limit, legal cuts remain mandatory. Generated replacements start at **40–55 current**, have potential capped at 60, are not draft rookies, and do not receive rookie boom/bust assessments. Under rules 10–12, legal cuts below the fill target receive another weak replacement; released IDs never reappear. Rules 13 reject any cut below 31; rules 14 reject any cut below the 35-player minimum and leave optional bench places unfilled. Draft quality and roster planning remain the GM's responsibility. CPU teams follow the same roster rules. No free-agency market or signing controls are added.
 
-The ages follow the earlier design review of official NFL player profiles (Rodgers 42, Folk 41, Abdullah 33, Allen 34, Kelce 37, Williams 38, Campbell 40, Davis 37, Jones 33, Smith 37), which illustrate longevity exceptions rather than averages. Retirement runs under rules 10 and later; rules 1–9 payloads and historical draft classes remain reproducible. Save versions 1–24 remain readable.
+The ages follow the earlier design review of official NFL player profiles (Rodgers 42, Folk 41, Abdullah 33, Allen 34, Kelce 37, Williams 38, Campbell 40, Davis 37, Jones 33, Smith 37), which illustrate longevity exceptions rather than averages. Retirement runs under rules 10 and later; rules 1–9 payloads and historical draft classes remain reproducible. Save versions 1–25 remain readable.
 
 Official profiles used in the retirement design review: [Rodgers](https://www.nfl.com/players/aaron-rodgers/), [Folk](https://www.nfl.com/players/nick-folk/), [Abdullah](https://www.nfl.com/players/ameer-abdullah/), [Allen](https://www.nfl.com/players/keenan-allen/), [Kelce](https://www.nfl.com/players/travis-kelce/), [Williams](https://www.nfl.com/players/trent-williams/), [Campbell](https://www.nfl.com/players/calais-campbell/), [Davis](https://www.nfl.com/players/demario-davis/), [Jones](https://www.nfl.com/players/jonathan-jones/), [Smith](https://www.nfl.com/players/harrison-smith/).
 
@@ -600,3 +600,40 @@ Every new-career team—including the user’s first season—starts with **35 p
 After the mandatory draft, replacements fill required positions and bring short teams toward **35**, without filling the three optional places up to 38. This applies to CPU teams and the managed team. Retirements can temporarily leave an offseason roster below 35 before drafting finishes. Cuts cannot take a roster below 35 or violate a position minimum; rosters above 38 must be cut before the next season. Drop controls, remaining-cut counts and How to Play show these limits.
 
 New saves use version 24/rules 14. Older current seasons and started drafts keep their original roster sizes and rules. Existing compact careers adopt the new floor at their next season transition: any short team receives deterministic low-rated replacements to reach 35, while legal 35–38-player rosters are retained. Existing player IDs are preserved; expansion replacement IDs have a separate namespace so released players cannot return. The expansion runs once, with potential/development metadata initialized for the new players. Older 38-player-format careers retain legacy behavior and their historical results. Prior sections describing rules 11–13 document their retained replay behavior; the current new-career limits are 35–38.
+
+## Player salaries and signed terms (rules 15; no cap yet)
+
+Roster Ratings and scouting include a compact **Salary / term** column. The next actual draft pick shows its pay before selection; the pick log and own-team draft recap retain the signed pay and term after cuts and reloads. Unselected prospects have no signed contract: their available-list rank is not their draft slot. Money is stored in integer dollars and displayed in millions. Player contracts are separate from the GM employment contract.
+
+Starting annual pay uses current rating and position: `base at rating 75 × (current / 75)²`, rounded half-up to $10,000 and floored at $1M. These are initial game-balance values, not real NFL salary data:
+
+| Position | Annual base at current rating 75 |
+| --- | ---: |
+| QB | $8M |
+| WR / DL / CB | $4.5M |
+| OL | $4M |
+| LB / S | $3.5M |
+| RB / TE | $3M |
+| K | $1.5M |
+
+Starting terms use ordered categories: current 90+ is a franchise player (5 years); current below 70 gets 2 years regardless of age; the remaining players aged 28+ get 4 years, and the younger players get 3. These thresholds are the initial definitions of the discussed categories. Generated roster replacements always receive $1M annually for one year.
+
+| Draft selection | Annual pay | Term |
+| --- | ---: | ---: |
+| Overall 1 | $5M | 4 years |
+| Overall 2–5 | $4.5M | 4 years |
+| Overall 6–15 | $4M | 4 years |
+| Overall 16–30 | $3.5M | 4 years |
+| Round 2 | $3M | 3 years |
+| Round 3 | $2.5M | 3 years |
+| Round 4 | $2M | 2 years |
+| Round 5 | $1.5M | 2 years |
+| Round 6 | $1M | 2 years |
+
+Rookie terms begin in the first playing season, not the preceding draft offseason. Salary, signing year and original term remain fixed through development, booms/busts, depth changes and replay. Remaining years decrease with the season number. At term end the UI shows **Renewal due**; this first PR does not release players or change their last agreed salary. Renewal and free-agency actions will be added separately.
+
+There is **no salary cap, payroll floor, annual inflation, spending restriction or salary-based CPU drafting policy in this PR**. The planned $200M cap/80% floor and 5% increases are separate PRs. The initial fixed pay schedule must remain reproducible when later salary-rule versions are introduced; signed deals must never be repriced by those later changes.
+
+New careers use rules 15/save version 25. Existing compact careers keep their current season/draft rules and adopt salary display at the next season transition. Replay reconstructs original veteran deals and exact historical rookie selection pay, including CPU picks; salary fields are hidden in older-rule payloads. No player-statistics or game-outcome formula changes are introduced. Existing saves remain readable and historical rules are preserved.
+
+Initial-scale sanity check: seeds 1–20 produced 580 opponent-team starting rosters (35 players, Seattle excluded as the managed team). Listed annual salaries averaged $137.99M, ranging from $95.99M to $188.60M. No cap filter or enforcement was applied. This is a starting calibration sample for the following cap PR, not a guarantee about all generated teams.

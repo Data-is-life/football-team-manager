@@ -7,6 +7,7 @@ from .attributes import generate_attributes
 from .league import TEAMS, TEAM_BY_ID
 from .names import FIRST_NAMES, LAST_NAMES
 from .ratings import rating_payload
+from .player_contracts import public_player_fields, rookie_contract, contract_payload
 from .playoffs import postseason_snapshot
 from .simulation import Player, ROSTER_RULES, ROSTER_SLOTS, _run_number, roster_for
 from .standings import standings_through_week
@@ -16,7 +17,7 @@ CLASS_SIZE = 200
 
 
 def player_payload(player: Player, roster_context=()) -> dict:
-    result = {**asdict(player), **rating_payload(player,roster_context)}
+    result = {**public_player_fields(player,roster_context), **rating_payload(player,roster_context)}
     result['attributes'] = {key: value for key, value in result['attributes'].items() if value is not None}
     return result
 
@@ -125,6 +126,8 @@ def build_draft(team_id: str, season: int, run_seed: int, choices: tuple[str, ..
         del available[prospect.id]
         depth = 1 + max((p.depth for p in rosters[owner] if p.position == prospect.position),default=0)
         signed = replace(prospect, depth=depth)
+        if getattr(roster_context,'lineup_rules',1) >= 15:
+            signed = replace(signed,contract=rookie_contract((overall-1)//len(order)+1,overall,season+1))
         rosters[owner].append(signed)
         additions[owner][signed.position] = additions[owner].get(signed.position, 0) + 1
         picks.append({'overall': overall, 'round': (overall - 1) // len(order) + 1,
@@ -138,6 +141,7 @@ def build_draft(team_id: str, season: int, run_seed: int, choices: tuple[str, ..
              'class_size': CLASS_SIZE, 'order': order, 'picks': picks,
              'available': [player_payload(player,roster_context) for player in prospects if player.id in available],
              'manual_picks': resolved_choices, 'complete': complete,
+             **({'next_contract':None if complete else contract_payload(rookie_contract(len(resolved_choices)+1,len(picks)+1,season+1),season)} if getattr(roster_context,'lineup_rules',1) >= 15 else {}),
              'next_pick': None if complete else len(picks) + 1,
              'next_round': None if complete else len(resolved_choices) + 1,
              **({'retirements':retired[team_id], 'replacements':[player_payload(p,roster_context) for p in rosters[team_id] if p.id.startswith(f'replacement-{run_seed}-{season+1}-')]} if retirement_rules else {})}, rosters if return_league else rosters[team_id])

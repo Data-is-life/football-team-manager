@@ -24,7 +24,7 @@ let activeTeamId = null;
 let activeRunSeed = 0;
 let activeSeason = 1;
 let activeCareerStartWeek = 1;
-let activeLineupRules = 14;
+let activeLineupRules = 15;
 let activeDevelopmentStart = 1;
 let activeRebuildTeam = null;
 let activePriorStandings = {};
@@ -96,7 +96,7 @@ function rebuildOrigin(context) {
 
 function saveProgress() {
   if (!activeTeamId || restoring) return;
-  const save = { version: 24, welcomeDismissed, ownerUpdateDismissed, draftRounds: activeDraftRounds, careerStartWeek: activeCareerStartWeek, lineupChanges: activeLineupChanges, contracts: activeContracts, teamId: activeTeamId, runSeed: activeRunSeed,
+  const save = { version: 25, welcomeDismissed, ownerUpdateDismissed, draftRounds: activeDraftRounds, careerStartWeek: activeCareerStartWeek, lineupChanges: activeLineupChanges, contracts: activeContracts, teamId: activeTeamId, runSeed: activeRunSeed,
     season: activeSeason, week: currentWeek, lineupRules: activeLineupRules, developmentStart: activeDevelopmentStart, rebuildTeam: activeRebuildTeam,
     priorStandings: activePriorStandings, history: careerHistory,
     draftChoices: activeDraftChoices,
@@ -116,7 +116,7 @@ function readSave() {
   if (!raw) return null;
   const save = JSON.parse(raw);
   const integer = (value, min, max) => Number.isInteger(value) && value >= min && value <= max;
-  if (!save || ![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24].includes(save.version) || typeof save.teamId !== "string"
+  if (!save || ![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25].includes(save.version) || typeof save.teamId !== "string"
       || ![...select.options].some(option => option.value && option.value === save.teamId)
       || !integer(save.runSeed, 0, 4294967295) || !integer(save.season, 1, 999)
       || !integer(save.week, 0, 17)
@@ -154,7 +154,7 @@ function readSave() {
         && ids(step.manual_picks) && [4, 6].includes(step.draft_rounds) && step.manual_picks.length === step.draft_rounds && ids(step.dropped)
         && validPriorStandings(step.prior_standings ?? {}, step.season))) throw new Error("Invalid roster save");
   if (save.version < 5) save.lineupRules = 1;
-  if (![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14].includes(save.lineupRules)) throw new Error("Invalid lineup rules");
+  if (![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15].includes(save.lineupRules)) throw new Error("Invalid lineup rules");
   if (save.lineupRules < 3) save.developmentStart = null;
   if (save.lineupRules >= 3 && !integer(save.developmentStart, 1, save.season)) throw new Error("Invalid development start");
   if (save.version < 8) save.rebuildTeam = null;
@@ -641,6 +641,7 @@ document.querySelector("#welcome-dismiss").addEventListener("click", () => {
 document.querySelector("#welcome-help").addEventListener("click", () => activateView("help", { focus: true }));
 
 function renderHelp() {
+  document.querySelector("#player-salary-guide").hidden = activeLineupRules < 15;
   document.querySelector("#roster-limit-note").textContent = `${activeLineupRules >= 14 ? "Every team starts with 35 players. " : ""}${rosterMinimum() ? `Regular-season roster: ${rosterLimitText()} players.` : `Regular-season maximum: ${rosterLimit()} players.`} Offseason draft picks may temporarily increase the roster. Position minimums appear above each group.`;
   document.querySelector("#contract-info").hidden = !activeContracts;
   document.querySelector("#draft-format").textContent = `${activeDraftRounds} rounds · Same order each round · CPU teams balance player quality and position needs. Rookies join your roster without replacing anyone. The regular-season ${rosterMinimum() ? "roster range" : "limit"} is ${rosterLimitText()}.`;
@@ -762,6 +763,20 @@ function addPotentialArrow(cell, player) {
   cell.append(trend);
 }
 
+function salaryLabel(contract) {
+  const term = contract.status === "renewal_due" ? "Renewal due"
+    : `${contract.years_remaining} ${contract.years_remaining === 1 ? "yr" : "yrs"}${contract.status === "active" ? " left" : ""}`;
+  return `$${(contract.annual_salary / 1000000).toFixed(2)}M/yr · ${term}`;
+}
+
+function addSalaryCell(row, contract) {
+  const cell = document.createElement("td");
+  cell.className = "salary-cell";
+  cell.textContent = contract ? salaryLabel(contract) : "—";
+  if (contract) cell.title = `${contract.years}-year contract · Season ${contract.signed_season} through ${contract.expires_after_season}`;
+  row.append(cell);
+}
+
 function createRosterGroups(profile, includeStats = true) {
   return profile.roster_rules.map((rule) => {
     const players = profile.roster.filter(player => player.position === rule.position);
@@ -777,7 +792,7 @@ function createRosterGroups(profile, includeStats = true) {
     table.className = "roster-table";
     const head = document.createElement("thead");
     const headings = document.createElement("tr");
-    for (const label of ["Depth", "Player", "Age", "Current", "Potential"]) {
+    for (const label of ["Depth", "Player", "Age", "Current", "Potential", ...(profile.lineup_rules >= 15 ? ["Salary / term"] : [])]) {
       const cell = document.createElement("th");
       cell.scope = "col";
       cell.textContent = label;
@@ -796,6 +811,7 @@ function createRosterGroups(profile, includeStats = true) {
         cell.textContent = value;
         row.append(cell);
       }
+      if (profile.lineup_rules >= 15) addSalaryCell(row, player.contract);
       addRookieBadge(row.children[1], player);
       addRetirementBadge(row.children[1], player);
       addPotentialArrow(row.children[4], player);
@@ -1040,7 +1056,7 @@ function createRunSeed() {
   return candidate === activeRunSeed ? (candidate % 4294967295) + 1 : candidate;
 }
 
-function renderSchedule(data, runSeed, { priorStandings = {}, history = [], career = [], lineupRules = 14, developmentStart = 1, rebuildTeam = null, contracts = true, lineupChanges = [], careerStartWeek = 1, draftRounds = 6 } = {}) {
+function renderSchedule(data, runSeed, { priorStandings = {}, history = [], career = [], lineupRules = 15, developmentStart = 1, rebuildTeam = null, contracts = true, lineupChanges = [], careerStartWeek = 1, draftRounds = 6 } = {}) {
   closeSeasonConfirmation(false);
   simulationMore.open = false;
   clearLeaders();
@@ -1394,8 +1410,8 @@ form.addEventListener("submit", async (event) => {
     const runSeed = createRunSeed();
     const [scheduleResponse, profileResponse, regularResponse] = await Promise.all([
       fetch(`/api/schedule/${teamId}?season=1`),
-      fetch(`/api/team/${teamId}?run_seed=${runSeed}&lineup_rules=14&season=1&development_start=1${rebuildQuery(teamId)}`),
-      fetch(`/api/season/${teamId}/week/16?run_seed=${runSeed}&lineup_rules=14&season=1&development_start=1${rebuildQuery(teamId)}`),
+      fetch(`/api/team/${teamId}?run_seed=${runSeed}&lineup_rules=15&season=1&development_start=1${rebuildQuery(teamId)}`),
+      fetch(`/api/season/${teamId}/week/16?run_seed=${runSeed}&lineup_rules=15&season=1&development_start=1${rebuildQuery(teamId)}`),
     ]);
     if (!scheduleResponse.ok || !profileResponse.ok || !regularResponse.ok) {
       throw new Error("Your team could not be loaded. Please try again.");
@@ -1403,7 +1419,7 @@ form.addEventListener("submit", async (event) => {
     const [schedule, profile, regular] = await Promise.all([
       scheduleResponse.json(), profileResponse.json(), regularResponse.json(),
     ]);
-    if (profile.run_seed !== runSeed || profile.team.id !== teamId || profile.lineup_rules !== 14 || profile.rebuild_team !== teamId
+    if (profile.run_seed !== runSeed || profile.team.id !== teamId || profile.lineup_rules !== 15 || profile.rebuild_team !== teamId
         || schedule.team?.id !== teamId || schedule.season !== 1 || regular.team?.id !== teamId
         || regular.season !== 1 || regular.week !== 16 || regular.run_seed !== runSeed) {
       throw new Error("Your team could not be loaded. Please try again.");
@@ -1809,6 +1825,11 @@ function renderDraftRecap() {
   // Use the immutable selection log, not the retained roster: cuts must not
   // erase picks or replace their draft-day estimates with later ratings.
   const ownPicks = draftState.picks.filter(pick => pick.team.id === activeTeamId);
+  const paid = activeLineupRules >= 15;
+  const head = document.querySelector("#draft-recap-table-wrap thead tr");
+  head.replaceChildren(...["Round", "Pick", "Player", "Position", "Current", "Potential", ...(paid ? ["Salary / term"] : [])].map(label => {
+    const th = document.createElement("th"); th.scope = "col"; th.textContent = label; return th;
+  }));
   const rows = ownPicks.map(pick => {
     const row = document.createElement("tr");
     row.dataset.playerId = pick.player.id;
@@ -1816,6 +1837,7 @@ function renderDraftRecap() {
       pick.player.current_rating, pick.player.potential_rating]) {
       const cell = document.createElement("td"); cell.textContent = value; row.append(cell);
     }
+    if (paid) addSalaryCell(row, pick.player.contract);
     return row;
   });
   document.querySelector("#draft-recap-rows").replaceChildren(...rows);
@@ -1834,6 +1856,7 @@ function renderDraft() {
     ? `All ${draftState.total_picks} picks are complete. Your ${draftState.rounds} rookies have joined your offseason roster.`
     : `Your turn · Round ${draftState.next_round} of ${draftState.rounds} · Overall pick ${draftState.next_pick} of ${draftState.total_picks}`;
   document.querySelector("#draft-format").textContent = `${draftState.rounds} rounds · Same order each round · CPU teams balance player quality and position needs. Rookies join your roster without replacing anyone. The regular-season ${rosterMinimum() ? "roster range" : "limit"} is ${rosterLimitText()}.`;
+  if (draftState.next_contract) document.querySelector("#draft-status").textContent += ` · ${salaryLabel(draftState.next_contract)}`;
   const filter = document.querySelector("#draft-position").value;
   const rows = [];
   draftState.available.forEach((player, index) => {
@@ -1854,7 +1877,7 @@ function renderDraft() {
   const picks = draftState.picks.map(pick => {
     const item = document.createElement("li");
     item.value = pick.overall;
-    item.textContent = `Round ${pick.round} · ${pick.team.city}: ${pick.player.name} · ${pick.player.position} · Current ${pick.player.current_rating} · Potential ${pick.player.potential_rating}`;
+    item.textContent = `Round ${pick.round} · ${pick.team.city}: ${pick.player.name} · ${pick.player.position} · Current ${pick.player.current_rating} · Potential ${pick.player.potential_rating}${pick.player.contract ? ` · ${salaryLabel(pick.player.contract)}` : ""}`;
     if (pick.team.id === activeTeamId) item.className = "your-draft-pick";
     return item;
   });
@@ -2090,7 +2113,7 @@ nextSeasonButton.addEventListener("click", async () => {
       : !playoffState.qualified ? "Missed playoffs" : `Lost in ${lastOwnRound.name}` };
   try {
     const developmentStart = activeDevelopmentStart ?? nextSeason;
-    const lineupRules = activeLineupRules >= 11 ? 14 : 10;
+    const lineupRules = activeLineupRules >= 11 ? 15 : 10;
     // Re-rank the new roster after development and draft/cuts. Prior-season
     // overrides remain only in career history, where completed games need them.
     const lineupChanges = [];
