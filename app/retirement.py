@@ -23,7 +23,7 @@ def retirement_payload(player):
     return dict(id=player.id,name=player.name,position=player.position,age=player.age,current_rating=player.rating)
 
 
-def fill_roster(players, owner, season, seed, excluded=(), context=()):
+def fill_roster(players, owner, season, seed, excluded=(), context=(), identity_suffix=""):
     """Fill minimums, then vacancies toward initial targets, without filling optional bench capacity.
 
     Minimums can require temporary oversizing after an imbalanced draft; normal
@@ -39,10 +39,10 @@ def fill_roster(players, owner, season, seed, excluded=(), context=()):
             if not minimum_only: needed = min(needed,max(0,roster_fill_target(context)-len(remaining)))
             for _ in range(needed):
                 index = 1
-                identity = f'replacement-{seed}-{season+1}-{owner}-{position}-{index}'
+                identity = f'replacement-{seed}-{season+1}-{owner}-{position}{identity_suffix}-{index}'
                 while identity in ids:
                     index += 1
-                    identity = f'replacement-{seed}-{season+1}-{owner}-{position}-{index}'
+                    identity = f'replacement-{seed}-{season+1}-{owner}-{position}{identity_suffix}-{index}'
                 rng = random.Random(_run_number(identity,seed))
                 name = f'{rng.choice(FIRST_NAMES)} {rng.choice(LAST_NAMES)}'
                 while name in names: name = f'{rng.choice(FIRST_NAMES)} {rng.choice(LAST_NAMES)}'

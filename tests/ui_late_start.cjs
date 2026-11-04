@@ -26,13 +26,13 @@ async function start(p){await until(()=>q(p,'#team-select').options.length===31)
 const record=r=>`${r.wins}–${r.losses}–${r.ties}`;
 async function checks(){
  let p=page();await start(p);
- assert.equal(save(p).lineupRules,13);
- assert.equal(p.d.querySelectorAll('#roster-groups .roster-player').length,31);
- const sizes={QB:2,WR:3,TE:2,RB:2,OL:6,K:1,DL:5,LB:4,CB:3,S:3};
+ assert.equal(save(p).lineupRules,14);
+ assert.equal(p.d.querySelectorAll('#roster-groups .roster-player').length,35);
+ const sizes={QB:2,WR:4,TE:2,RB:2,OL:7,K:1,DL:6,LB:4,CB:4,S:3};
  for(const [position,count]of Object.entries(sizes))assert.equal(p.d.querySelectorAll(`#roster-groups [data-position="${position}"] .roster-player`).length,count);
- assert.match(q(p,'#roster-limit-note').textContent,/roster: 31–38/);assert.match(q(p,'#draft-format').textContent,/roster range is 31–38/);
+ assert.match(q(p,'#roster-limit-note').textContent,/Every team starts with 35 players.*roster: 35–38/);assert.match(q(p,'#draft-format').textContent,/roster range is 35–38/);
 
- assert.equal(save(p).version,23);assert.equal(q(p,'#development-recap-button').hidden,true);assert.equal(q(p,'#development-dialog').open,false);assert.equal(q(p,'#development-recap-rows').children.length,0);assert.equal(save(p).careerStartWeek,17);assert.deepEqual(p.state.weeks,[16]);assert.equal(q(p,'#simulate-button').textContent,'Simulate Week 17');
+ assert.equal(save(p).version,24);assert.equal(q(p,'#development-recap-button').hidden,true);assert.equal(q(p,'#development-dialog').open,false);assert.equal(q(p,'#development-recap-rows').children.length,0);assert.equal(save(p).careerStartWeek,17);assert.deepEqual(p.state.weeks,[16]);assert.equal(q(p,'#simulate-button').textContent,'Simulate Week 17');
  assert.equal(p.d.querySelectorAll('#schedule .completed').length,16);assert.equal(q(p,'#gm-regular').textContent,'0–0–0');assert.equal(q(p,'#gm-appearances').textContent,'0');assert.equal(q(p,'#career-start-note').hidden,false);assert.equal(q(p,'#gm-tenure-note').hidden,false);
  assert.match(q(p,'#result-week').textContent,/Before your hiring/);assert.match(q(p,'#owner-feedback').textContent,/four-year contract covering Seasons 2–5/);assert.match(q(p,'#contract-status').textContent,/4 years remaining.*Season 5/);
  q(p,'#welcome-dismiss').click();assert.equal(save(p).welcomeDismissed,true);
@@ -59,11 +59,11 @@ async function checks(){
  q(p,'#playoffs-start').click();await until(()=>save(p).playoffRound===0);for(let round=1;round<=4;round++){q(p,'#playoff-simulate').click();await until(()=>save(p).playoffRound===round)}
  assert.equal(q(p,'#next-season').hidden,true);await finishOffseason(p,until);
  const draftedCount=p.d.querySelectorAll('#roster-groups .roster-player').length;
- assert.ok(draftedCount>=31&&draftedCount<=38);assert.equal(q(p,'#next-season').hidden,false);assert.equal(q(p,'#next-season').disabled,false);
- assert.ok(q(p,'#cut-count').textContent.startsWith(`${draftedCount}/38 players (minimum 31)`));
+ assert.ok(draftedCount>=35&&draftedCount<=38);assert.equal(q(p,'#next-season').hidden,false);assert.equal(q(p,'#next-season').disabled,false);
+ assert.ok(q(p,'#cut-count').textContent.startsWith(`${draftedCount}/38 players (minimum 35)`));
  assert.match(q(p,'#cut-count').textContent,/No more cuts needed/);
- // Optional cuts can reach 31, then all releases are blocked, even forced clicks.
- while(p.d.querySelectorAll('#roster-groups .roster-player').length>31){
+ // Optional cuts can reach 35, then all releases are blocked, even forced clicks.
+ while(p.d.querySelectorAll('#roster-groups .roster-player').length>35){
   const before=save(p).dropped.length;
   q(p,'#roster-groups [data-drop-id]:not([disabled])').click();q(p,'#cut-confirm').click();
   await until(()=>save(p).dropped.length===before+1);
@@ -71,7 +71,7 @@ async function checks(){
  assert.ok([...p.d.querySelectorAll('#roster-groups [data-drop-id]')].every(button=>button.disabled));
  const minimumCheckpoint=raw(p),forced=q(p,'#roster-groups [data-position="WR"] [data-drop-id]');
  forced.disabled=false;forced.click();assert.equal(q(p,'#cut-confirmation').hidden,true);assert.equal(raw(p),minimumCheckpoint);
- p.w.renderCuts();assert.match(q(p,'#cut-count').textContent,/31\/38 players \(minimum 31\)/);
+ p.w.renderCuts();assert.match(q(p,'#cut-count').textContent,/35\/38 players \(minimum 35\)/);
  const atMinimum=save(p);p.dom.window.close();p=await restore(atMinimum);
  q(p,'#view-roster').click();q(p,'#roster-ratings-button').click();
  assert.ok([...p.d.querySelectorAll('#roster-groups [data-drop-id]')].every(button=>button.disabled));
@@ -82,13 +82,11 @@ async function checks(){
  assert.equal(q(p,'#career-welcome').hidden,true);assert.equal(save(p).welcomeDismissed,true);assert.equal(save(p).week,0);assert.equal(save(p).careerStartWeek,17);assert.deepEqual(save(p).history[0].gmRecord,JSON.parse(JSON.stringify(managed)));
  for(const k of ['wins','losses','ties'])assert.equal(save(p).history[0][k],full[k]);assert.equal(q(p,'#gm-regular').textContent,record(managed));assert.equal(q(p,'#career-start-note').hidden,true);assert.equal(q(p,'#gm-tenure-note').hidden,false);assert.match(q(p,'#owner-feedback').textContent,/first full contract season/);
  assert.match(q(p,'#contract-status').textContent,/4 years remaining.*Season 5/);assert.equal(q(p,'#simulate-button').textContent,'Simulate Week 1');assert.equal(p.d.querySelectorAll('#schedule .completed').length,0);assert.match(q(p,'#season-history-rows').textContent,/\(team /);
- assert.equal(save(p).lineupRules,13);assert.equal(p.d.querySelectorAll('#roster-groups .roster-player').length,31);
+ assert.equal(save(p).lineupRules,14);assert.equal(p.d.querySelectorAll('#roster-groups .roster-player').length,35);
  const yearTwo=save(p);p.dom.window.close();p=await restore(yearTwo);assert.equal(q(p,'#gm-regular').textContent,record(managed));assert.equal(q(p,'#simulate-button').textContent,'Simulate Week 1');
  q(p,'#simulate-button').click();await until(()=>save(p).week===1&&!q(p,'#simulate-button').disabled);const total={...managed};for(const k of ['wins','losses','ties'])total[k]+=p.state.lastWeek.record[k];assert.equal(q(p,'#gm-regular').textContent,record(total));p.dom.window.close();
- // Keep the first draft's full bench, then exercise the 39→38 UI boundary.
- const autoResponse=await fetch(base+'/api/career/seattle',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'draft',run_seed:5678,lineup_rules:13,rebuild_team:'seattle',draft_rounds:6,auto_draft:true})});
- assert.equal(autoResponse.ok,true);const firstAuto=await autoResponse.json();
- const largerCheckpoint={...yearTwo,contracts:false,week:17,playoffRound:4,draftChoices:null,dropped:[],career:yearTwo.career.map(step=>({...step,manual_picks:firstAuto.manual_picks,dropped:[]}))};
+ // Exercise the second draft and the 39→38 UI boundary.
+ const largerCheckpoint={...yearTwo,contracts:false,week:17,playoffRound:4,draftChoices:null,dropped:[]};
  p=await restore(largerCheckpoint);q(p,'#draft-button').click();await until(()=>Array.isArray(save(p).draftChoices));
  q(p,'#auto-draft').click();await until(()=>save(p).draftChoices.length===6);q(p,'#draft-close').click();q(p,'#manage-roster').click();
  assert.ok(p.d.querySelectorAll('#roster-groups .roster-player').length>=39);
@@ -119,16 +117,16 @@ async function checks(){
  q(p,'#playoffs-start').click();await until(()=>save(p).playoffRound===0);
  for(let round=1;round<=4;round++){q(p,'#playoff-simulate').click();await until(()=>save(p).playoffRound===round)}
  await finishOffseason(p,until);q(p,'#next-season').click();await until(()=>save(p).season===2);
- assert.equal(save(p).lineupRules,13);assert.equal(save(p).career[0].lineup_rules,11);
+ assert.equal(save(p).lineupRules,14);assert.equal(save(p).career[0].lineup_rules,11);
  const upgraded=save(p);p.dom.window.close();p=await restore(upgraded);
- assert.equal(save(p).lineupRules,13);q(p,'#simulate-button').click();await until(()=>save(p).week===1&&!q(p,'#simulate-button').disabled);
+ assert.equal(save(p).lineupRules,14);q(p,'#simulate-button').click();await until(()=>save(p).week===1&&!q(p,'#simulate-button').disabled);
  const rivals=p.state.lastWeek.standings.groups.flatMap(g=>g.teams).filter(r=>r.team.id!=='seattle');
  assert.equal(rivals.reduce((sum,r)=>sum+r.ratings.offense,0)/rivals.length,75);
  assert.equal(rivals.reduce((sum,r)=>sum+r.ratings.defense,0)/rivals.length,75);p.dom.window.close();
  // Legacy careers keep Week 1 and their original four-year deadline after autosave.
  const old={version:13,contracts:true,lineupChanges:[],teamId:'seattle',runSeed:1234,season:1,week:0,playoffRound:null,lineupRules:6,developmentStart:1,rebuildTeam:'seattle',priorStandings:{},history:[],career:[],draftChoices:null,dropped:[]};
  p=await restore(old);assert.equal(p.d.querySelectorAll('#roster-groups .roster-player').length,38);assert.match(q(p,'#roster-limit-note').textContent,/maximum: 38/);assert.equal(q(p,'#simulate-button').textContent,'Simulate Week 1');assert.match(q(p,'#contract-status').textContent,/Season 4/);assert.equal(q(p,'#career-start-note').hidden,true);
- q(p,'#simulate-button').click();await until(()=>save(p).week===1&&!q(p,'#simulate-button').disabled);assert.equal(save(p).careerStartWeek,1);assert.equal(save(p).version,23);
+ q(p,'#simulate-button').click();await until(()=>save(p).week===1&&!q(p,'#simulate-button').disabled);assert.equal(save(p).careerStartWeek,1);assert.equal(save(p).version,24);
  const oldSaved=raw(p);p.state.failStart=true;q(p,'#change-team-button').click();q(p,'#team-select').value='seattle';q(p,'#team-form').dispatchEvent(new p.w.Event('submit',{cancelable:true}));await until(()=>!q(p,'#error').hidden);assert.equal(raw(p),oldSaved);assert.equal(save(p).careerStartWeek,1);p.dom.window.close();
  for(const input of [{...inherited,week:0},{...inherited,careerStartWeek:16},{...yearTwo,history:yearTwo.history.map(({gmRecord,...entry})=>entry)}]){
   p=page(input);await until(()=>/could not be read/.test(q(p,'#save-status').textContent));assert.equal(raw(p),JSON.stringify(input));p.dom.window.close();

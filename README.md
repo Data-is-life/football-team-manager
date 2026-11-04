@@ -6,7 +6,7 @@ Python owns the league rules and schedule generation. The browser layer only ren
 
 - 30 city-only teams in six groups
 - player team selection that gives way to a team home screen
-- team offense/defense ratings and a 31-player roster grouped by position, with depth order, minimum counts, and scouting ratings
+- team offense/defense ratings and a 35-player starting roster grouped by position, with depth order, minimum counts, and scouting ratings
 - common and position-specific player attributes, including QB Clutch Factor, displayed in the roster Ratings view
 - Ratings / Season Stats roster views with separate regular-season and playoff totals for every QB, RB, WR, TE, and K
 - a dedicated Roster tab and a team-change flow with a keep-current-team option
@@ -55,7 +55,7 @@ Tabs support Left/Right arrows (including wraparound), Home, and End. The tab ba
 
 Click any team name in Group Standings to open its scouting roster in a separate dialog. Inspect players by position, including age, current rating, and potential rating, plus the team's offense and defense ratings. Close the dialog or press Escape to return to Standings. Browsing preserves your managed team, season progress, and roster settings. A failed load can be retried inside the dialog; browsing does not simulate games.
 
-New careers start with 31 fictional players per team (lineup rules 13, save version 23). Existing 38-player careers retain their format, including future seasons and unfinished drafts: starting a new career is required for the smaller format. This avoids deleting retained veterans or draft picks and preserves completed results. Expand or collapse each position group to inspect its players, depth order, and current/potential ratings.
+New careers start with 35 fictional players per team (lineup rules 14, save version 24). Existing 38-player careers retain their format, including future seasons and unfinished drafts: starting a new career is required for the smaller format. This avoids deleting retained veterans or draft picks and preserves completed results. Expand or collapse each position group to inspect its players, depth order, and current/potential ratings.
 
 Both Ratings and Season Stats show each player's age in years. Initial ages are 21–36: a deterministic entry age of 21–24 plus the player's existing 0–12 years of experience. Ages stay fixed during a season and are regenerated for each new run. Under current career rules, age and experience increase once per offseason. Development and decline follow the positional curves below; retirement follows the rules described later. Existing saved seasons keep their original rules until their next season transition.
 
@@ -76,18 +76,18 @@ Team profiles return an empty `roster_stats` snapshot; weekly and playoff respon
 | Position | Initial count | Minimum required |
 | --- | ---: | ---: |
 | QB | 2 | 1 |
-| WR | 3 | 2 |
+| WR | 4 | 2 |
 | TE | 2 | 1 |
 | RB | 2 | 1 |
-| OL | 6 | 5 |
+| OL | 7 | 5 |
 | K | 1 | 1 |
-| DL | 5 | 4 |
+| DL | 6 | 4 |
 | LB | 4 | 3 |
-| CB | 3 | 2 |
+| CB | 4 | 2 |
 | S | 3 | 2 |
-| **Total** | **31** | **22** |
+| **Total** | **35** | **22** |
 
-Offense has 15 players (QB, WR, TE, RB, OL), defense has 15 (DL, LB, CB, S), and one kicker completes the roster. The 22 position minimums are unchanged, leaving nine reserves. These are initial targets; legal draft/cut choices can change the position mix. Legacy rules 1–10 keep their original 38-player targets.
+Offense has 17 players (QB, WR, TE, RB, OL), defense has 17 (DL, LB, CB, S), and one kicker completes the roster. The 22 position minimums are unchanged, leaving 13 reserves. These are initial targets; legal draft/cut choices can change the position mix. Legacy rules 1–10 keep their original 38-player targets.
 
 The roster validator enforces these per-position minimums. The team profile API returns the rules and current counts alongside all players. Player IDs identify city/position/depth slots. Names and ratings are stable within a run; defensive player current ratings use the team defense rating as their baseline.
 
@@ -248,7 +248,7 @@ Non-playoff teams pick first, followed by teams eliminated in the Wild Card, Qua
 
 CPU teams select automatically up to your next turn. Their score balances prospect quality against current position quality, with a penalty for repeatedly drafting the same position. Your six picks are manual. After your sixth pick the remaining CPU selections complete automatically; all 30 teams receive six rookies. Selections are shown in a scrollable log and your team's picks are highlighted.
 
-Each rookie is added without replacing a player: a full new-career offseason roster can grow from 31 to 37 (38 to 44 for legacy careers), before accounting for retirements. Your Roster includes the rookies, and scouting shows other teams' drafted players. Completed-season stats are preserved; rookies have zero production. Team ratings, depth leaders, and finished-season game outcomes do not change during the draft.
+Each rookie is added without replacing a player: a full new-career offseason roster can grow from 35 to 41 (38 to 44 for legacy careers), before accounting for retirements. Your Roster includes the rookies, and scouting shows other teams' drafted players. Completed-season stats are preserved; rookies have zero production. Team ratings, depth leaders, and finished-season game outcomes do not change during the draft.
 
 After the draft, drop players directly from **Roster → Ratings**. **Manage roster** is a shortcut to this view. Next-season continuation unlocks when the roster is the career roster limit and every position minimum is satisfied. The draft is mandatory before every future season transition, including restored legacy careers. Salary caps, contracts, retirement, and trades are later work.
 
@@ -258,7 +258,7 @@ Draft choices autosave after each successful turn. Save version 16 stores the cu
 
 ## Offseason player cuts and roster carryover
 
-Complete the six-round draft, then open **Roster → Ratings** (or choose **Manage roster** to jump there). Drop controls appear beside each player, together with age, current/potential ratings, rookie badges, and starter highlights. Each position heading shows its player count and minimum, and the roster displays its total against the career roster maximum. Choose Drop, then Confirm drop in the inline confirmation; Cancel leaves the save unchanged. There is no separate roster-management dialog. You can reduce a position to its minimum, but the next cut is disabled and the API rejects it too. For example, QB can go from two to one, but not from one to zero. All ten existing position minimums are preserved. New careers require 31–38 players during the regular season. Rules 11–12 retain their former 31-player maximum while an older draft is being replayed; legacy rules 1–10 retain their 38-player maximum. Rules 10 and later fill post-draft vacancies with weak replacements toward their initial roster targets.
+Complete the six-round draft, then open **Roster → Ratings** (or choose **Manage roster** to jump there). Drop controls appear beside each player, together with age, current/potential ratings, rookie badges, and starter highlights. Each position heading shows its player count and minimum, and the roster displays its total against the career roster maximum. Choose Drop, then Confirm drop in the inline confirmation; Cancel leaves the save unchanged. There is no separate roster-management dialog. You can reduce a position to its minimum, but the next cut is disabled and the API rejects it too. For example, QB can go from two to one, but not from one to zero. All ten existing position minimums are preserved. New careers require 35–38 players during the regular season. Rules 11–12 retain their former 31-player maximum while an older draft is being replayed; legacy rules 1–10 retain their 38-player maximum. Rules 10 and later fill post-draft vacancies with weak replacements toward their initial roster targets.
 
 Successful cuts autosave. Failed cuts leave the previous roster/checkpoint intact and can be retried. Once the roster is at or below the career roster limit, Continue to next season unlocks. CPU teams also cut to the career limit, removing the lowest-rated eligible player while protecting every minimum. Cuts are available in the post-draft offseason only; released players are not yet part of free agency and cannot be re-signed in this version.
 
@@ -444,7 +444,7 @@ Existing careers preserve their current season and draft under their saved rules
 
 ## Six-round drafts and saved-career compatibility
 
-New drafts have **six rounds, 30 picks per round, 180 selections** from the existing 200-player class. Each team adds six rookies; a starting 31-player roster can reach **37 players**, all of whom may now be retained. A roster already at the 38-player maximum can reach **44 players**, requiring six legal cuts. Position minimums, draft order, prospect generation, rookie booms/busts and auto-pick policy are unchanged. Manual selection and auto-draft both require all six picks before cuts/continuation.
+New drafts have **six rounds, 30 picks per round, 180 selections** from the existing 200-player class. Each team adds six rookies; a starting 35-player roster can reach **41 players**, requiring three cuts if nobody retired. A roster already at the 38-player maximum can reach **44 players**, requiring six legal cuts. Position minimums, draft order, prospect generation, rookie booms/busts and auto-pick policy are unchanged. Manual selection and auto-draft both require all six picks before cuts/continuation.
 
 Save version 16 stores `draftRounds` and each completed career step's `draft_rounds`. Versions 1–15 remain readable. A legacy draft already started (including an empty saved choices array) stays at four rounds through cuts and reloads; its next offseason uses six. A career without a started draft uses six immediately. Past four-round drafts retain their original CPU picks, availability, player IDs and resulting rosters. No new career is required.
 
@@ -547,9 +547,9 @@ New careers and future season transitions adopt lineup rules 10/save version 20;
 
 Current rating below 60 brings retirement forward two years; above 80 delays it two years. Ratings 60–80 use the base age. The existing seeded hidden longevity trait can delay retirement another 1–4 years, independently of talent. Plans are deterministic from season-start age/current rating and the run seed; ratings do not change during weekly play. These are game-balance rules, informed by active-player longevity examples checked on 2026-11-02, rather than estimated NFL retirement averages.
 
-The GM has six draft picks to address vacancies. CPU/auto-draft picks prioritize positions below their minimum. **After the draft finishes**, remaining minimum shortages receive generated players, then vacancies are filled toward the versioned position targets up to 31 (38 for legacy rules). Existing surplus picks are not discarded; if filling required minimums leaves more players than the limit, legal cuts remain mandatory. Generated replacements start at **40–55 current**, have potential capped at 60, are not draft rookies, and do not receive rookie boom/bust assessments. Under rules 10–12, legal cuts below the fill target receive another weak replacement; released IDs never reappear. Rules 13 instead reject any cut below the 31-player minimum and leave optional bench places unfilled. Draft quality and roster planning remain the GM's responsibility. CPU teams follow the same roster rules. No free-agency market or signing controls are added.
+The GM has six draft picks to address vacancies. CPU/auto-draft picks prioritize positions below their minimum. **After the draft finishes**, remaining minimum shortages receive generated players, then vacancies are filled toward the versioned position targets up to 35 for current careers (31 under rules 11–13, or 38 for legacy rules). Existing surplus picks are not discarded; if filling required minimums leaves more players than the limit, legal cuts remain mandatory. Generated replacements start at **40–55 current**, have potential capped at 60, are not draft rookies, and do not receive rookie boom/bust assessments. Under rules 10–12, legal cuts below the fill target receive another weak replacement; released IDs never reappear. Rules 13 reject any cut below 31; rules 14 reject any cut below the 35-player minimum and leave optional bench places unfilled. Draft quality and roster planning remain the GM's responsibility. CPU teams follow the same roster rules. No free-agency market or signing controls are added.
 
-The ages follow the earlier design review of official NFL player profiles (Rodgers 42, Folk 41, Abdullah 33, Allen 34, Kelce 37, Williams 38, Campbell 40, Davis 37, Jones 33, Smith 37), which illustrate longevity exceptions rather than averages. Retirement runs under rules 10 and later; rules 1–9 payloads and historical draft classes remain reproducible. Save versions 1–23 remain readable.
+The ages follow the earlier design review of official NFL player profiles (Rodgers 42, Folk 41, Abdullah 33, Allen 34, Kelce 37, Williams 38, Campbell 40, Davis 37, Jones 33, Smith 37), which illustrate longevity exceptions rather than averages. Retirement runs under rules 10 and later; rules 1–9 payloads and historical draft classes remain reproducible. Save versions 1–24 remain readable.
 
 Official profiles used in the retirement design review: [Rodgers](https://www.nfl.com/players/aaron-rodgers/), [Folk](https://www.nfl.com/players/nick-folk/), [Abdullah](https://www.nfl.com/players/ameer-abdullah/), [Allen](https://www.nfl.com/players/keenan-allen/), [Kelce](https://www.nfl.com/players/travis-kelce/), [Williams](https://www.nfl.com/players/trent-williams/), [Campbell](https://www.nfl.com/players/calais-campbell/), [Davis](https://www.nfl.com/players/demario-davis/), [Jones](https://www.nfl.com/players/jonathan-jones/), [Smith](https://www.nfl.com/players/harrison-smith/).
 
@@ -568,7 +568,7 @@ New careers seed the other 29 teams from an approximately normal strength distri
 
 These are actual player abilities, not display-only ratings or hidden win bonuses. Ability shifts preserve IDs, names, ages, experience and positional order; attributes are regenerated to match. Uniform shifts retain ability gaps, apart from ability bounds and a possible one-point reserve correction for half-even rounding. Kickers remain separate. The managed rebuilding team is unchanged at 70 ± 2 under the existing creation rules. Current/potential and age development continue normally.
 
-Existing 31-player careers retain their current season and adopt rules 12 at the next season transition, after normal aging. Only opponents are recalibrated at that one-time upgrade; potential, baseline and development deltas move consistently with ability. Later seasons are not re-centered: draft decisions and development determine their strength. Old 38-player careers keep their legacy format and balance. Existing saves remain readable; new saves use version 23. GM contract rules and playoff qualification are unchanged—this improves the starting gap without guaranteeing success.
+Rules 12 introduced a one-time opponent recalibration for existing compact careers at the next season transition, after normal aging. Rules 14 retain that upgrade for careers that have not yet received it. Only opponents are recalibrated at that one-time upgrade; potential, baseline and development deltas move consistently with ability. Later seasons are not re-centered: draft decisions and development determine their strength. Old 38-player careers keep their legacy format and balance. Existing saves remain readable; new saves use version 24. GM contract rules and playoff qualification are unchanged—this improves the starting gap without guaranteeing success.
 
 `python benchmarks/league_balance.py` compares eight paired seeded careers per version using six-round auto-drafts and lowest-rated legal cuts through Seasons 1–5. The full contract window is Seasons 2–5. `benchmarks/league-balance-results.json` records the sample, including initial opponent means, wins and playoff qualification; it is descriptive rather than a survival forecast.
 
@@ -583,12 +583,20 @@ Seeded check (eight careers per version, four full seasons each):
 
 The small sample uses a fixed auto-draft/cut policy, so it demonstrates behavior under that policy rather than estimating every player's chance of keeping the job.
 
-## Total roster range (rules 13)
+## Previous total roster range (rules 13, retained for replay)
 
-New careers still begin with **31 players**: 15 offense, 15 defense and one kicker. They must carry **31–38 players** into each regular season, in addition to the existing position minimums (22 required position slots). Draft picks and retirements may temporarily put the offseason roster outside that range. The draft remains mandatory.
+Under rules 13, careers began with **31 players**: 15 offense, 15 defense and one kicker. They must carry **31–38 players** into each regular season, in addition to the existing position minimums (22 required position slots). Draft picks and retirements may temporarily put the offseason roster outside that range. The draft remains mandatory.
 
 After drafting, the GM can retain any legal roster between 31 and 38. Cut status reports the exact number above 38; continuation stays blocked while oversized or below 31. At 31, all Drop controls are disabled, and the API rejects a 31→30 release even when that position has spare players. Position minimums are checked independently. Successful cuts, retries and reloads retain their existing behavior. Payroll and salary caps are separate future PRs.
 
 CPU teams retain legal depth up to 38 and cut the weakest eligible surplus players above the cap. Post-draft replacements fill required positions and bring short rosters toward **31**, not 38, so they do not fill optional bench capacity. The same bounds apply to history replay; an oversized or undersized completed offseason cannot be used to begin a later season.
 
 Save version 23/rules 13 preserve older saves. Rules 12 careers with no draft started adopt the new limits on resume without changing players, completed results, stats or the stored checkpoint until the next action saves. Existing drafts and cuts replay under their recorded rules, then adopt rules 13 at the next season transition; rules 11 careers also upgrade at that transition. Older 38-player-format careers retain legacy behavior. Historical season decisions keep their original rules.
+
+## Starting and minimum roster: 35 players (rules 14)
+
+Every new-career team—including the user’s first season—starts with **35 players**: 17 offense, 17 defense and one kicker, using the position counts in the Roster table above. The regular-season total range is **35–38 players**. Individual position minimums remain unchanged; 35 is a total minimum, not a new set of position minimums.
+
+After the mandatory draft, replacements fill required positions and bring short teams toward **35**, without filling the three optional places up to 38. This applies to CPU teams and the managed team. Retirements can temporarily leave an offseason roster below 35 before drafting finishes. Cuts cannot take a roster below 35 or violate a position minimum; rosters above 38 must be cut before the next season. Drop controls, remaining-cut counts and How to Play show these limits.
+
+New saves use version 24/rules 14. Older current seasons and started drafts keep their original roster sizes and rules. Existing compact careers adopt the new floor at their next season transition: any short team receives deterministic low-rated replacements to reach 35, while legal 35–38-player rosters are retained. Existing player IDs are preserved; expansion replacement IDs have a separate namespace so released players cannot return. The expansion runs once, with potential/development metadata initialized for the new players. Older 38-player-format careers retain legacy behavior and their historical results. Prior sections describing rules 11–13 document their retained replay behavior; the current new-career limits are 35–38.

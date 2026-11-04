@@ -189,7 +189,7 @@ def advance_context(context, run_seed, season, development_start=1, lineup_rules
     if rebuild_team is None and current_rules >= 3:
         rebuild_team = context.rebuild_team
     lineup_rules = lineup_rules if lineup_rules is not None else max(3, current_rules)
-    if lineup_rules not in (3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13) or current_rules > lineup_rules:
+    if lineup_rules not in (3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14) or current_rules > lineup_rules:
         raise ValueError('Invalid development rules')
     if not 1 <= development_start <= season <= 999:
         raise ValueError('Invalid development season')
@@ -202,6 +202,9 @@ def advance_context(context, run_seed, season, development_start=1, lineup_rules
     balance_upgrade = lineup_rules >= 12 and current_rules < 12 and bool(context)
     if balance_upgrade and season <= context.season:
         raise ValueError('League balance upgrades apply at the next season transition')
+    roster_upgrade = lineup_rules >= 14 and current_rules < 14 and bool(context)
+    if roster_upgrade and season <= context.season:
+        raise ValueError('35-player roster minimum applies at the next season transition')
     rotation_growth = current_rules >= 5
     if current_rules < 3:
         if not context and lineup_rules >= 4:
@@ -210,9 +213,10 @@ def advance_context(context, run_seed, season, development_start=1, lineup_rules
         else:
             rosters = tuple(context) if context else tuple((team.id, tuple(roster_for(team.id,run_seed).values())) for team in TEAMS)
         if lineup_rules >= 11:
-            from .simulation import COMPACT_ROSTER_RULES
+            from .simulation import roster_rules
+            targets = roster_rules(lineup_rules)
             rosters = tuple((owner, tuple(p for p in ranked_players(players)
-                                         if p.depth <= COMPACT_ROSTER_RULES[p.position][0]))
+                                         if p.depth <= targets[p.position][0]))
                             for owner, players in rosters)
         rosters = tuple((owner,ranked_players(players)) for owner,players in rosters)
         if lineup_rules >= 12:
@@ -244,6 +248,13 @@ def advance_context(context, run_seed, season, development_start=1, lineup_rules
         if lineup_rules >= 5:
             context = capture_rotation(context)
             rotation_growth = True
+    if roster_upgrade:
+        from .retirement import fill_roster
+        # A separate namespace prevents a previously released replacement from
+        # being recreated while expanding an older career at this boundary.
+        rosters = tuple((owner, fill_roster(players, owner, season-1, run_seed,
+                         context=context, identity_suffix="-expansion")) for owner,players in context)
+        context = capture_rotation(with_rosters(context, rosters))
     if balance_upgrade:
         from .league_balance import balance_existing_context
         context = capture_rotation(balance_existing_context(context))
