@@ -11,17 +11,18 @@ const q=(p,sel)=>p.d.querySelector(sel),raw=p=>p.w.localStorage.getItem(key),sav
 function page(checkpoint){
  const dom=new JSDOM(html,{url:base,runScripts:'outside-only'}),w=dom.window,d=w.document;
  w.localStorage.setItem(key,checkpoint);
- w.HTMLElement.prototype.scrollIntoView=()=>{};
+ w.HTMLElement.prototype.scrollIntoView=function(){state.scrolls.push(this.id)};
  w.HTMLDialogElement.prototype.close=function(){this.open=false;this.dispatchEvent(new w.Event('close'))};
  w.HTMLDialogElement.prototype.showModal=function(){this.open=true};
  Object.defineProperty(w.crypto,'getRandomValues',{value:a=>{a[0]=5678;return a}});
- const state={fail:false,calls:0,last:null,urls:[]};
+ const state={fail:false,calls:0,last:null,urls:[],scrolls:[],defer:false,release:null};
  w.fetch=async(url,init)=>{
   state.urls.push(url);
   if(url.startsWith('/api/draft/')){
    state.calls++;
    if(state.fail)return {ok:false};
    const result=await api(url,init);state.last=result;
+   if(state.defer)await new Promise(resolve=>{state.release=resolve});
    return {ok:true,json:async()=>result};
   }
   return fetch(new URL(url,base),init);
@@ -41,7 +42,7 @@ function checkRecap(p, picks) {
  assert.equal(p.d.querySelectorAll('#draft-recap th[scope="col"]').length,6);
  assert.equal(q(p,'#draft-recap-table-wrap').tabIndex,0);
  assert.equal(q(p,'#draft-recap-table-wrap').getAttribute('aria-labelledby'),'draft-recap-title');
- assert.equal(q(p,'#draft-recap').compareDocumentPosition(q(p,'#draft-board'))&p.w.Node.DOCUMENT_POSITION_FOLLOWING,p.w.Node.DOCUMENT_POSITION_FOLLOWING);
+ assert.equal(q(p,'#draft-board').compareDocumentPosition(q(p,'#draft-recap'))&p.w.Node.DOCUMENT_POSITION_FOLLOWING,p.w.Node.DOCUMENT_POSITION_FOLLOWING);
 }
 async function checks(){
  const final=await api('/api/playoffs/seattle/round/4?season=1&run_seed=1234');
@@ -49,6 +50,8 @@ async function checks(){
  const legacy=JSON.stringify({version:2,teamId:owner,runSeed:1234,season:1,week:17,playoffRound:4,priorStandings:{},history:[]});
  let p=await restore(legacy);assert.match(q(p,'#save-status').textContent,/restored/);
  assert.equal(q(p,'#draft-button').hidden,false);
+ assert.equal(q(p,'#draft-dialog'),null);assert.equal(q(p,'#panel-draft').closest('main')?.tagName,'MAIN');
+ assert.equal(q(p,'#view-draft').hidden,false);
  assert.equal(q(p,'#next-season').hidden,true);assert.equal(q(p,'#next-season').disabled,true);
  const calls=p.state.urls.length;
  q(p,'#next-season').hidden=false;q(p,'#next-season').disabled=false;q(p,'#next-season').click();
@@ -73,11 +76,15 @@ async function checks(){
   assert.equal(cells.length,7);assert.equal(cells[4].textContent,String(prospect.current_rating));assert.equal(cells[5].textContent,String(prospect.potential_rating));
   assert.equal(q(p,'#draft-prospects tr').querySelectorAll('details').length,0);
   if(turn===1){
+   const list=q(p,'#draft-prospect-list');list.scrollTop=700;list.scrollLeft=24;
    const prior=raw(p);p.state.fail=true;buttons[0].click();await until(()=>!q(p,'#draft-error').hidden);
-   assert.equal(raw(p),prior,'Failed pick preserves the checkpoint');checkRecap(p,p.state.last.picks);p.state.fail=false;q(p,'#draft-retry').click();
+   assert.equal(raw(p),prior,'Failed pick preserves the checkpoint');assert.equal(list.scrollTop,700);assert.equal(list.scrollLeft,24);assert.equal(p.d.activeElement.id,'draft-retry');checkRecap(p,p.state.last.picks);p.state.fail=false;q(p,'#draft-retry').click();
   }else{const count=p.state.calls;buttons[0].click();buttons[0].click();assert.equal(p.state.calls,count+1,'Double click cannot pick twice')}
   await until(()=>save(p).draftChoices?.length===turn);
   checkRecap(p,p.state.last.picks);
+  assert.equal(q(p,'#draft-prospect-list').scrollTop,0);assert.equal(q(p,'#draft-prospect-list').scrollLeft,0);
+  assert.equal(p.d.activeElement.id,turn===6?'draft-title':'draft-prospect-list');
+  assert.equal(q(p,'#draft-position').disabled,false);assert.equal(q(p,'#panel-draft').getAttribute('aria-busy'),'false');
   selectedIds.push(id);assert.deepEqual(save(p).draftChoices,selectedIds);
   assert.deepEqual(p.state.last.picks.slice(0,previousPicks.length),previousPicks);
   previousPicks=structuredClone(p.state.last.picks);
@@ -111,7 +118,7 @@ async function checks(){
  q(p,'#manage-roster').click();q(p,`#roster-groups [data-drop-id="${signedId}"]`).click();q(p,'#cut-confirm').click();
  await until(()=>save(p).dropped.length===1);assert.equal(q(p,`#roster-groups [data-player-id="${signedId}"]`),null);
  checkRecap(p,completedPicks);const cutCheckpoint=raw(p);p.dom.window.close();p=await restore(cutCheckpoint);
- checkRecap(p,completedPicks);q(p,'#draft-button').click();assert.equal(q(p,'#draft-dialog').open,true);assert.equal(raw(p),cutCheckpoint);
+ checkRecap(p,completedPicks);q(p,'#draft-button').click();assert.equal(q(p,'#panel-draft').hidden,false);assert.equal(raw(p),cutCheckpoint);
  q(p,'#draft-close').click();
  q(p,'#change-team-button').click();q(p,'#team-select').value='seattle';
  q(p,'#team-form').dispatchEvent(new p.w.Event('submit',{cancelable:true}));await until(()=>save(p).runSeed===5678);
@@ -120,6 +127,33 @@ async function checks(){
  const damaged=JSON.parse(complete);damaged.draftChoices[0]='missing-prospect';
  const invalid=JSON.stringify(damaged);p=await restore(invalid);
  assert.match(q(p,'#save-status').textContent,/could not be loaded/);assert.equal(raw(p),invalid);assert.equal(q(p,'#schedule-section').hidden,true);p.dom.window.close();
+ // Filters and inline navigation survive picks/reload; late responses never pull the user off Roster.
+ p=await restore(legacy);q(p,'#view-draft').click();await until(()=>save(p).draftChoices?.length===0);
+ assert.equal(q(p,'#panel-draft').hidden,false);assert.equal(q(p,'#view-draft').getAttribute('aria-selected'),'true');
+ const position=q(p,'#draft-position');position.value='WR';position.dispatchEvent(new p.w.Event('change'));
+ assert.equal(save(p).draftPosition,'WR');
+ const firstFiltered=q(p,'#draft-prospects [data-draft-id]');
+ assert.equal(firstFiltered.closest('tr').querySelectorAll('[data-label]').length,6);
+ assert.deepEqual([...firstFiltered.closest('tr').querySelectorAll('[data-label]')].map(cell=>cell.dataset.label),['Rank','Player','Position','Age','Current','Potential']);
+ q(p,'#draft-prospect-list').scrollTop=500;firstFiltered.click();await until(()=>save(p).draftChoices.length===1);
+ assert.equal(position.value,'WR');assert.equal(q(p,'#draft-prospect-list').scrollTop,0);
+ assert.equal(q(p,'#draft-prospect-list').tabIndex,0);assert.match(q(p,'#draft-prospects button').getAttribute('aria-label'),/^Draft .*, WR$/);
+ q(p,'#draft-roster').click();assert.equal(q(p,'#panel-roster').hidden,false);
+ const noExtraCalls=p.state.calls;q(p,'#roster-draft-return').click();assert.equal(q(p,'#panel-draft').hidden,false);assert.equal(p.state.calls,noExtraCalls);assert.equal(position.value,'WR');
+ const filtered=raw(p);p.dom.window.close();p=await restore(filtered);assert.equal(q(p,'#draft-position').value,'WR');assert.equal(raw(p),filtered);
+ q(p,'#draft-button').click();p.state.defer=true;q(p,'#draft-prospect-list').scrollTop=400;
+ q(p,'#draft-prospects [data-draft-id]').click();await until(()=>p.state.release!==null);
+ assert.equal(q(p,'#draft-position').disabled,true);q(p,'#draft-roster').click();
+ const scrollCount=p.state.scrolls.filter(id=>id==='draft-prospect-list').length;
+ p.state.defer=false;p.state.release();await until(()=>save(p).draftChoices.length===2);
+ assert.equal(q(p,'#panel-roster').hidden,false);assert.equal(p.state.scrolls.filter(id=>id==='draft-prospect-list').length,scrollCount);
+ q(p,'#roster-draft-return').click();assert.equal(q(p,'#panel-draft').hidden,false);assert.equal(q(p,'#draft-position').value,'WR');assert.equal(q(p,'#draft-prospect-list').scrollTop,0);assert.equal(p.d.activeElement.id,'draft-prospect-list');
+ const keyboardCalls=p.state.calls;q(p,'#view-help').click();q(p,'#view-help').dispatchEvent(new p.w.KeyboardEvent('keydown',{key:'ArrowRight',bubbles:true,cancelable:true}));
+ assert.equal(q(p,'#panel-draft').hidden,false);assert.equal(p.state.calls,keyboardCalls);
+ const noMatches=['QB','WR','TE','RB','OL','K','DL','LB','CB','S'].find(pos=>!p.state.last.available.some(player=>player.position===pos));
+ if(noMatches){q(p,'#draft-position').value=noMatches;q(p,'#draft-position').dispatchEvent(new p.w.Event('change'));assert.equal(q(p,'#draft-no-matches').hidden,false);assert.equal(q(p,'#draft-prospects').children.length,0);}
+ p.dom.window.close();
+ const badFilter=JSON.stringify({...JSON.parse(filtered),draftPosition:'invalid-position'});p=await restore(badFilter);assert.match(q(p,'#save-status').textContent,/could not be read/);assert.equal(raw(p),badFilter);p.dom.window.close();
  // Auto-draft can finish from any user turn, preserves manual choices, and uses ordinary saved IDs.
  for(const manualCount of [0,1,2,3,4,5]){
   p=await restore(legacy);const previousStats=oldStats(p);

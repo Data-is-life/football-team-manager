@@ -267,7 +267,6 @@ tr.selected-team td { color: var(--cyan); background: rgba(72,230,210,0.07); }
   .view-tabs { max-width: 100%; }
 }
 
-.draft-prospect-scroll { max-height: 55vh; overflow: auto; }
 #draft-picks { max-height: 30vh; overflow: auto; padding-left: 32px; line-height: 1.8; }
 .your-draft-pick { color: var(--cyan); font-weight: 700; }
 
@@ -371,3 +370,40 @@ tr.selected-team td { color: var(--cyan); background: rgba(72,230,210,0.07); }
 .season-confirm-actions { display: flex; justify-content: flex-end; gap: 10px; flex-wrap: wrap; }
 
 .salary-cell { white-space: nowrap; font-size: .85rem; font-variant-numeric: tabular-nums; }
+
+
+/* The draft uses the main tab panel; narrow screens keep every action visible. */
+.draft-workspace .scout-heading { align-items: start; gap: 16px; flex-wrap: wrap; }
+.draft-navigation, .draft-controls { display: flex; gap: 12px; flex-wrap: wrap; align-items: end; }
+.draft-controls { margin: 18px 0 12px; }
+.draft-filter { flex: 1 1 180px; }
+.draft-filter label { display: block; color: var(--muted); margin-bottom: 6px; }
+.draft-filter select, .draft-navigation button, .draft-controls button { min-height: 48px; font-size: 1rem; }
+.draft-filter select { max-width: 320px; }
+.draft-prospect-scroll { overflow: auto; max-height: 65vh; max-height: 65svh; overscroll-behavior: contain; scroll-margin-top: 16px; border: 1px solid var(--line); border-radius: 12px; }
+.draft-prospect-scroll:focus-visible { outline: 3px solid var(--cyan); outline-offset: 3px; }
+.draft-prospect-scroll thead { position: sticky; top: 0; z-index: 1; background: var(--panel); }
+.draft-prospect-scroll button { min-height: 48px; padding: 10px 18px; }
+#draft-roster, #roster-draft-return { min-height: 48px; }
+@media (max-width: 640px) {
+  .draft-navigation { width: 100%; }
+  .draft-navigation button { flex: 1 1 130px; padding: 10px 14px; }
+  .draft-filter { flex: 1 1 100%; }
+  .draft-filter select { max-width: none; }
+  .draft-controls > button { width: 100%; padding: 12px; }
+  .draft-prospect-scroll { overflow-x: hidden; border: 0; }
+  .draft-prospect-scroll table, #draft-prospects { display: block; width: 100%; min-width: 0; }
+  .draft-prospect-scroll thead { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  #draft-prospects tr { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; padding: 12px; margin-bottom: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); }
+  #draft-prospects td { display: block; min-width: 0; padding: 0; border: 0; text-align: left; white-space: normal; overflow-wrap: anywhere; font-size: 1rem; }
+  #draft-prospects td[data-label]::before { content: attr(data-label); display: block; margin-bottom: 3px; font-size: .78rem; font-weight: 500; color: var(--muted); }
+  #draft-prospects td:nth-child(1) { grid-area: 1 / 1 / 2 / 3; }
+  #draft-prospects td:nth-child(2) { grid-area: 2 / 1 / 3 / 7; font-size: 1.1rem; font-weight: 800; }
+  #draft-prospects td:nth-child(2)::before { display: none; }
+  #draft-prospects td:nth-child(3) { grid-area: 1 / 3 / 2 / 5; }
+  #draft-prospects td:nth-child(4) { grid-area: 1 / 5 / 2 / 7; }
+  #draft-prospects td:nth-child(5) { grid-area: 3 / 1 / 4 / 4; }
+  #draft-prospects td:nth-child(6) { grid-area: 3 / 4 / 4 / 7; }
+  #draft-prospects td:nth-child(7) { grid-area: 4 / 1 / 5 / 7; }
+  #draft-prospects button { width: 100%; min-height: 48px; }
+}

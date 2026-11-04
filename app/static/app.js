@@ -50,7 +50,8 @@ let draftBusy = false;
 let draftPendingChoice = null;
 let draftPendingAuto = false;
 const draftButton = document.querySelector("#draft-button");
-const draftDialog = document.querySelector("#draft-dialog");
+const draftPanel = document.querySelector("#panel-draft");
+let draftScrollPending = false;
 const autoDraftButton = document.querySelector("#auto-draft");
 const nextSeasonButton = document.querySelector("#next-season");
 let currentWeek = 0;
@@ -101,6 +102,7 @@ function saveProgress() {
     priorStandings: activePriorStandings, history: careerHistory,
     draftChoices: activeDraftChoices,
     dropped: activeDropped, career: activeCareer,
+    ...(document.querySelector("#draft-position").value ? { draftPosition: document.querySelector("#draft-position").value } : {}),
     playoffRound: playoffState ? completedPlayoffRound : null };
   try {
     localStorage.setItem(SAVE_KEY, JSON.stringify(save));
@@ -153,6 +155,7 @@ function readSave() {
         && (!index || step.season > save.career[index - 1].season)
         && ids(step.manual_picks) && [4, 6].includes(step.draft_rounds) && step.manual_picks.length === step.draft_rounds && ids(step.dropped)
         && validPriorStandings(step.prior_standings ?? {}, step.season))) throw new Error("Invalid roster save");
+  if (save.draftPosition !== undefined && ![...document.querySelector("#draft-position").options].some(option => option.value === save.draftPosition)) throw new Error("Invalid draft filter");
   if (save.version < 5) save.lineupRules = 1;
   if (![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17].includes(save.lineupRules)) throw new Error("Invalid lineup rules");
   if ([15, 16].includes(save.lineupRules) && save.draftChoices === null) save.lineupRules = 17;
@@ -466,7 +469,7 @@ async function resumeProgress() {
     setDevelopmentRecap(profile, save.season);
     if (regular) renderResult(regular);
     if (postseason) { renderPostseason(postseason); activateView("playoffs"); }
-    if (savedDraft) applyDraft(savedDraft);
+    if (savedDraft) { document.querySelector("#draft-position").value = save.draftPosition ?? ""; applyDraft(savedDraft); }
     select.value = save.teamId;
     saveStatus.textContent = "Saved progress restored. Autosave is on in this browser.";
     resumeButton.hidden = true;
@@ -650,6 +653,7 @@ function renderHelp() {
 }
 
 function activateView(id, { focus = false } = {}) {
+  if (id === "draft" && document.querySelector("#view-draft").hidden) return;
   if (id === "help") renderHelp();
   for (const tab of viewTabs) {
     const selected = tab.id === `view-${id}`;
@@ -661,19 +665,24 @@ function activateView(id, { focus = false } = {}) {
       tab.scrollIntoView({ block: "nearest", inline: "nearest" });
     }
   }
+  if (id === "draft") {
+    if (!draftState && !draftBusy) loadDraft();
+    else if (draftScrollPending) returnToDraftTop();
+  }
 }
 
-viewTabs.forEach((tab, index) => {
+viewTabs.forEach(tab => {
   tab.addEventListener("click", () => activateView(tab.id.slice(5)));
   tab.addEventListener("keydown", event => {
+    const tabs = viewTabs.filter(item => !item.hidden), index = tabs.indexOf(tab);
     let next;
-    if (event.key === "ArrowRight") next = (index + 1) % viewTabs.length;
-    else if (event.key === "ArrowLeft") next = (index - 1 + viewTabs.length) % viewTabs.length;
+    if (event.key === "ArrowRight") next = (index + 1) % tabs.length;
+    else if (event.key === "ArrowLeft") next = (index - 1 + tabs.length) % tabs.length;
     else if (event.key === "Home") next = 0;
-    else if (event.key === "End") next = viewTabs.length - 1;
+    else if (event.key === "End") next = tabs.length - 1;
     else return;
     event.preventDefault();
-    activateView(viewTabs[next].id.slice(5), { focus: true });
+    activateView(tabs[next].id.slice(5), { focus: true });
   });
 });
 function showError(message) {
@@ -1050,6 +1059,9 @@ function updatePhaseActions() {
   const offseason = live && Boolean(playoffState?.postseason_complete) && activeSeason < 999;
   const drafted = Boolean(draftState?.complete) && activeDraftChoices?.length === activeDraftRounds;
   draftButton.hidden = !offseason;
+  document.querySelector("#view-draft").hidden = !offseason;
+  document.querySelector("#roster-draft-return").hidden = !offseason;
+  document.querySelector("#roster-draft-return").textContent = draftState ? "Back to draft" : "Open draft";
   manageRoster.hidden = !offseason || !drafted;
   nextSeasonButton.hidden = !offseason || !drafted || !rosterReady();
 }
@@ -1114,7 +1126,7 @@ function renderSchedule(data, runSeed, { priorStandings = {}, history = [], care
   document.querySelector("#draft-title").textContent = "Rookie draft";
   document.querySelector("#draft-status").textContent = "";
   document.querySelector("#draft-position").value = "";
-  if (draftDialog.open) draftDialog.close();
+  draftScrollPending = false;
   nextSeasonButton.hidden = true;
   renderSeasonHistory();
   document.querySelector("#season-display").textContent = activeSeason;
@@ -1871,6 +1883,8 @@ function renderDraft() {
   if (!draftState) return;
   renderDraftRecap();
   autoDraftButton.disabled = draftBusy || draftState.complete;
+  document.querySelector("#draft-position").disabled = draftBusy;
+  draftPanel.setAttribute("aria-busy", String(draftBusy));
   document.querySelector("#draft-title").textContent = `Season ${draftState.draft_season} rookie draft`;
   document.querySelector("#draft-status").textContent = draftState.complete
     ? `All ${draftState.total_picks} picks are complete. Your ${draftState.rounds} rookies have joined your offseason roster.`
@@ -1883,10 +1897,13 @@ function renderDraft() {
     if (filter && player.position !== filter) return;
     const row = document.createElement("tr");
     row.dataset.prospectId = player.id;
-    for (const value of [index + 1, player.name, player.position, player.age, player.current_rating, player.potential_rating]) {
-      const cell = document.createElement("td"); cell.textContent = value; row.append(cell);
-    }
-    const action = document.createElement("td");
+    row.setAttribute("role", "row");
+    const labels = ["Rank", "Player", "Position", "Age", "Current", "Potential"];
+    [index + 1, player.name, player.position, player.age, player.current_rating, player.potential_rating].forEach((value, column) => {
+      const cell = document.createElement("td"); cell.textContent = value;
+      cell.dataset.label = labels[column]; cell.setAttribute("role", "cell"); row.append(cell);
+    });
+    const action = document.createElement("td"); action.setAttribute("role", "cell");
     const button = document.createElement("button"); button.type = "button";
     button.textContent = "Draft"; button.dataset.draftId = player.id;
     button.setAttribute("aria-label", `Draft ${player.name}, ${player.position}`);
@@ -1894,6 +1911,7 @@ function renderDraft() {
     action.append(button); row.append(action); rows.push(row);
   });
   document.querySelector("#draft-prospects").replaceChildren(...rows);
+  document.querySelector("#draft-no-matches").hidden = rows.length > 0;
   const picks = draftState.picks.map(pick => {
     const item = document.createElement("li");
     item.value = pick.overall;
@@ -1902,14 +1920,19 @@ function renderDraft() {
     return item;
   });
   document.querySelector("#draft-picks").replaceChildren(...picks);
-  document.querySelector("#draft-available").textContent = `${draftState.available.length} prospects available · Ratings out of 99`;
+  document.querySelector("#draft-available").textContent = `${rows.length} shown · ${draftState.available.length} prospects available · Ratings out of 99`;
   document.querySelector("#draft-board").hidden = draftState.complete;
 }
 
 async function loadDraft(choice = null, autoDraft = false) {
   if (careerEnded() || draftBusy || advancingSeason || !playoffState?.postseason_complete || activeSeason >= 999) return;
   if (autoDraft && draftState?.complete) return;
+  const list = document.querySelector("#draft-prospect-list");
+  const previousScroll = { top: list.scrollTop, left: list.scrollLeft };
+  let committedPick = false;
   draftBusy = true;
+  draftPanel.setAttribute("aria-busy", "true");
+  document.querySelector("#draft-position").disabled = true;
   draftPendingChoice = choice;
   draftPendingAuto = autoDraft;
   autoDraftButton.disabled = true;
@@ -1918,7 +1941,7 @@ async function loadDraft(choice = null, autoDraft = false) {
   nextSeasonButton.disabled = true;
   document.querySelector("#draft-error").hidden = true;
   document.querySelector("#draft-retry").hidden = true;
-  if (!draftDialog.open) draftDialog.showModal();
+  activateView("draft");
   if (draftState) renderDraft();
   document.querySelector("#draft-status").textContent = autoDraft ? "Auto-drafting your remaining picks…" : choice ? "Recording your pick and simulating CPU picks…" : "Loading rookie draft…";
   const teamId = activeTeamId, seed = activeRunSeed, season = activeSeason;
@@ -1928,6 +1951,7 @@ async function loadDraft(choice = null, autoDraft = false) {
     if (teamId !== activeTeamId || seed !== activeRunSeed || season !== activeSeason) return;
     applyDraft(data);
     saveProgress();
+    committedPick = Boolean(choice || autoDraft);
     draftPendingChoice = null;
     draftPendingAuto = false;
   } catch (error) {
@@ -1944,15 +1968,40 @@ async function loadDraft(choice = null, autoDraft = false) {
     else {
       document.querySelector("#draft-status").textContent = "Draft not started. Your saved season is unchanged.";
     }
+    draftPanel.setAttribute("aria-busy", "false");
+    document.querySelector("#draft-position").disabled = false;
+    if (committedPick) {
+      draftScrollPending = true;
+      if (!draftPanel.hidden) returnToDraftTop();
+    } else {
+      list.scrollTop = previousScroll.top; list.scrollLeft = previousScroll.left;
+      if (!draftPanel.hidden && !document.querySelector("#draft-retry").hidden) document.querySelector("#draft-retry").focus({ preventScroll: true });
+    }
   }
 }
+
+function returnToDraftTop() {
+  draftScrollPending = false;
+  const list = document.querySelector("#draft-prospect-list");
+  list.scrollTop = 0; list.scrollLeft = 0;
+  const target = draftState?.complete ? document.querySelector("#draft-title") : list;
+  target.focus({ preventScroll: true });
+  target.scrollIntoView({ block: "start", behavior: "auto" });
+}
+
 draftButton.addEventListener("click", () => {
   if (draftButton.hidden || draftButton.disabled || careerEnded()) return;
-  if (draftState) { renderDraft(); if (!draftDialog.open) draftDialog.showModal(); }
+  if (draftState) { renderDraft(); activateView("draft", { focus: true }); }
   else loadDraft();
 });
-document.querySelector("#draft-close").addEventListener("click", () => draftDialog.close());
-document.querySelector("#draft-position").addEventListener("change", renderDraft);
+document.querySelector("#draft-close").addEventListener("click", () => activateView("schedule", { focus: true }));
+document.querySelector("#draft-roster").addEventListener("click", () => activateView("roster", { focus: true }));
+document.querySelector("#roster-draft-return").addEventListener("click", () => activateView("draft", { focus: true }));
+document.querySelector("#draft-position").addEventListener("change", () => {
+  renderDraft();
+  document.querySelector("#draft-prospect-list").scrollTop = 0;
+  if (draftState && !draftBusy) saveProgress();
+});
 document.querySelector("#draft-retry").addEventListener("click", () => loadDraft(draftPendingChoice, draftPendingAuto));
 autoDraftButton.addEventListener("click", () => loadDraft(null, true));
 document.querySelector("#draft-prospects").addEventListener("click", event => {
@@ -2050,7 +2099,7 @@ function renderCuts() {
 }
 function openCuts() {
   if (careerEnded() || !draftState?.complete || cutBusy || advancingSeason) return;
-  if (draftDialog.open) draftDialog.close();
+  draftScrollPending = false;
   activateView("roster", { focus: true });
   rosterMode = "ratings";
   renderRosterStats();
