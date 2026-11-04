@@ -31,8 +31,16 @@ def roster_rules(context=()):
     return COMPACT_ROSTER_RULES if getattr(context, 'lineup_rules', 1) >= 11 else ROSTER_RULES
 
 
-def roster_limit(context=()):
+def roster_fill_target(context=()):
     return sum(target for target, _ in roster_rules(context).values())
+
+
+def roster_minimum(context=()):
+    return 31 if getattr(context, 'lineup_rules', 1) >= 13 else 0
+
+
+def roster_limit(context=()):
+    return 38 if getattr(context, 'lineup_rules', 1) >= 13 else roster_fill_target(context)
 
 
 POSITIONS = tuple(ROSTER_RULES)
@@ -112,10 +120,14 @@ def team_ratings(team_id: str, run_seed: int = 0, roster_context: tuple = ()) ->
     )
 
 
-def validate_roster(players: list[Player]) -> None:
+def validate_roster(players: list[Player], *, minimum_total=0, maximum_total=None) -> None:
     """Enforce position minimums for roster management."""
     if len({player.id for player in players}) != len(players):
         raise ValueError("The roster contains duplicate player IDs")
+    if len(players) < minimum_total:
+        raise ValueError(f'Roster must keep at least {minimum_total} players')
+    if maximum_total is not None and len(players) > maximum_total:
+        raise ValueError(f'Roster must have at most {maximum_total} players')
     counts = Counter(player.position for player in players)
     unknown = set(counts) - set(ROSTER_RULES)
     if unknown:
