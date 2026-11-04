@@ -116,7 +116,7 @@ async function checks(){
  q(p,'#change-team-button').click();q(p,'#team-select').value='seattle';
  q(p,'#team-form').dispatchEvent(new p.w.Event('submit',{cancelable:true}));await until(()=>save(p).runSeed===5678);
  assert.equal(save(p).draftChoices,null);assert.equal(q(p,'#draft-recap').hidden,true);assert.equal(q(p,'#draft-recap-rows').children.length,0);assert.equal(p.d.querySelectorAll('#roster-groups .rookie-badge').length,0);assert.equal(q(p,'#draft-button').hidden,true);assert.equal(q(p,'#draft-button').textContent,'Start rookie draft');assert.equal(q(p,'#draft-picks').children.length,0);
- assert.equal(p.d.querySelectorAll('#roster-groups .roster-player').length,31);p.dom.window.close();
+ assert.equal(p.d.querySelectorAll('#roster-groups .roster-player').length,35);p.dom.window.close();
  const damaged=JSON.parse(complete);damaged.draftChoices[0]='missing-prospect';
  const invalid=JSON.stringify(damaged);p=await restore(invalid);
  assert.match(q(p,'#save-status').textContent,/could not be loaded/);assert.equal(raw(p),invalid);assert.equal(q(p,'#schedule-section').hidden,true);p.dom.window.close();
@@ -155,7 +155,7 @@ async function checks(){
   q(p,'#draft-button').click();assert.match(q(p,'#draft-format').textContent,/4 rounds/);
   if(count<4){
    q(p,'#auto-draft').click();await until(()=>save(p).draftChoices.length===4);
-   assert.equal(save(p).version,23);assert.equal(save(p).draftRounds,4);
+   assert.equal(save(p).version,24);assert.equal(save(p).draftRounds,4);
    assert.deepEqual(p.state.last.picks,oldDraft.picks);checkRecap(p,oldDraft.picks);
    const frozen=raw(p);p.dom.window.close();p=await restore(frozen);assert.equal(p.state.last.rounds,4);assert.deepEqual(p.state.last.picks,oldDraft.picks);checkRecap(p,oldDraft.picks);
   }

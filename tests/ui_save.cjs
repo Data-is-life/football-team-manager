@@ -59,7 +59,7 @@ async function checks() {
  p.d.querySelector('#team-form').dispatchEvent(new p.w.Event('submit',{cancelable:true}));
  await until(()=>/Progress saved/.test(status(p)));
  assert.match(p.d.querySelector("#owner-feedback").textContent,/hired.*four-year/);
- assert.deepEqual(JSON.parse(saved(p)),{version:23,welcomeDismissed:false,ownerUpdateDismissed:0,draftRounds:6,careerStartWeek:17,lineupChanges:[],contracts:true,teamId:id,runSeed:5678,season:1,week:16,lineupRules:13,developmentStart:1,rebuildTeam:id,priorStandings:{},history:[],draftChoices:null,dropped:[],career:[],playoffRound:null});
+ assert.deepEqual(JSON.parse(saved(p)),{version:24,welcomeDismissed:false,ownerUpdateDismissed:0,draftRounds:6,careerStartWeek:17,lineupChanges:[],contracts:true,teamId:id,runSeed:5678,season:1,week:16,lineupRules:14,developmentStart:1,rebuildTeam:id,priorStandings:{},history:[],draftChoices:null,dropped:[],career:[],playoffRound:null});
  assert.equal(p.d.querySelector('#rebuild-note').hidden,false);
  for(const id of ['offense-rating','defense-rating'])assert.ok(Number(p.d.querySelector('#'+id).textContent)>=68&&Number(p.d.querySelector('#'+id).textContent)<=72);
  // Welcome remains visible on reload until dismissed, then stays dismissed
@@ -83,7 +83,7 @@ async function checks() {
  p=await restored(first);
  assert.equal(p.d.querySelector('#career-welcome').hidden,true);
  assert.equal(p.d.querySelectorAll('#schedule .completed').length,16);
- assert.equal(p.d.querySelectorAll('.roster-player').length,31);
+ assert.equal(p.d.querySelectorAll('.roster-player').length,35);
  p.d.querySelector('#change-team-button').click();p.d.querySelector('#team-select').value=id;
  p.d.querySelector('#team-form').dispatchEvent(new p.w.Event('submit',{cancelable:true}));
  await until(()=>JSON.parse(saved(p)).welcomeDismissed===false);

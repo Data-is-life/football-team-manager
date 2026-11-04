@@ -27,8 +27,17 @@ COMPACT_ROSTER_RULES = {
 }
 
 
+EXPANDED_ROSTER_RULES = {
+    "QB": (2, 1), "WR": (4, 2), "TE": (2, 1), "RB": (2, 1),
+    "OL": (7, 5), "K": (1, 1), "DL": (6, 4), "LB": (4, 3), "CB": (4, 2), "S": (3, 2),
+}
+
+
 def roster_rules(context=()):
-    return COMPACT_ROSTER_RULES if getattr(context, 'lineup_rules', 1) >= 11 else ROSTER_RULES
+    rules = context if isinstance(context, int) else getattr(context, 'lineup_rules', 1)
+    if rules >= 14:
+        return EXPANDED_ROSTER_RULES
+    return COMPACT_ROSTER_RULES if rules >= 11 else ROSTER_RULES
 
 
 def roster_fill_target(context=()):
@@ -36,7 +45,7 @@ def roster_fill_target(context=()):
 
 
 def roster_minimum(context=()):
-    return 31 if getattr(context, 'lineup_rules', 1) >= 13 else 0
+    return 35 if getattr(context, 'lineup_rules', 1) >= 14 else 31 if getattr(context, 'lineup_rules', 1) >= 13 else 0
 
 
 def roster_limit(context=()):
