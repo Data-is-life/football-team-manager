@@ -24,7 +24,7 @@ let activeTeamId = null;
 let activeRunSeed = 0;
 let activeSeason = 1;
 let activeCareerStartWeek = 1;
-let activeLineupRules = 12;
+let activeLineupRules = 13;
 let activeDevelopmentStart = 1;
 let activeRebuildTeam = null;
 let activePriorStandings = {};
@@ -96,7 +96,7 @@ function rebuildOrigin(context) {
 
 function saveProgress() {
   if (!activeTeamId || restoring) return;
-  const save = { version: 22, welcomeDismissed, ownerUpdateDismissed, draftRounds: activeDraftRounds, careerStartWeek: activeCareerStartWeek, lineupChanges: activeLineupChanges, contracts: activeContracts, teamId: activeTeamId, runSeed: activeRunSeed,
+  const save = { version: 23, welcomeDismissed, ownerUpdateDismissed, draftRounds: activeDraftRounds, careerStartWeek: activeCareerStartWeek, lineupChanges: activeLineupChanges, contracts: activeContracts, teamId: activeTeamId, runSeed: activeRunSeed,
     season: activeSeason, week: currentWeek, lineupRules: activeLineupRules, developmentStart: activeDevelopmentStart, rebuildTeam: activeRebuildTeam,
     priorStandings: activePriorStandings, history: careerHistory,
     draftChoices: activeDraftChoices,
@@ -116,7 +116,7 @@ function readSave() {
   if (!raw) return null;
   const save = JSON.parse(raw);
   const integer = (value, min, max) => Number.isInteger(value) && value >= min && value <= max;
-  if (!save || ![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22].includes(save.version) || typeof save.teamId !== "string"
+  if (!save || ![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23].includes(save.version) || typeof save.teamId !== "string"
       || ![...select.options].some(option => option.value && option.value === save.teamId)
       || !integer(save.runSeed, 0, 4294967295) || !integer(save.season, 1, 999)
       || !integer(save.week, 0, 17)
@@ -154,7 +154,7 @@ function readSave() {
         && ids(step.manual_picks) && [4, 6].includes(step.draft_rounds) && step.manual_picks.length === step.draft_rounds && ids(step.dropped)
         && validPriorStandings(step.prior_standings ?? {}, step.season))) throw new Error("Invalid roster save");
   if (save.version < 5) save.lineupRules = 1;
-  if (![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].includes(save.lineupRules)) throw new Error("Invalid lineup rules");
+  if (![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13].includes(save.lineupRules)) throw new Error("Invalid lineup rules");
   if (save.lineupRules < 3) save.developmentStart = null;
   if (save.lineupRules >= 3 && !integer(save.developmentStart, 1, save.season)) throw new Error("Invalid development start");
   if (save.version < 8) save.rebuildTeam = null;
@@ -183,6 +183,9 @@ function readSave() {
     && record.wins + record.losses + record.ties === 1;
   if (!save.history.every(entry => save.careerStartWeek === 17 && entry.season === 1 ? oneGame(entry.gmRecord) : entry.gmRecord === undefined)
       || (save.careerStartWeek === 17 && (save.season === 1 ? save.lineupChanges : save.career.find(step => step.season === 1)?.lineup_changes ?? []).some(entry => entry.week < 17))) throw new Error("Invalid managed history");
+  // Rules 12→13 change future roster decisions only. Historical seasons and
+  // unfinished drafts keep their original rules and release replay.
+  if (save.lineupRules === 12 && save.draftChoices === null) save.lineupRules = 13;
   return save;
 }
 
@@ -638,9 +641,9 @@ document.querySelector("#welcome-dismiss").addEventListener("click", () => {
 document.querySelector("#welcome-help").addEventListener("click", () => activateView("help", { focus: true }));
 
 function renderHelp() {
-  document.querySelector("#roster-limit-note").textContent = `Regular-season maximum: ${rosterLimit()} players. Offseason draft picks may temporarily increase the roster. Position minimums appear above each group.`;
+  document.querySelector("#roster-limit-note").textContent = `${rosterMinimum() ? `Regular-season roster: ${rosterLimitText()} players.` : `Regular-season maximum: ${rosterLimit()} players.`} Offseason draft picks may temporarily increase the roster. Position minimums appear above each group.`;
   document.querySelector("#contract-info").hidden = !activeContracts;
-  document.querySelector("#draft-format").textContent = `${activeDraftRounds} rounds · Same order each round · CPU teams balance player quality and position needs. Rookies join your roster without replacing anyone. The regular-season limit is ${rosterLimit()}.`;
+  document.querySelector("#draft-format").textContent = `${activeDraftRounds} rounds · Same order each round · CPU teams balance player quality and position needs. Rookies join your roster without replacing anyone. The regular-season ${rosterMinimum() ? "roster range" : "limit"} is ${rosterLimitText()}.`;
 }
 
 function activateView(id, { focus = false } = {}) {
@@ -1029,7 +1032,7 @@ function updatePhaseActions() {
   const drafted = Boolean(draftState?.complete) && activeDraftChoices?.length === activeDraftRounds;
   draftButton.hidden = !offseason;
   manageRoster.hidden = !offseason || !drafted;
-  nextSeasonButton.hidden = !offseason || !drafted || (rosterProfile?.roster.length ?? 0) > rosterLimit();
+  nextSeasonButton.hidden = !offseason || !drafted || !rosterReady();
 }
 
 function createRunSeed() {
@@ -1037,7 +1040,7 @@ function createRunSeed() {
   return candidate === activeRunSeed ? (candidate % 4294967295) + 1 : candidate;
 }
 
-function renderSchedule(data, runSeed, { priorStandings = {}, history = [], career = [], lineupRules = 12, developmentStart = 1, rebuildTeam = null, contracts = true, lineupChanges = [], careerStartWeek = 1, draftRounds = 6 } = {}) {
+function renderSchedule(data, runSeed, { priorStandings = {}, history = [], career = [], lineupRules = 13, developmentStart = 1, rebuildTeam = null, contracts = true, lineupChanges = [], careerStartWeek = 1, draftRounds = 6 } = {}) {
   closeSeasonConfirmation(false);
   simulationMore.open = false;
   clearLeaders();
@@ -1391,8 +1394,8 @@ form.addEventListener("submit", async (event) => {
     const runSeed = createRunSeed();
     const [scheduleResponse, profileResponse, regularResponse] = await Promise.all([
       fetch(`/api/schedule/${teamId}?season=1`),
-      fetch(`/api/team/${teamId}?run_seed=${runSeed}&lineup_rules=12&season=1&development_start=1${rebuildQuery(teamId)}`),
-      fetch(`/api/season/${teamId}/week/16?run_seed=${runSeed}&lineup_rules=12&season=1&development_start=1${rebuildQuery(teamId)}`),
+      fetch(`/api/team/${teamId}?run_seed=${runSeed}&lineup_rules=13&season=1&development_start=1${rebuildQuery(teamId)}`),
+      fetch(`/api/season/${teamId}/week/16?run_seed=${runSeed}&lineup_rules=13&season=1&development_start=1${rebuildQuery(teamId)}`),
     ]);
     if (!scheduleResponse.ok || !profileResponse.ok || !regularResponse.ok) {
       throw new Error("Your team could not be loaded. Please try again.");
@@ -1400,7 +1403,7 @@ form.addEventListener("submit", async (event) => {
     const [schedule, profile, regular] = await Promise.all([
       scheduleResponse.json(), profileResponse.json(), regularResponse.json(),
     ]);
-    if (profile.run_seed !== runSeed || profile.team.id !== teamId || profile.lineup_rules !== 12 || profile.rebuild_team !== teamId
+    if (profile.run_seed !== runSeed || profile.team.id !== teamId || profile.lineup_rules !== 13 || profile.rebuild_team !== teamId
         || schedule.team?.id !== teamId || schedule.season !== 1 || regular.team?.id !== teamId
         || regular.season !== 1 || regular.week !== 16 || regular.run_seed !== runSeed) {
       throw new Error("Your team could not be loaded. Please try again.");
@@ -1586,10 +1589,24 @@ function renderPlayoffBracket(data) {
 }
 
 function rosterLimit() {
-  return activeLineupRules >= 11 ? 31 : 38;
+  return activeLineupRules >= 13 ? 38 : activeLineupRules >= 11 ? 31 : 38;
+}
+
+function rosterMinimum() {
+  return activeLineupRules >= 13 ? 31 : 0;
+}
+
+function rosterReady() {
+  const count = rosterProfile?.roster.length ?? 0;
+  return count >= rosterMinimum() && count <= rosterLimit();
+}
+
+function rosterLimitText() {
+  return rosterMinimum() ? `${rosterMinimum()}–${rosterLimit()}` : String(rosterLimit());
 }
 
 function rosterCutStatus(count) {
+  if (count < rosterMinimum()) return `Need ${rosterMinimum() - count} more players to continue.`;
   const remaining = Math.max(0, count - rosterLimit());
   return remaining ? `Drop ${remaining} more ${remaining === 1 ? "player" : "players"} to continue.`
     : "No more cuts needed. Ready for next season.";
@@ -1598,10 +1615,10 @@ function rosterCutStatus(count) {
 function updateOffseasonActions() {
   const finished = !careerEnded() && Boolean(playoffState?.postseason_complete) && activeSeason < 999;
   const drafted = Boolean(draftState?.complete) && activeDraftChoices?.length === activeDraftRounds;
-  const oversized = (rosterProfile?.roster.length ?? 0) > rosterLimit();
+  const invalidRoster = !rosterReady();
   updatePhaseActions();
-  nextSeasonButton.disabled = !finished || !drafted || oversized || draftBusy || cutBusy || advancingSeason;
-  nextSeasonButton.textContent = !drafted ? "Finish rookie draft" : oversized ? rosterCutStatus(rosterProfile.roster.length) : `Continue to Season ${activeSeason + 1}`;
+  nextSeasonButton.disabled = !finished || !drafted || invalidRoster || draftBusy || cutBusy || advancingSeason;
+  nextSeasonButton.textContent = !drafted ? "Finish rookie draft" : invalidRoster ? rosterCutStatus(rosterProfile.roster.length) : `Continue to Season ${activeSeason + 1}`;
 }
 
 function renderPostseason(data) {
@@ -1816,7 +1833,7 @@ function renderDraft() {
   document.querySelector("#draft-status").textContent = draftState.complete
     ? `All ${draftState.total_picks} picks are complete. Your ${draftState.rounds} rookies have joined your offseason roster.`
     : `Your turn · Round ${draftState.next_round} of ${draftState.rounds} · Overall pick ${draftState.next_pick} of ${draftState.total_picks}`;
-  document.querySelector("#draft-format").textContent = `${draftState.rounds} rounds · Same order each round · CPU teams balance player quality and position needs. Rookies join your roster without replacing anyone. The regular-season limit is ${rosterLimit()}.`;
+  document.querySelector("#draft-format").textContent = `${draftState.rounds} rounds · Same order each round · CPU teams balance player quality and position needs. Rookies join your roster without replacing anyone. The regular-season ${rosterMinimum() ? "roster range" : "limit"} is ${rosterLimitText()}.`;
   const filter = document.querySelector("#draft-position").value;
   const rows = [];
   draftState.available.forEach((player, index) => {
@@ -1946,7 +1963,8 @@ function renderCuts() {
   // Reuse the rating rows so ages, trends, rookies, and starters stay together.
   for (const cell of document.querySelectorAll("#roster-groups .roster-cut-action")) cell.remove();
   if (!available || !rosterProfile) return;
-  document.querySelector("#cut-count").textContent = `${rosterProfile.roster.length}/${rosterLimit()} players · ${rosterCutStatus(rosterProfile.roster.length)}`;
+  document.querySelector("#cut-count").textContent = `${rosterProfile.roster.length}/${rosterLimit()} players${rosterMinimum() ? ` (minimum ${rosterMinimum()})` : ""} · ${rosterCutStatus(rosterProfile.roster.length)}`;
+  const atRosterMinimum = rosterProfile.roster.length <= rosterMinimum();
   for (const group of document.querySelectorAll("#roster-groups .roster-group")) {
     const rule = rosterProfile.roster_rules.find(rule => rule.position === group.dataset.position);
     const count = rosterProfile.roster.filter(player => player.position === rule.position).length;
@@ -1962,10 +1980,11 @@ function renderCuts() {
       const button = document.createElement("button");
       button.type = "button";
       button.dataset.dropId = player.id;
-      button.textContent = count <= rule.minimum ? "Minimum reached" : "Drop";
-      button.disabled = cutBusy || advancingSeason || count <= rule.minimum;
+      button.textContent = count <= rule.minimum ? "Minimum reached" : atRosterMinimum ? "Roster minimum reached" : "Drop";
+      button.disabled = cutBusy || advancingSeason || count <= rule.minimum || atRosterMinimum;
       button.setAttribute("aria-label", `Drop ${player.name}, ${player.position}`);
       if (count <= rule.minimum) button.title = `Keep at least ${rule.minimum} ${player.position} players`;
+      else if (atRosterMinimum) button.title = `Keep at least ${rosterMinimum()} players on the roster`;
       cell.append(button);
       row.append(cell);
     }
@@ -2004,7 +2023,7 @@ function cancelCut() {
 document.querySelector("#cut-cancel").addEventListener("click", cancelCut);
 document.querySelector("#roster-groups").addEventListener("click", event => {
   const button = event.target.closest("[data-drop-id]");
-  if (careerEnded() || !button || button.disabled || cutBusy || advancingSeason || !draftState?.complete) return;
+  if (careerEnded() || !button || button.disabled || cutBusy || advancingSeason || !draftState?.complete || rosterProfile.roster.length <= rosterMinimum()) return;
   pendingCut = button.dataset.dropId;
   const player = rosterProfile.roster.find(p => p.id === pendingCut);
   document.querySelector("#cut-error").hidden = true;
@@ -2018,7 +2037,7 @@ document.querySelector("#roster-groups").addEventListener("click", event => {
     top: window.scrollY + bottom - window.innerHeight + 16, behavior: "instant" });
 });
 document.querySelector("#cut-confirm").addEventListener("click", async () => {
-  if (careerEnded() || !pendingCut || cutBusy || advancingSeason || !draftState?.complete) return;
+  if (careerEnded() || !pendingCut || cutBusy || advancingSeason || !draftState?.complete || rosterProfile.roster.length <= rosterMinimum()) return;
   cutBusy = true;
   document.querySelector("#cut-confirm").disabled = true;
   document.querySelector("#cut-cancel").disabled = true;
@@ -2050,7 +2069,7 @@ document.querySelector("#cut-confirm").addEventListener("click", async () => {
 });
 
 nextSeasonButton.addEventListener("click", async () => {
-  if (careerEnded() || advancingSeason || nextSeasonButton.disabled || (activeDraftChoices?.length !== activeDraftRounds || !draftState?.complete || rosterProfile.roster.length > rosterLimit()) || cutBusy || draftBusy || !playoffState?.postseason_complete || !regularSnapshot || activeSeason >= 999) return;
+  if (careerEnded() || advancingSeason || nextSeasonButton.disabled || (activeDraftChoices?.length !== activeDraftRounds || !draftState?.complete || !rosterReady()) || cutBusy || draftBusy || !playoffState?.postseason_complete || !regularSnapshot || activeSeason >= 999) return;
   advancingSeason = true;
   nextSeasonButton.disabled = true;
   manageRoster.disabled = true;
@@ -2071,7 +2090,7 @@ nextSeasonButton.addEventListener("click", async () => {
       : !playoffState.qualified ? "Missed playoffs" : `Lost in ${lastOwnRound.name}` };
   try {
     const developmentStart = activeDevelopmentStart ?? nextSeason;
-    const lineupRules = activeLineupRules >= 11 ? 12 : 10;
+    const lineupRules = activeLineupRules >= 11 ? 13 : 10;
     // Re-rank the new roster after development and draft/cuts. Prior-season
     // overrides remain only in career history, where completed games need them.
     const lineupChanges = [];
