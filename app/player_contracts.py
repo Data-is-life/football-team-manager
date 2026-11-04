@@ -1,4 +1,4 @@
-"""Initial salary assignments only: no cap, inflation, renegotiation or releases."""
+"""Fixed player contracts and versioned payroll accounting (no annual inflation yet)."""
 from dataclasses import asdict, dataclass, replace
 from decimal import Decimal, ROUND_HALF_UP
 
@@ -71,3 +71,53 @@ def public_player_fields(player, context=()):
     if getattr(context,'lineup_rules',1) >= 15 and player.contract is not None:
         result['contract'] = contract_payload(player.contract,context.season)
     return result
+
+
+SALARY_CAP = 200_000_000
+PAYROLL_FLOOR = 160_000_000
+
+
+def payroll(players):
+    """Count every retained annual salary, including renewal-due contracts."""
+    if any(p.contract is None for p in players):
+        raise ValueError('Payroll requires a signed contract for every player')
+    return sum(p.contract.annual_salary for p in players)
+
+
+def payroll_payload(players, context):
+    if getattr(context,'lineup_rules',1) < 16:
+        return {}
+    total = payroll(players)
+    return {'payroll': {'total':total,'cap':SALARY_CAP,'floor':PAYROLL_FLOOR,
+            'cap_space':SALARY_CAP-total,'over_cap':max(0,total-SALARY_CAP),
+            'below_floor':max(0,PAYROLL_FLOOR-total),'floor_enforced':False}}
+
+
+def cap_ready(players, context):
+    return getattr(context,'lineup_rules',1) < 16 or payroll(players) <= SALARY_CAP
+
+
+def cap_release(players, identity, owner, season, seed, context, excluded):
+    """An atomic release/refill preserves position and total minimums at the cap.
+
+    Cap cuts can replace mandatory players; there are no dead-money penalties
+    before player renewal and free agency are available.
+    """
+    from .retirement import fill_roster
+    if not any(p.id == identity for p in players):
+        raise ValueError('Player is not on this roster')
+    return fill_roster([p for p in players if p.id != identity],owner,season,seed,
+                       excluded,context=context)
+
+
+def cpu_cap_cuts(players, owner, season, seed, context):
+    remaining, excluded = list(players), []
+    while not cap_ready(remaining,context):
+        # Preserve ability per dollar; the ID tie-break makes replay deterministic.
+        eligible = [p for p in remaining if p.contract.annual_salary > MINIMUM_SALARY]
+        if not eligible:
+            raise ValueError('CPU roster cannot fit under the salary cap')
+        player = min(eligible,key=lambda p: (p.rating/p.contract.annual_salary,-p.contract.annual_salary,p.id))
+        excluded.append(player.id)
+        remaining = cap_release(remaining,player.id,owner,season,seed,context,excluded)
+    return remaining

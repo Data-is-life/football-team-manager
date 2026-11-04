@@ -6,6 +6,7 @@ from .draft import build_draft, player_payload
 from .simulation import ROSTER_RULES, validate_roster, ranked_players, roster_limit, roster_minimum
 from .lineups import lineup_context, replace_lineup_rosters
 from .starter_choices import with_starters
+from .player_contracts import cap_ready, cap_release, cpu_cap_cuts, SALARY_CAP, payroll
 
 ROSTER_MAX = 38
 
@@ -55,9 +56,12 @@ def offseason(team_id, season, run_seed, choices, dropped, prior=(), roster_cont
         if len(dropped) != len(set(dropped)): raise ValueError('A player cannot be dropped twice')
         excluded = []
         for identity in dropped:
-            rosters[team_id] = drop_players(rosters[team_id], [identity], roster_minimum(roster_context))
             excluded.append(identity)
-            rosters[team_id] = fill_roster(rosters[team_id],team_id,season,run_seed,excluded,context=roster_context)
+            if not cap_ready(rosters[team_id],roster_context):
+                rosters[team_id] = cap_release(rosters[team_id],identity,team_id,season,run_seed,roster_context,excluded)
+            else:
+                rosters[team_id] = drop_players(rosters[team_id], [identity], roster_minimum(roster_context))
+                rosters[team_id] = fill_roster(rosters[team_id],team_id,season,run_seed,excluded,context=roster_context)
         rosters[team_id] = arrange_depth(rosters[team_id])
         draft['replacements'] = [player_payload(p,roster_context) for p in rosters[team_id] if p.id.startswith(f'replacement-{run_seed}-{season+1}-')]
     else:
@@ -65,6 +69,8 @@ def offseason(team_id, season, run_seed, choices, dropped, prior=(), roster_cont
     for other in rosters:
         if other != team_id:
             rosters[other] = cpu_cuts(rosters[other], roster_limit(roster_context), roster_minimum(roster_context))
+            if getattr(roster_context,"lineup_rules",1) >= 16:
+                rosters[other] = cpu_cap_cuts(rosters[other],other,season,run_seed,roster_context)
     context = tuple((owner, tuple(rosters[owner])) for owner in sorted(rosters))
     context = replace_lineup_rosters(roster_context,context)
     return draft, context
@@ -91,6 +97,8 @@ def replay_career(team_id: str, run_seed: int, steps: tuple, lineup_rules: int =
         if lineup_rules >= 15:
             from .player_contracts import attach_historical_draft_contracts
             context = attach_historical_draft_contracts(context,board)
+        if not cap_ready(dict(context)[team_id],context):
+            raise ValueError(f'Clear ${ (payroll(dict(context)[team_id])-SALARY_CAP)/1_000_000:.2f}M in cap space before starting the next season')
         if len(dict(context)[team_id]) > roster_limit(context):
             raise ValueError(f'Finalize each past roster at {roster_limit(context)} players or fewer')
         if len(dict(context)[team_id]) < roster_minimum(context):
