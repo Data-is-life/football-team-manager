@@ -13,6 +13,7 @@ from .player_stats import aggregate_player_stats
 from .names import FIRST_NAMES, LAST_NAMES
 from .attributes import PlayerAttributes, generate_attributes
 from .defense import add_defense_and_blocking
+from .player_contracts import PlayerContract
 
 
 # Position: (initial players, minimum required).
@@ -70,6 +71,7 @@ class Player:
     experience: int
     age: int
     attributes: PlayerAttributes
+    contract: PlayerContract | None = None
 
 
 @dataclass(frozen=True)

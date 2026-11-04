@@ -73,16 +73,24 @@ def offseason(team_id, season, run_seed, choices, dropped, prior=(), roster_cont
 @lru_cache(maxsize=32)
 def replay_career(team_id: str, run_seed: int, steps: tuple, lineup_rules: int = 1, season: int = 1, development_start: int = 1, rebuild_team: str | None = None) -> tuple:
     target_season = season
+    if lineup_rules >= 15 and any((step[4] if len(step)>4 else 1) < 11 for step in steps):
+        raise ValueError('Player salaries require a compact-format career')
     context = ()
     previous = 0
     for step in steps:
         season, prior, choices, dropped = step[:4]
         rules = step[4] if len(step) > 4 else 1
         context = lineup_context(context, run_seed, rules, season, development_start, rebuild_team)
+        if lineup_rules >= 15:
+            from .player_contracts import ensure_contracts
+            context = ensure_contracts(context,season)
         context = with_starters(context, team_id, run_seed, step[5] if len(step) > 5 else ())
         if season <= previous:
             raise ValueError('Career offseason years must be in increasing order')
-        _, context = offseason(team_id, season, run_seed, choices, dropped, prior, context, step[6] if len(step) > 6 else 4)
+        board, context = offseason(team_id, season, run_seed, choices, dropped, prior, context, step[6] if len(step) > 6 else 4)
+        if lineup_rules >= 15:
+            from .player_contracts import attach_historical_draft_contracts
+            context = attach_historical_draft_contracts(context,board)
         if len(dict(context)[team_id]) > roster_limit(context):
             raise ValueError(f'Finalize each past roster at {roster_limit(context)} players or fewer')
         if len(dict(context)[team_id]) < roster_minimum(context):

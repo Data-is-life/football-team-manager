@@ -369,3 +369,5 @@ tr.selected-team td { color: var(--cyan); background: rgba(72,230,210,0.07); }
 .season-confirm-dialog h2 { font-size: 1.5rem; letter-spacing: normal; }
 .season-confirm-dialog p { margin-block: 16px 24px; line-height: 1.6; }
 .season-confirm-actions { display: flex; justify-content: flex-end; gap: 10px; flex-wrap: wrap; }
+
+.salary-cell { white-space: nowrap; font-size: .85rem; font-variant-numeric: tabular-nums; }
