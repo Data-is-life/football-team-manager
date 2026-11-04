@@ -106,6 +106,44 @@
             <button id="view-playoffs" class="view-tab" type="button" role="tab" aria-selected="false" aria-controls="panel-playoffs" tabindex="-1">Playoffs</button>
             <button id="view-gm" class="view-tab" type="button" role="tab" aria-selected="false" aria-controls="panel-gm" tabindex="-1">GM Records</button>
             <button id="view-help" class="view-tab" type="button" role="tab" aria-selected="false" aria-controls="panel-help" tabindex="-1">How to Play</button>
+            <button id="view-draft" class="view-tab" type="button" role="tab" aria-selected="false" aria-controls="panel-draft" tabindex="-1" hidden>Draft</button>
+          </div>
+          <div id="panel-draft" class="view-panel draft-workspace" role="tabpanel" aria-labelledby="view-draft" tabindex="0" hidden>
+            <div class="scout-heading"><div><p class="eyebrow">Offseason</p><h2 id="draft-title" tabindex="-1">Rookie draft</h2></div>
+              <div class="draft-navigation"><button id="draft-roster" class="secondary-button" type="button">View roster</button><button id="draft-close" class="secondary-button" type="button">Back to schedule</button></div></div>
+            <p id="draft-status" class="roster-note" role="status" aria-atomic="true"></p>
+
+            <p id="draft-error" class="error" role="alert" hidden></p>
+            <button id="draft-retry" class="secondary-button" type="button" hidden>Retry</button>
+            <section id="draft-board" hidden>
+              <div class="draft-controls"><div class="draft-filter"><label for="draft-position">Position</label>
+              <select id="draft-position"><option value="">All positions</option>
+                <option>QB</option><option>WR</option><option>TE</option><option>RB</option><option>OL</option>
+                <option>K</option><option>DL</option><option>LB</option><option>CB</option><option>S</option></select></div>
+              <button id="auto-draft" class="secondary-button" type="button">Auto-draft remaining picks</button>
+              </div>
+              <p id="draft-available" class="roster-note"></p>
+              <p id="draft-no-matches" class="roster-note" hidden>No prospects at this position. Choose another position.</p>
+              <div id="draft-prospect-list" class="table-wrap draft-prospect-scroll" tabindex="0" role="region" aria-labelledby="draft-available"><table class="roster-table" role="table" aria-label="Available draft prospects">
+                <thead role="rowgroup"><tr role="row"><th scope="col">Available rank</th><th scope="col">Player</th><th scope="col">Position</th><th scope="col">Age</th><th scope="col">Current</th><th scope="col">Potential</th><th scope="col">Pick</th></tr></thead>
+                <tbody id="draft-prospects" role="rowgroup"></tbody>
+              </table></div>
+            </section>
+            <section id="draft-recap" class="draft-recap" aria-labelledby="draft-recap-title" hidden>
+              <h3 id="draft-recap-title">Your draft class</h3>
+              <p id="draft-recap-empty" class="roster-note">Your selections will appear here after your first pick.</p>
+              <div id="draft-recap-table-wrap" class="table-wrap" tabindex="0" role="region" aria-labelledby="draft-recap-title" hidden>
+                <table class="draft-recap-table">
+                  <caption id="draft-recap-caption"></caption>
+                  <thead><tr><th scope="col">Round</th><th scope="col">Pick</th><th scope="col">Player</th><th scope="col">Position</th><th scope="col">Current</th><th scope="col">Potential</th></tr></thead>
+                  <tbody id="draft-recap-rows"></tbody>
+                </table>
+              </div>
+            </section>
+            <details class="attribute-guide"><summary>Draft order and tiebreakers</summary>
+              <p>Non-playoff teams pick first, followed by teams eliminated in each playoff round. The runner-up picks 29th and the champion 30th. Within each group: worst regular-season record, then lower point differential, fewer points scored, and a seeded draw.</p>
+            </details>
+            <details class="attribute-guide"><summary>Selections</summary><ol id="draft-picks"></ol></details>
           </div>
           <div id="panel-help" class="view-panel" role="tabpanel" aria-labelledby="view-help" tabindex="0" hidden>
             <h2>How to Play</h2>
@@ -217,6 +255,7 @@
               <p class="eyebrow">Your players</p>
               <h2 id="roster-title" tabindex="-1">Roster</h2>
               <p id="payroll-status" role="status" hidden></p>
+              <button id="roster-draft-return" class="secondary-button" type="button" hidden>Back to draft</button>
               <button id="development-recap-button" class="secondary-button" type="button" aria-haspopup="dialog" aria-controls="development-dialog" hidden>Development recap</button>
               <div class="roster-controls">
                 <div class="roster-view-buttons" role="group" aria-label="Roster view">
@@ -379,41 +418,7 @@
         </table>
       </div>
     </dialog>
-    <dialog id="draft-dialog" class="team-roster-dialog" aria-labelledby="draft-title">
-      <div class="scout-heading"><div><p class="eyebrow">Offseason</p><h2 id="draft-title">Rookie draft</h2></div>
-        <button id="draft-close" class="secondary-button" type="button" autofocus>Close draft</button></div>
-      <p id="draft-status" class="roster-note" role="status"></p>
 
-      <p id="draft-error" class="error" role="alert" hidden></p>
-      <button id="draft-retry" class="secondary-button" type="button" hidden>Retry</button>
-      <section id="draft-recap" class="draft-recap" aria-labelledby="draft-recap-title" hidden>
-        <h3 id="draft-recap-title">Your draft class</h3>
-        <p id="draft-recap-empty" class="roster-note">Your selections will appear here after your first pick.</p>
-        <div id="draft-recap-table-wrap" class="table-wrap" tabindex="0" role="region" aria-labelledby="draft-recap-title" hidden>
-          <table class="draft-recap-table">
-            <caption id="draft-recap-caption"></caption>
-            <thead><tr><th scope="col">Round</th><th scope="col">Pick</th><th scope="col">Player</th><th scope="col">Position</th><th scope="col">Current</th><th scope="col">Potential</th></tr></thead>
-            <tbody id="draft-recap-rows"></tbody>
-          </table>
-        </div>
-      </section>
-      <section id="draft-board" hidden>
-        <button id="auto-draft" class="secondary-button" type="button">Auto-draft remaining picks</button>
-        <label for="draft-position">Position</label>
-        <select id="draft-position"><option value="">All positions</option>
-          <option>QB</option><option>WR</option><option>TE</option><option>RB</option><option>OL</option>
-          <option>K</option><option>DL</option><option>LB</option><option>CB</option><option>S</option></select>
-        <p id="draft-available" class="roster-note"></p>
-        <div class="table-wrap draft-prospect-scroll"><table class="roster-table">
-          <thead><tr><th>Available rank</th><th>Player</th><th>Position</th><th>Age</th><th>Current</th><th>Potential</th><th>Pick</th></tr></thead>
-          <tbody id="draft-prospects"></tbody>
-        </table></div>
-      </section>
-      <details class="attribute-guide"><summary>Draft order and tiebreakers</summary>
-        <p>Non-playoff teams pick first, followed by teams eliminated in each playoff round. The runner-up picks 29th and the champion 30th. Within each group: worst regular-season record, then lower point differential, fewer points scored, and a seeded draw.</p>
-      </details>
-      <details class="attribute-guide" open><summary>Selections</summary><ol id="draft-picks"></ol></details>
-    </dialog>
     <script src="/static/app.js" defer></script>
   </body>
 </html>

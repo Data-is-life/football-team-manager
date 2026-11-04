@@ -51,8 +51,8 @@ async function checks(){
  const released=kickers.at(-1).dataset.playerId,remaining=kickers[0].dataset.playerId;
  kickers.at(-1).querySelector('[data-drop-id]').click();q(lastPage,'#cut-confirm').click();
  await until(()=>save(lastPage).dropped.length===1);
- const kept=q(lastPage,`[data-player-id="${remaining}"]`);
- assert.equal(q(lastPage,`[data-player-id="${released}"]`),null);
+ const kept=q(lastPage,`#roster-groups [data-player-id="${remaining}"]`);
+ assert.equal(q(lastPage,`#roster-groups [data-player-id="${released}"]`),null);
  assert.equal(kept.getBoundingClientRect().top,previousTop);
  assert.equal(lastPage.d.activeElement,kept.closest('.roster-group').querySelector('summary'));
  lastPage.dom.window.close();
@@ -61,7 +61,7 @@ async function checks(){
  const cuts=[`${owner}-qb1`,`${owner}-qb2`,`${owner}-rb1`,`${owner}-rb2`];
  for(const [index,id] of cuts.entries()){
   p.state.y=600;
-  const selected=q(p,`[data-player-id="${id}"]`),group=selected.closest('.roster-group');
+  const selected=q(p,`#roster-groups [data-player-id="${id}"]`),group=selected.closest('.roster-group');
   const peers=[...group.querySelectorAll('.roster-player')],i=peers.indexOf(selected);
   const neighbor=peers[i+1]??peers[i-1];
   const expectedTop=(peers[i+1]?selected:neighbor).getBoundingClientRect().top;
@@ -80,7 +80,7 @@ async function checks(){
   assert.equal(p.d.querySelectorAll('#roster-groups .roster-player').length,41-index);assert.match(q(p,'#cut-count').textContent,new RegExp(`${41-index}/38`));assert.equal(q(p,'#panel-roster').hidden,false);
   if(index===0)assert.equal(q(p,'#roster-groups [data-position="OL"]').open,false,'Cuts preserve collapsed groups');
   assert.equal(q(p,`#roster-groups [data-player-id="${id}"]`),null);
-  const nearby=q(p,`[data-player-id="${neighborId}"]`);
+  const nearby=q(p,`#roster-groups [data-player-id="${neighborId}"]`);
   if(index!==2)assert.equal(nearby.getBoundingClientRect().top,expectedTop,'Remaining row stays at the release location');
   assert.equal(nearby.closest('.roster-group').querySelector('.roster-rating-wrap').scrollLeft,120);
   assert.notEqual(p.d.activeElement.id,'roster-title');

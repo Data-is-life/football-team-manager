@@ -109,7 +109,7 @@ async function checkUI() {
   }
   checkRatings(api);
   const views=['roster','game','schedule','standings','league','race','playoffs','gm','help'];
-  assert.deepEqual([...d.querySelectorAll('.view-tab')].map(tab=>tab.id),views.map(view=>`view-${view}`));
+  assert.deepEqual([...d.querySelectorAll('.view-tab:not([hidden])')].map(tab=>tab.id),views.map(view=>`view-${view}`));
   let requests=0;
   const originalFetch=w.fetch;
   w.fetch=(...args)=>{requests++;return originalFetch(...args)};
