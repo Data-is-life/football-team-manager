@@ -72,6 +72,7 @@ class Player:
     age: int
     attributes: PlayerAttributes
     contract: PlayerContract | None = None
+    rookie_offer: PlayerContract | None = None
 
 
 @dataclass(frozen=True)

@@ -69,7 +69,7 @@ def rookie_contract(round_number, overall, season, rules=15):
 
 
 def signed_rosters(rosters, season, rules=15):
-    return tuple((owner,tuple(p if p.contract is not None else replace(p,contract=starting_contract(p,season,rules))
+    return tuple((owner,tuple(p if p.contract is not None or p.rookie_offer is not None else replace(p,contract=starting_contract(p,season,rules))
                               for p in players)) for owner,players in rosters)
 
 
@@ -80,7 +80,7 @@ def ensure_contracts(context, season):
 def attach_historical_draft_contracts(context, board):
     """Recover exact draft-slot pay from replayed picks when upgrading a save."""
     contracts = {pick['player']['id']:rookie_contract(pick['round'],pick['overall'],board['draft_season'],getattr(context,'lineup_rules',1)) for pick in board['picks']}
-    rosters = tuple((owner,tuple(replace(p,contract=contracts[p.id]) if p.contract is None and p.id in contracts else p
+    rosters = tuple((owner,tuple(replace(p,contract=contracts[p.id]) if p.contract is None and p.rookie_offer is None and p.id in contracts else p
                                 for p in players)) for owner,players in context)
     return ensure_contracts(replace(context,rosters=rosters),board['draft_season'])
 
@@ -95,8 +95,11 @@ def contract_payload(contract, season):
 def public_player_fields(player, context=()):
     result = asdict(player)
     result.pop('contract')
+    result.pop('rookie_offer')
     if getattr(context,'lineup_rules',1) >= 15 and player.contract is not None:
         result['contract'] = contract_payload(player.contract,context.season)
+    if getattr(context,'lineup_rules',1) >= 19 and player.rookie_offer is not None:
+        result['contract_offer'] = rookie_offer_payload(player.rookie_offer)
     return result
 
 
@@ -104,11 +107,38 @@ SALARY_CAP = 200_000_000
 PAYROLL_FLOOR = 160_000_000
 
 
+def contract_terms(player):
+    """Cap checks include unsigned rookie holds without pretending they are deals."""
+    if player.contract is not None and player.rookie_offer is not None:
+        raise ValueError('A player cannot have both a contract and a provisional offer')
+    terms = player.contract or player.rookie_offer
+    if terms is None:
+        raise ValueError('Payroll requires signed or provisional terms for every player')
+    return terms
+
+
 def payroll(players):
-    """Count every retained annual salary, including renewal-due contracts."""
-    if any(p.contract is None for p in players):
-        raise ValueError('Payroll requires a signed contract for every player')
-    return sum(p.contract.annual_salary for p in players)
+    """Count retained signed salaries plus reserved rookie pay toward the cap."""
+    return sum(contract_terms(p).annual_salary for p in players)
+
+
+def rookie_offer_payload(offer):
+    return {'annual_salary':offer.annual_salary,'years':offer.years,
+            'category':'rookie','draft_round':offer.draft_round,'overall_pick':offer.overall_pick,
+            'starts_season':offer.signed_season,'status':'provisional'}
+
+
+def sign_retained_rookies(context, season):
+    """Commit only the survivors after final cap/roster validation."""
+    def sign(player):
+        if player.rookie_offer is None: return player
+        if player.contract is not None or player.rookie_offer.signed_season != season:
+            raise ValueError('Rookie signing must match the upcoming playing season')
+        offer = player.rookie_offer
+        if offer != rookie_contract(offer.draft_round,offer.overall_pick,season,context.lineup_rules):
+            raise ValueError('Rookie offer must match its recorded draft slot')
+        return replace(player,contract=offer,rookie_offer=None)
+    return replace(context,rosters=tuple((owner,tuple(sign(p) for p in players)) for owner,players in context))
 
 
 def payroll_payload(players, context, season=None):
@@ -117,9 +147,12 @@ def payroll_payload(players, context, season=None):
     season = context.season if season is None else season
     rules = context.lineup_rules
     total, cap, floor = payroll(players), salary_cap(season,rules), payroll_floor(season,rules)
+    committed = sum(p.contract.annual_salary for p in players if p.contract is not None)
+    floor_payroll = committed if rules >= 19 else total
     return {'payroll': {'total':total,'cap':cap,'floor':floor,
             'cap_space':cap-total,'over_cap':max(0,total-cap),
-            'below_floor':max(0,floor-total),'floor_enforced':False,
+            'below_floor':max(0,floor-floor_payroll),'floor_enforced':False,
+            **({'committed':committed,'rookie_holds':total-committed} if rules>=19 else {}),
             **({'season':season,'minimum_salary':minimum_salary(season,rules)} if rules>=17 else {})}}
 
 
@@ -144,10 +177,10 @@ def cpu_cap_cuts(players, owner, season, seed, context):
     remaining, excluded = list(players), []
     while not cap_ready(remaining,context,season+1):
         # Preserve ability per dollar; the ID tie-break makes replay deterministic.
-        eligible = [p for p in remaining if p.contract.annual_salary > minimum_salary(season+1,context.lineup_rules)]
+        eligible = [p for p in remaining if contract_terms(p).annual_salary > minimum_salary(season+1,context.lineup_rules)]
         if not eligible:
             raise ValueError('CPU roster cannot fit under the salary cap')
-        player = min(eligible,key=lambda p: (p.rating/p.contract.annual_salary,-p.contract.annual_salary,p.id))
+        player = min(eligible,key=lambda p: (p.rating/contract_terms(p).annual_salary,-contract_terms(p).annual_salary,p.id))
         excluded.append(player.id)
         remaining = cap_release(remaining,player.id,owner,season,seed,context,excluded)
     return remaining
