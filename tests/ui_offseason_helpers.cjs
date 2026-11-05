@@ -1,3 +1,13 @@
+async function resolveRenewals(page, until) {
+ const q=selector=>page.d.querySelector(selector);
+ const save=()=>JSON.parse(page.w.localStorage.getItem('arcade-league-save'));
+ while(q('#roster-groups [data-resign-id]:not([disabled])')){
+  const count=save().rosterActions?.length ?? 0;
+  q('#roster-groups [data-resign-id]:not([disabled])').click();q('#cut-confirm').click();
+  await until(()=>(save().rosterActions?.length ?? 0)===count+1);
+ }
+}
+
 // Drive the real draft and cut controls when another suite needs a legal rollover.
 async function finishOffseason(page, until) {
  const q=selector=>page.d.querySelector(selector);
@@ -15,10 +25,11 @@ async function finishOffseason(page, until) {
   if(q('#development-dialog').open)q('#development-close').click();
  }
  q('#manage-roster').click();
+ await resolveRenewals(page,until);
  while(page.d.querySelectorAll('#roster-groups .roster-player').length>(save().lineupRules>=13?38:save().lineupRules>=11?31:38)){
   const count=save().dropped.length;
   q('#roster-groups [data-drop-id]:not([disabled])').click();q('#cut-confirm').click();
   await until(()=>save().dropped.length===count+1);
  }
 }
-module.exports={finishOffseason};
+module.exports={finishOffseason,resolveRenewals};
