@@ -665,7 +665,7 @@ function renderHelp() {
 }
 
 function activateView(id, { focus = false } = {}) {
-  if (id === "draft" && document.querySelector("#view-draft").hidden) return;
+  if (id === "draft" && !draftNavigationAvailable()) return;
   if (id === "help") renderHelp();
   for (const tab of viewTabs) {
     const selected = tab.id === `view-${id}`;
@@ -1054,6 +1054,11 @@ function hasLineupContext(context = null) {
   return Boolean((context?.career ?? activeCareer).length || (context?.lineupChanges ?? activeLineupChanges).length);
 }
 
+function draftNavigationAvailable() {
+  return Boolean(activeTeamId) && !careerEnded() && Boolean(playoffState?.postseason_complete)
+    && activeSeason < 999 && !activeTrainingCamp;
+}
+
 function updatePhaseActions() {
   leadersButton.hidden = !LEAGUE_LEADERS_ENABLED;
   leadersButton.disabled = !LEAGUE_LEADERS_ENABLED || !activeTeamId || weekSimulationBusy || advancingSeason || restoring;
@@ -1071,9 +1076,10 @@ function updatePhaseActions() {
   playoffSimulate.hidden = !live || !playoffState || playoffState.postseason_complete;
   const offseason = live && Boolean(playoffState?.postseason_complete) && activeSeason < 999;
   const drafted = Boolean(draftState?.complete) && activeDraftChoices?.length === activeDraftRounds;
-  draftButton.hidden = !offseason;
-  document.querySelector("#view-draft").hidden = !offseason;
-  document.querySelector("#roster-draft-return").hidden = !offseason;
+  const draftAvailable = draftNavigationAvailable();
+  draftButton.hidden = !draftAvailable;
+  document.querySelector("#view-draft").hidden = !draftAvailable;
+  document.querySelector("#roster-draft-return").hidden = !draftAvailable;
   document.querySelector("#roster-draft-return").textContent = draftState ? "Back to draft" : "Open draft";
   const campRequired = activeLineupRules >= 18 && !activeTrainingCamp;
   campButton.hidden = !offseason || !drafted || !campRequired;
@@ -2018,7 +2024,7 @@ function returnToDraftTop() {
 }
 
 draftButton.addEventListener("click", () => {
-  if (draftButton.hidden || draftButton.disabled || careerEnded()) return;
+  if (draftButton.hidden || draftButton.disabled || !draftNavigationAvailable()) return;
   if (draftState) { renderDraft(); activateView("draft", { focus: true }); }
   else loadDraft();
 });

@@ -455,7 +455,7 @@ Draft and career APIs accept `draft_rounds: 4 | 6`; omission defaults to four fo
 
 The main-app Draft view shows **Your draft class** below the prospect board: round, overall pick, player name, position, current rating and potential together, in selection order. It includes only your team's picks, updates after every manual or automatic selection, and supports six-round drafts and saved four-round drafts. Before your first selection it shows an empty-state prompt.
 
-Use **Review draft** to revisit the recap during the offseason, including after cuts and reloads. Ratings are labeled **Draft-day ratings** and remain tied to the original picks, including a rookie you later release. This view does not reveal future rookie outcomes. Starting the next season or a new career clears this offseason's recap; historical draft browsing is outside this change. The league selection log remains available below. No new save fields or API requests are needed.
+Use **Review draft** to revisit the recap before training camp starts, including after reloads. Legacy offseasons without a camp stage also allow review after cuts. Ratings are labeled **Draft-day ratings** and remain tied to the original picks, including a rookie you later release. This view does not reveal future rookie outcomes. Starting the next season or a new career clears this offseason's recap; historical draft browsing is outside this change. The league selection log remains available below. No new save fields or API requests are needed.
 
 
 ## Player development recap
@@ -694,7 +694,7 @@ The save adds an optional trainingCamp checkpoint to version 28. Older rules-17 
 
 POST /api/career/{team_id} adds the camp action. Rules-18 cuts require a started-camp flag, and the camp action requires a completed draft. Server-side career replay always applies camp development before final cuts and validates the finalized roster, so UI button state is not the sole enforcement. The camp flag is cleared when the next season begins; history version 18 reconstructs the completed camp without client-supplied ratings. The pre-cut camp context is cached immutably to avoid rerunning league development for each release.
 
-Rules 18 retained the earlier draft-slot signing policy. Rules 19 below introduce provisional camp offers; renewal and free agency remain separate work. Draft review navigation and regular-season development-recap visibility also retain their existing behavior for the later focused UI changes.
+Rules 18 retained the earlier draft-slot signing policy. Rules 19 below introduce provisional camp offers; renewal and free agency remain separate work. Draft navigation is now hidden once camp starts, as described below. Regular-season development-recap visibility retains its existing behavior for a later focused UI change.
 
 
 ## Provisional rookies and signing after camp (rules 19; save version 29)
@@ -708,3 +708,8 @@ Rookie offers remain **cap holds** during camp: cap usage equals signed annual p
 Internally, an unsigned rookie has an immutable offer and **no Player.contract**. The public payload has contract_offer with provisional status, annual pay, term, round, pick and starts_season. Actual signed players use the existing contract payload. Financial terms are reconstructed on the server from recorded draft slots, season and historical rules; save version 29 stores no client-authored salary/offer values. Reloading or retrying draft/camp/cuts cannot activate a proposal. Valid next-season replay signs each retained offer idempotently without repeating development.
 
 New careers use rules 19. Older salary-era saves with **no active draft** adopt the new rules for future classes on restore without rewriting the checkpoint until a successful action. An existing rules-18 draft or camp keeps its already-signed rookie deals and rules until rollover; those deals are never converted into proposals or repriced. Rules-17 drafts with no cuts can still adopt the rules-18 training-camp flow, preserving their signed deals, and later adopt rules 19 at rollover. Completed historical drafts keep their recorded rules and original signings. Legacy 38-player careers remain on their original flow.
+
+
+## Draft navigation by season phase
+
+Draft navigation is available after the championship and before training camp. Starting camp hides **Back to draft/Open draft**, the **Draft** tab and **Review draft** action. They remain hidden during camp, final cuts and regular-season play, including restored camp saves. Draft navigation becomes available again in the next offseason before camp starts. Phase checks also reject programmatic/forced clicks without fetching or changing the checkpoint. Draft picks, recap data, filters, roster cuts and camp progress remain saved; this is a navigation change with no gameplay or save-format change.

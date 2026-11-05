@@ -24,9 +24,22 @@ function page(checkpoint){
 }
 async function restore(checkpoint){const p=page(checkpoint);await until(()=>/restored|could not/.test(q(p,'#save-status').textContent));assert.match(q(p,'#save-status').textContent,/restored/);p.state.weeks=[];return p}
 async function start(p){await until(()=>q(p,'#team-select').options.length===31);q(p,'#team-select').value='seattle';q(p,'#team-form').dispatchEvent(new p.w.Event('submit',{cancelable:true}));await until(()=>save(p)?.careerStartWeek===17&&save(p)?.week===16)}
+async function checkDraftClosed(p) {
+ const selectors=['#draft-button','#view-draft','#roster-draft-return'];
+ for(const selector of selectors)assert.equal(q(p,selector).hidden,true,selector+' is phase-hidden');
+ const checkpoint=raw(p),panel=q(p,'.view-panel:not([hidden])').id,realFetch=p.w.fetch;
+ let calls=0;p.w.fetch=(...args)=>{calls++;return realFetch(...args)};
+ // Phase state, not DOM visibility, guards forced/programmatic navigation too.
+ for(const selector of selectors){q(p,selector).hidden=false;q(p,selector).click();}
+ p.w.activateView('draft');await p.w.loadDraft();
+ assert.equal(calls,0);assert.equal(q(p,'.view-panel:not([hidden])').id,panel);assert.equal(raw(p),checkpoint);
+ p.w.fetch=realFetch;p.w.updatePhaseActions();
+ for(const selector of selectors)assert.equal(q(p,selector).hidden,true);
+ assert.equal(q(p,'#panel-draft').hidden,true);
+}
 const record=r=>`${r.wins}–${r.losses}–${r.ties}`;
 async function checks(){
- let p=page();await start(p);
+ let p=page();await start(p);await checkDraftClosed(p);
  assert.equal(save(p).lineupRules,19);
  assert.match(q(p,'#payroll-status').textContent,/Season 1 payroll.*\$200.00M cap/);
  assert.equal(q(p,'#salary-growth-guide').hidden,false);
@@ -75,7 +88,8 @@ async function checks(){
  for(let i=0;i<16;i++){assert.ok(p.d.querySelectorAll('#schedule .game-final')[i].textContent.includes(p.state.lastWeek.game_results[i].team_score+'–'+p.state.lastWeek.game_results[i].opponent_score))}
  const full=p.state.lastWeek.record,completed=save(p);p.dom.window.close();p=await restore(completed);assert.equal(q(p,'#gm-regular').textContent,record(managed));
  q(p,'#playoffs-start').click();await until(()=>save(p).playoffRound===0);for(let round=1;round<=4;round++){q(p,'#playoff-simulate').click();await until(()=>save(p).playoffRound===round)}
- assert.equal(q(p,'#next-season').hidden,true);await finishOffseason(p,until);
+ assert.equal(q(p,'#draft-button').hidden,false);assert.equal(q(p,'#view-draft').hidden,false);assert.equal(q(p,'#roster-draft-return').hidden,false);
+ assert.equal(q(p,'#next-season').hidden,true);await finishOffseason(p,until);await checkDraftClosed(p);
  assert.equal(p.d.querySelectorAll('#draft-recap-rows .salary-cell').length,6);
  assert.ok([...p.d.querySelectorAll('#draft-recap-rows .salary-cell')].every(cell=>/Provisional/.test(cell.textContent)));
  const campRookies=[...p.d.querySelectorAll('#roster-groups .roster-player')].filter(row=>row.dataset.playerId.startsWith('rookie-'));
@@ -129,7 +143,7 @@ async function checks(){
  }
  assert.match(q(p,'#payroll-status').textContent,/Season 2 payroll.*\$210.00M cap/);
  assert.ok([...p.d.querySelectorAll('#roster-groups .salary-cell')].every(cell=>!/Provisional/.test(cell.textContent)));
- const yearTwo=save(p);p.dom.window.close();p=await restore(yearTwo);assert.equal(q(p,'#gm-regular').textContent,record(managed));assert.equal(q(p,'#simulate-button').textContent,'Simulate Week 1');
+ const yearTwo=save(p);p.dom.window.close();p=await restore(yearTwo);await checkDraftClosed(p);assert.equal(q(p,'#gm-regular').textContent,record(managed));assert.equal(q(p,'#simulate-button').textContent,'Simulate Week 1');
  q(p,'#simulate-button').click();await until(()=>save(p).week===1&&!q(p,'#simulate-button').disabled);const total={...managed};for(const k of ['wins','losses','ties'])total[k]+=p.state.lastWeek.record[k];assert.equal(q(p,'#gm-regular').textContent,record(total));p.dom.window.close();
  // Exercise the second draft and the 39→38 UI boundary.
  const largerCheckpoint={...yearTwo,contracts:false,week:17,playoffRound:4,draftChoices:null,dropped:[]};
@@ -144,7 +158,7 @@ async function checks(){
  const campSnapshot=[...p.d.querySelectorAll('#roster-groups .roster-player')].map(row=>[row.dataset.playerId,row.textContent]);
  const campCheckpoint=save(p);p.dom.window.close();p=await restore(campCheckpoint);
  assert.equal(raw(p),JSON.stringify(campCheckpoint));assert.equal(q(p,'#training-camp-status').hidden,false);assert.deepEqual([...p.d.querySelectorAll('#roster-groups .roster-player')].map(row=>[row.dataset.playerId,row.textContent]),campSnapshot);assert.equal(q(p,'#development-dialog').open,false);
- q(p,'#manage-roster').click();
+ await checkDraftClosed(p);q(p,'#manage-roster').click();
  assert.ok(p.d.querySelectorAll('#roster-groups .roster-player').length>=39);
  while(p.d.querySelectorAll('#roster-groups .roster-player').length>39){
   const count=save(p).dropped.length;q(p,'#roster-groups [data-drop-id]:not([disabled])').click();q(p,'#cut-confirm').click();await until(()=>save(p).dropped.length===count+1);
