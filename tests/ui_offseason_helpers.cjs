@@ -9,7 +9,12 @@ async function finishOffseason(page, until) {
   q('#draft-prospects [data-draft-id]:not([disabled])').click();
   await until(()=>save().draftChoices.length===count+1);
  }
- q('#draft-close').click();q('#manage-roster').click();
+ q('#draft-close').click();
+ if(!q('#training-camp-button').hidden){
+  q('#training-camp-button').click();await until(()=>save().trainingCamp===true);
+  if(q('#development-dialog').open)q('#development-close').click();
+ }
+ q('#manage-roster').click();
  while(page.d.querySelectorAll('#roster-groups .roster-player').length>(save().lineupRules>=13?38:save().lineupRules>=11?31:38)){
   const count=save().dropped.length;
   q('#roster-groups [data-drop-id]:not([disabled])').click();q('#cut-confirm').click();
