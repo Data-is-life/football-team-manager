@@ -871,13 +871,25 @@ function clearDevelopmentRecap() {
   document.querySelector("#development-show-unchanged").checked = false;
 }
 
+function developmentRecapAvailable() {
+  if (!developmentRecap) return false;
+  return activeTrainingCamp ? developmentRecap.season === activeSeason + 1
+    : developmentRecap.season === activeSeason && currentWeek === 0;
+}
+
+function updateDevelopmentRecapVisibility() {
+  const available = developmentRecapAvailable();
+  document.querySelector("#development-recap-button").hidden = !available;
+  if (!available && developmentDialog.open) developmentDialog.close();
+}
+
 function setDevelopmentRecap(profile, season) {
   if (season < 2 || profile.lineup_rules < 3) return;
   // Capture the season-start profile before draft additions/cuts or scouting.
   // Restore already fetches this same profile before replaying the current draft.
   developmentRecap = { season, players: profile.roster.map(player => ({ ...player })) };
-  document.querySelector("#development-recap-button").hidden = false;
   renderDevelopmentRecap();
+  updateDevelopmentRecapVisibility();
 }
 
 function renderDevelopmentRecap() {
@@ -920,7 +932,7 @@ function renderDevelopmentRecap() {
 }
 
 document.querySelector("#development-recap-button").addEventListener("click", () => {
-  if (developmentRecap && !developmentDialog.open) developmentDialog.showModal();
+  if (developmentRecapAvailable() && !developmentDialog.open) developmentDialog.showModal();
 });
 document.querySelector("#development-close").addEventListener("click", () => developmentDialog.close());
 document.querySelector("#development-show-unchanged").addEventListener("change", renderDevelopmentRecap);
@@ -1380,6 +1392,7 @@ function renderResult(data) {
   document.querySelector("#playoff-title").textContent = data.season_complete ? "Final playoff seeds" : `Playoff Race — Week ${data.week}`;
   playoffsStart.hidden = !data.season_complete || playoffState !== null;
   currentWeek = data.week;
+  updateDevelopmentRecapVisibility();
   simulateButton.disabled = data.season_complete;
   simulateButton.textContent = data.season_complete ? "Regular season complete" : `Simulate Week ${data.next_week}`;
   for (const id of ["game", "league", "standings", "race"]) {
