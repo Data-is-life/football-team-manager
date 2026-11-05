@@ -47,8 +47,27 @@ def cpu_cuts(players, limit=ROSTER_MAX, minimum_total=0):
     return arrange_depth(remaining)
 
 
+@lru_cache(maxsize=32)
+def training_camp(team_id, season, run_seed, choices, prior=(), roster_context=(), draft_rounds=4):
+    if getattr(roster_context,'lineup_rules',1) < 18:
+        raise ValueError('Training camp requires the new offseason rules')
+    draft, rosters = build_draft(team_id,season,run_seed,choices,prior,roster_context,
+                                 return_league=True,draft_rounds=draft_rounds)
+    if not draft['complete']:
+        raise ValueError('Complete all draft picks before starting training camp')
+    context = replace_lineup_rosters(roster_context,tuple((owner,tuple(players)) for owner,players in sorted(rosters.items())))
+    context = lineup_context(context,run_seed,context.lineup_rules,season+1)
+    return draft, context
+
+
 def offseason(team_id, season, run_seed, choices, dropped, prior=(), roster_context=(), draft_rounds=4):
-    draft, rosters = build_draft(team_id, season, run_seed, choices, prior, roster_context, return_league=True, draft_rounds=draft_rounds)
+    if getattr(roster_context,'lineup_rules',1) >= 18:
+        board, roster_context = training_camp(team_id,season,run_seed,choices,prior,roster_context,draft_rounds)
+        draft = {**board,'training_camp':True,'development_season':season+1,
+                 'development_roster':[player_payload(p,roster_context) for p in dict(roster_context)[team_id]]}
+        rosters = {owner:list(players) for owner,players in roster_context}
+    else:
+        draft, rosters = build_draft(team_id, season, run_seed, choices, prior, roster_context, return_league=True, draft_rounds=draft_rounds)
     if not draft['complete']:
         raise ValueError('Complete all draft picks before dropping players')
     if getattr(roster_context,'lineup_rules',1) >= 10:
@@ -73,6 +92,9 @@ def offseason(team_id, season, run_seed, choices, dropped, prior=(), roster_cont
                 rosters[other] = cpu_cap_cuts(rosters[other],other,season,run_seed,roster_context)
     context = tuple((owner, tuple(rosters[owner])) for owner in sorted(rosters))
     context = replace_lineup_rosters(roster_context,context)
+    if getattr(context,"lineup_rules",1) >= 18:
+        from .development import capture_rotation
+        context = capture_rotation(context)
     return draft, context
 
 

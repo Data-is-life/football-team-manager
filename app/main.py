@@ -49,7 +49,7 @@ def request_lineups(seed, rules, season, start, rebuild_team=None):
 
 @app.get("/api/team/{team_id}")
 def team_profile(team_id: str, run_seed: Annotated[int, Query(ge=0, le=4294967295)] = 0,
-                 lineup_rules: Annotated[int, Query(ge=1, le=17)] = 1,
+                 lineup_rules: Annotated[int, Query(ge=1, le=18)] = 1,
                  season: Annotated[int, Query(ge=1, le=1099)] = 1,
                  development_start: Annotated[int, Query(ge=1, le=1099)] = 1,
                  rebuild_team: Annotated[str | None, Query(max_length=40)] = None) -> dict[str, object]:
@@ -109,7 +109,7 @@ def team_schedule(
     team_id: str,
     season: int = Query(default=1, ge=1, le=1099),
     prior_standings: Annotated[str | None, Query(max_length=2000)] = None,
-    lineup_rules: Annotated[int, Query(ge=1, le=17)] = 1,
+    lineup_rules: Annotated[int, Query(ge=1, le=18)] = 1,
     development_start: Annotated[int, Query(ge=1, le=1099)] = 1,
     rebuild_team: Annotated[str | None, Query(max_length=40)] = None,
 ) -> dict[str, object]:
@@ -133,7 +133,7 @@ def simulate_week(
     season: int = Query(default=1, ge=1, le=1099),
     run_seed: Annotated[int, Query(ge=0, le=4294967295)] = 0,
     prior_standings: Annotated[str | None, Query(max_length=2000)] = None,
-    lineup_rules: Annotated[int, Query(ge=1, le=17)] = 1,
+    lineup_rules: Annotated[int, Query(ge=1, le=18)] = 1,
     development_start: Annotated[int, Query(ge=1, le=1099)] = 1,
     rebuild_team: Annotated[str | None, Query(max_length=40)] = None,
 ) -> dict[str, object]:
@@ -153,7 +153,7 @@ def playoff_round(
     season: int = Query(default=1, ge=1, le=1099),
     run_seed: Annotated[int, Query(ge=0, le=4294967295)] = 0,
     prior_standings: Annotated[str | None, Query(max_length=2000)] = None,
-    lineup_rules: Annotated[int, Query(ge=1, le=17)] = 1,
+    lineup_rules: Annotated[int, Query(ge=1, le=18)] = 1,
     development_start: Annotated[int, Query(ge=1, le=1099)] = 1,
     rebuild_team: Annotated[str | None, Query(max_length=40)] = None,
 ) -> dict[str, object]:
@@ -169,7 +169,7 @@ class DraftRequest(BaseModel):
     draft_rounds: Literal[4, 6] = 4
     season: int = Field(default=1, ge=1, le=1098)
     run_seed: int = Field(default=0, ge=0, le=4294967295)
-    lineup_rules: Literal[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17] = 1
+    lineup_rules: Literal[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18] = 1
     development_start: int = Field(default=1, ge=1, le=1099)
     rebuild_team: str | None = Field(default=None, max_length=40)
     prior_standings: dict[str, StrictInt] | None = None
@@ -201,7 +201,7 @@ class LineupChange(BaseModel):
 class CareerStep(BaseModel):
     draft_rounds: Literal[4, 6] = 4
     lineup_changes: list[LineupChange] = Field(default_factory=list, max_length=21)
-    lineup_rules: Literal[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17] = 1
+    lineup_rules: Literal[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18] = 1
     season: int = Field(ge=1, le=1098)
     prior_standings: dict[str, StrictInt] | None = None
     manual_picks: list[str] = Field(min_length=4, max_length=6)
@@ -217,10 +217,11 @@ class CareerStep(BaseModel):
 class CareerRequest(BaseModel):
     draft_rounds: Literal[4, 6] = 4
     lineup_changes: list[LineupChange] = Field(default_factory=list, max_length=21)
-    action: Literal['profile', 'week', 'playoffs', 'draft', 'cuts', 'leaders']
+    action: Literal['profile', 'week', 'playoffs', 'draft', 'camp', 'cuts', 'leaders']
+    training_camp: StrictBool = False
     season: int = Field(default=1, ge=1, le=1099)
     run_seed: int = Field(default=0, ge=0, le=4294967295)
-    lineup_rules: Literal[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17] = 1
+    lineup_rules: Literal[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18] = 1
     development_start: int = Field(default=1, ge=1, le=1099)
     rebuild_team: str | None = Field(default=None, max_length=40)
     prior_standings: dict[str, StrictInt] | None = None
@@ -228,7 +229,7 @@ class CareerRequest(BaseModel):
     manual_picks: list[str] = Field(default_factory=list, max_length=6)
     auto_draft: StrictBool = False
     dropped: list[str] = Field(default_factory=list, max_length=44)
-    week: int = Field(default=1, ge=1, le=17)
+    week: int = Field(default=1, ge=1, le=18)
     round_number: int = Field(default=0, ge=0, le=4)
     view_team: str | None = None
 
@@ -244,6 +245,10 @@ def career_action(team_id: str, request: CareerRequest) -> dict:
     try:
         if request.rebuild_team is not None and request.rebuild_team != team_id:
             raise ValueError('Rebuild team must match the managed team')
+        if request.training_camp and request.action == 'draft':
+            raise ValueError('The draft is complete once training camp begins')
+        if request.action == 'camp' and request.dropped and not request.training_camp:
+            raise ValueError('Start training camp before making final cuts')
         if request.auto_draft and (request.action != 'draft' or request.dropped):
             raise ValueError('Auto-draft is only available for an unfinished draft before roster cuts')
         if any(step.season >= request.season for step in request.career):
@@ -261,14 +266,18 @@ def career_action(team_id: str, request: CareerRequest) -> dict:
             return simulate_through_week(team_id, request.season, request.week, request.run_seed, prior, context)
         if request.action == 'playoffs':
             return playoffs_through_round(team_id, request.season, request.round_number, request.run_seed, prior, context)
-        if request.action in ('draft', 'cuts'):
-            if request.action == 'cuts':
+        if request.action in ('draft', 'camp', 'cuts'):
+            if request.action == 'camp' and request.lineup_rules < 18:
+                raise ValueError('Training camp requires the new offseason rules')
+            if request.action == 'cuts' and request.lineup_rules >= 18 and not request.training_camp:
+                raise ValueError('Start training camp before making final cuts')
+            if request.action in ('camp','cuts'):
                 draft, cut_context = offseason(team_id, request.season, request.run_seed,
                     tuple(request.manual_picks), tuple(request.dropped), prior, context, request.draft_rounds)
                 players = list(roster_for(viewed, request.run_seed, cut_context).values())
                 return {**draft, 'dropped': request.dropped, 'cuts_applied': True,
                         'can_continue': roster_minimum(cut_context) <= len(dict(cut_context)[team_id]) <= roster_limit(cut_context) and cap_ready(dict(cut_context)[team_id],cut_context,request.season+1),
-                        'profile': profile_payload(viewed, players, request.run_seed, cut_context, current_starters(context) if viewed == team_id else (),payroll_season=request.season+1)}
+                        'profile': profile_payload(viewed, players, request.run_seed, cut_context, current_starters(context) if viewed == team_id and request.lineup_rules < 18 else (),payroll_season=request.season+1)}
             draft, players = build_draft(team_id, request.season, request.run_seed,
                                         tuple(request.manual_picks), prior, context, auto_pick=request.auto_draft, draft_rounds=request.draft_rounds)
             return {**draft, 'profile': profile_payload(team_id, players, request.run_seed, context, payroll_season=request.season+1)}
