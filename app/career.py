@@ -6,7 +6,7 @@ from .draft import build_draft, player_payload
 from .simulation import ROSTER_RULES, validate_roster, ranked_players, roster_limit, roster_minimum
 from .lineups import lineup_context, replace_lineup_rosters
 from .starter_choices import with_starters
-from .player_contracts import cap_ready, cap_release, cpu_cap_cuts, salary_cap, payroll
+from .player_contracts import cap_ready, cap_release, cpu_cap_cuts, salary_cap, payroll, pending_renewals, contract_expired, renew_player
 
 ROSTER_MAX = 38
 
@@ -60,7 +60,7 @@ def training_camp(team_id, season, run_seed, choices, prior=(), roster_context=(
     return draft, context
 
 
-def offseason(team_id, season, run_seed, choices, dropped, prior=(), roster_context=(), draft_rounds=4):
+def offseason(team_id, season, run_seed, choices, dropped, prior=(), roster_context=(), draft_rounds=4, roster_actions=()):
     if getattr(roster_context,'lineup_rules',1) >= 18:
         board, roster_context = training_camp(team_id,season,run_seed,choices,prior,roster_context,draft_rounds)
         draft = {**board,'training_camp':True,'development_season':season+1,
@@ -74,7 +74,14 @@ def offseason(team_id, season, run_seed, choices, dropped, prior=(), roster_cont
         from .retirement import fill_roster
         if len(dropped) != len(set(dropped)): raise ValueError('A player cannot be dropped twice')
         excluded = []
-        for identity in dropped:
+        decisions = roster_actions if getattr(roster_context,'lineup_rules',1) >= 20 else tuple(('drop',identity) for identity in dropped)
+        if getattr(roster_context,'lineup_rules',1) >= 20 and tuple(identity for kind,identity in decisions if kind=='drop') != tuple(dropped):
+            raise ValueError('Roster actions must preserve the recorded drop order')
+        for kind,identity in decisions:
+            if kind == 'resign':
+                rosters[team_id] = renew_player(rosters[team_id],identity,season+1,roster_context.lineup_rules)
+                continue
+            if kind != 'drop': raise ValueError('Unknown roster action')
             excluded.append(identity)
             if not cap_ready(rosters[team_id],roster_context,season+1):
                 rosters[team_id] = cap_release(rosters[team_id],identity,team_id,season,run_seed,roster_context,excluded)
@@ -85,8 +92,14 @@ def offseason(team_id, season, run_seed, choices, dropped, prior=(), roster_cont
         draft['replacements'] = [player_payload(p,roster_context) for p in rosters[team_id] if p.id.startswith(f'replacement-{run_seed}-{season+1}-')]
     else:
         rosters[team_id] = arrange_depth(drop_players(rosters[team_id], dropped))
+    if getattr(roster_context,'lineup_rules',1) >= 20:
+        draft['roster_actions'] = [{'kind':kind,'player_id':identity} for kind,identity in roster_actions]
     for other in rosters:
         if other != team_id:
+            if getattr(roster_context,'lineup_rules',1) >= 20:
+                for p in tuple(rosters[other]):
+                    if contract_expired(p,season+1):
+                        rosters[other] = renew_player(rosters[other],p.id,season+1,roster_context.lineup_rules)
             rosters[other] = cpu_cuts(rosters[other], roster_limit(roster_context), roster_minimum(roster_context))
             if getattr(roster_context,"lineup_rules",1) >= 16:
                 rosters[other] = cpu_cap_cuts(rosters[other],other,season,run_seed,roster_context)
@@ -115,7 +128,7 @@ def replay_career(team_id: str, run_seed: int, steps: tuple, lineup_rules: int =
         context = with_starters(context, team_id, run_seed, step[5] if len(step) > 5 else ())
         if season <= previous:
             raise ValueError('Career offseason years must be in increasing order')
-        board, context = offseason(team_id, season, run_seed, choices, dropped, prior, context, step[6] if len(step) > 6 else 4)
+        board, context = offseason(team_id, season, run_seed, choices, dropped, prior, context, step[6] if len(step) > 6 else 4, step[7] if len(step)>7 else ())
         if lineup_rules >= 15:
             from .player_contracts import attach_historical_draft_contracts
             context = attach_historical_draft_contracts(context,board)
@@ -125,6 +138,8 @@ def replay_career(team_id: str, run_seed: int, steps: tuple, lineup_rules: int =
             raise ValueError(f'Finalize each past roster at {roster_limit(context)} players or fewer')
         if len(dict(context)[team_id]) < roster_minimum(context):
             raise ValueError(f'Finalize each past roster with at least {roster_minimum(context)} players')
+        if pending_renewals(dict(context)[team_id],context):
+            raise ValueError('Re-sign or release all players with expired contracts before the next season')
         if rules >= 19:
             from .player_contracts import sign_retained_rookies
             context = sign_retained_rookies(context,season+1)

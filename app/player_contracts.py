@@ -50,6 +50,10 @@ def starting_contract(player, season, rules=15):
         return PlayerContract(minimum_salary(signed,rules),signed,1,'replacement')
     if player.id.startswith('rookie-'):
         raise ValueError('Drafted players need their recorded selection to assign salary')
+    return veteran_contract(player,season,rules)
+
+
+def veteran_contract(player, season, rules=15):
     category, years = ('franchise',5) if player.rating >= 90 else ('low_rated',2) if player.rating < 70 else ('veteran',4) if player.age >= 28 else ('young',3)
     raw = Decimal(BASE_SALARIES[player.position]) * player.rating ** 2 / 75 ** 2
     salary = max(minimum_salary(season,rules),int((raw / 10_000).quantize(Decimal('1'),rounding=ROUND_HALF_UP))*10_000)
@@ -85,11 +89,11 @@ def attach_historical_draft_contracts(context, board):
     return ensure_contracts(replace(context,rosters=rosters),board['draft_season'])
 
 
-def contract_payload(contract, season):
+def contract_payload(contract, season, rules=15):
     end = contract.signed_season + contract.years - 1
     return {**asdict(contract),'expires_after_season':end,
             'years_remaining':max(0,min(contract.years,end-season+1)),
-            'status':'upcoming' if season<contract.signed_season else 'active' if season<=end else 'renewal_due'}
+            'status':'upcoming' if season<contract.signed_season else 'active' if season<=end else 'expired' if rules>=20 else 'renewal_due'}
 
 
 def public_player_fields(player, context=()):
@@ -97,9 +101,14 @@ def public_player_fields(player, context=()):
     result.pop('contract')
     result.pop('rookie_offer')
     if getattr(context,'lineup_rules',1) >= 15 and player.contract is not None:
-        result['contract'] = contract_payload(player.contract,context.season)
+        result['contract'] = contract_payload(player.contract,context.season,getattr(context,'lineup_rules',1))
     if getattr(context,'lineup_rules',1) >= 19 and player.rookie_offer is not None:
         result['contract_offer'] = rookie_offer_payload(player.rookie_offer)
+    if getattr(context,'lineup_rules',1) >= 20 and contract_expired(player,context.season):
+        offer = veteran_contract(player,context.season,context.lineup_rules)
+        result['renewal_offer'] = {'annual_salary':offer.annual_salary,'years':offer.years,
+            'starts_season':offer.signed_season,'category':offer.category,
+            'annual_change':offer.annual_salary-player.contract.annual_salary}
     return result
 
 
@@ -147,12 +156,16 @@ def payroll_payload(players, context, season=None):
     season = context.season if season is None else season
     rules = context.lineup_rules
     total, cap, floor = payroll(players), salary_cap(season,rules), payroll_floor(season,rules)
-    committed = sum(p.contract.annual_salary for p in players if p.contract is not None)
+    committed = sum(p.contract.annual_salary for p in players if p.contract is not None
+                    and (rules < 20 or not contract_expired(p,season)))
+    rookie_holds = sum(p.rookie_offer.annual_salary for p in players if p.rookie_offer is not None)
+    expired_holds = total-committed-rookie_holds if rules >= 20 else 0
     floor_payroll = committed if rules >= 19 else total
     return {'payroll': {'total':total,'cap':cap,'floor':floor,
             'cap_space':cap-total,'over_cap':max(0,total-cap),
             'below_floor':max(0,floor-floor_payroll),'floor_enforced':False,
-            **({'committed':committed,'rookie_holds':total-committed} if rules>=19 else {}),
+            **({'committed':committed,'rookie_holds':rookie_holds} if rules>=19 else {}),
+            **({'expired_holds':expired_holds} if rules>=20 else {}),
             **({'season':season,'minimum_salary':minimum_salary(season,rules)} if rules>=17 else {})}}
 
 
@@ -184,3 +197,21 @@ def cpu_cap_cuts(players, owner, season, seed, context):
         excluded.append(player.id)
         remaining = cap_release(remaining,player.id,owner,season,seed,context,excluded)
     return remaining
+
+
+
+def contract_expired(player, season):
+    return player.contract is not None and season >= player.contract.signed_season + player.contract.years
+
+
+def pending_renewals(players, context):
+    return sum(contract_expired(p,context.season) for p in players) if getattr(context,'lineup_rules',1)>=20 else 0
+
+
+def renew_player(players, identity, season, rules):
+    player = next((p for p in players if p.id==identity),None)
+    if player is None: raise ValueError('Player is not on this roster')
+    if not contract_expired(player,season):
+        raise ValueError('Only an expired contract can be re-signed after training camp')
+    deal = veteran_contract(player,season,rules)
+    return [replace(p,contract=deal) if p.id==identity else p for p in players]
