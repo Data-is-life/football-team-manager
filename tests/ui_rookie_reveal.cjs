@@ -16,7 +16,7 @@ const row=(p,id,scope='#roster-groups')=>q(p,`${scope} [data-player-id="${id}"]`
 function snapshot(p){return q(p,'#roster-groups').textContent}
 function body(checkpoint,action='profile',extra={}){return {action,run_seed:checkpoint.runSeed,season:checkpoint.season,lineup_rules:checkpoint.lineupRules,development_start:checkpoint.developmentStart,rebuild_team:checkpoint.rebuildTeam,career:checkpoint.career,prior_standings:checkpoint.priorStandings,...extra}}
 function checkDevelopment(p, profile, all=false) {
- assert.equal(q(p,'#development-recap-button').hidden,false);
+ assert.equal(q(p,'#development-recap-button').hidden,save(p).week>0&&!save(p).trainingCamp);
  const expected=profile.roster.filter(x=>all||x.rating_change||x.potential_change||['boom','bust'].includes(x.rookie_outcome));
  const rows=[...p.d.querySelectorAll('#development-recap-rows tr')];
  assert.deepEqual(rows.map(r=>r.dataset.playerId),expected.map(x=>x.id));
@@ -62,7 +62,18 @@ async function checks(){
   if(delta){assert.ok(arrow);assert.equal(arrow.classList.contains(delta>0?'improved':'declined'),true);assert.match(arrow.textContent,new RegExp(delta>0?'↑ \\+'+delta:'↓ '+delta));assert.match(arrow.getAttribute('aria-label'),/Potential.*from.*to/);assert.match(arrow.title,/draft estimate/)}else assert.equal(arrow,null);
  }
  const recorded=snapshot(p),entered=save(p);p.dom.window.close();p=await restore(entered);assert.equal(snapshot(p),recorded);assert.equal(q(p,'#development-dialog').open,false);checkDevelopment(p,current);q(p,'#development-recap-button').click();assert.equal(q(p,'#development-dialog').open,true);q(p,'#development-close').click();assert.equal(q(p,'#development-recap-rows').textContent,recap);
+ // A failed first game leaves preseason recap access intact.
+ const beforeGame=raw(p),realFetch=p.w.fetch;
+ p.w.fetch=(url,init)=>url.startsWith('/api/season/')||(init&&JSON.parse(init.body).action==='week')?Promise.resolve({ok:false,json:async()=>({detail:'Week temporarily unavailable'})}):realFetch(url,init);
+ q(p,'#simulate-button').click();await until(()=>!q(p,'#error').hidden&&!q(p,'#simulate-button').disabled);
+ assert.equal(raw(p),beforeGame);assert.equal(q(p,'#development-recap-button').hidden,false);p.w.fetch=realFetch;
+ q(p,'#development-recap-button').click();assert.equal(q(p,'#development-dialog').open,true);
  q(p,'#simulate-button').click();await until(()=>save(p).week===1&&!q(p,'#simulate-button').disabled);assert.equal(snapshot(p),recorded);
+ assert.equal(q(p,'#development-recap-button').hidden,true);assert.equal(q(p,'#development-dialog').open,false);
+ const playedCheckpoint=raw(p),playedSave=save(p);p.dom.window.close();p=await restore(playedSave);
+ assert.equal(raw(p),playedCheckpoint);assert.equal(q(p,'#development-recap-button').hidden,true);assert.equal(q(p,'#development-dialog').open,false);
+ q(p,'#development-recap-button').hidden=false;q(p,'#development-recap-button').click();assert.equal(q(p,'#development-dialog').open,false,'Forced clicks cannot reopen an in-season recap');
+ p.w.updateDevelopmentRecapVisibility();assert.equal(q(p,'#development-recap-button').hidden,true);
  const after=await api('/api/career/seattle',body(save(p)));assert.deepEqual(after,current,'Playing cannot reroll ability or potential');checkDevelopment(p,current);
  // Scouting shares potential arrows and cannot mutate the managed career.
  let other,profile;for(const button of p.d.querySelectorAll('.team-roster-link')){if(button.dataset.teamId==='seattle')continue;const candidate=await api('/api/career/seattle',body(save(p),'profile',{view_team:button.dataset.teamId}));if(candidate.roster.some(player=>player.potential_change)){other=button;profile=candidate;break}}
