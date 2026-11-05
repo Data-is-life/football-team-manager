@@ -125,5 +125,8 @@ def replay_career(team_id: str, run_seed: int, steps: tuple, lineup_rules: int =
             raise ValueError(f'Finalize each past roster at {roster_limit(context)} players or fewer')
         if len(dict(context)[team_id]) < roster_minimum(context):
             raise ValueError(f'Finalize each past roster with at least {roster_minimum(context)} players')
+        if rules >= 19:
+            from .player_contracts import sign_retained_rookies
+            context = sign_retained_rookies(context,season+1)
         previous = season
     return lineup_context(context, run_seed, lineup_rules, target_season, development_start, rebuild_team)
