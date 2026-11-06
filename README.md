@@ -348,12 +348,14 @@ After the league championship, **Start rookie draft** is the next step. The next
 
 Closing the draft, reloading midway, or a failed first draft load cannot enable a season skip. The transition handler independently requires a completed draft matching its saved round count, even if button visibility is changed. A failed next-season load preserves the completed draft/cuts and allows retry. At season 999 no draft or transition is offered.
 
-Existing saves still load, including past seasons that skipped drafts. Their next transition must follow the current mandatory draft flow; past results are not replayed under new rules. The save format and simulation rules are unchanged. Players may make picks manually or use Auto-draft remaining picks; either path completes the required draft.
+Existing saves still load, including past seasons that skipped drafts. Their next transition must follow the current mandatory draft flow; past results are not replayed under new rules. The save format and simulation rules are unchanged. Players complete each required pick manually; Auto-draft is currently unavailable in the UI.
 
 
-## Optional auto-draft
+## Auto-draft (currently disabled in the UI)
 
-Open **Start rookie draft** (or **Resume draft**) and choose **Auto-draft remaining picks**. It fills only your remaining turns using the same current-quality, position-need, and repeat-position penalty as CPU teams. Earlier manual choices and all previous league picks are preserved. You can start with auto-draft or switch after one, two, or three manual picks.
+The shipped UI hides and disables Auto-draft, and its browser action is guarded so it cannot accidentally skip your picks. Manual drafting, CPU selections, saved picks and retry behavior remain available. The implementation and API are retained for a possible future return, behind `AUTO_DRAFT_ENABLED = false` in `app/static/app.js`; no save-format change is required. Existing auto-drafted selections still replay normally.
+
+When deliberately re-enabled, **Auto-draft remaining picks** fills only your remaining turns using the same current-quality, position-need, and repeat-position penalty as CPU teams. Earlier manual choices and all previous league picks are preserved. You can start with auto-draft or switch after one, two, or three manual picks.
 
 The completed draft still adds six rookies without releasing anyone. Review the roster and make cuts to reach the career roster maximum before continuing. Auto-draft does not automatically cut players or advance the season.
 

@@ -151,7 +151,7 @@ async function checks(){
  // Exercise the second draft and the 39→38 UI boundary.
  const largerCheckpoint={...yearTwo,contracts:false,week:17,playoffRound:4,draftChoices:null,dropped:[]};
  p=await restore(largerCheckpoint);q(p,'#draft-button').click();await until(()=>Array.isArray(save(p).draftChoices));
- q(p,'#auto-draft').click();await until(()=>save(p).draftChoices.length===6);
+ while(save(p).draftChoices.length<6){const count=save(p).draftChoices.length;q(p,'#draft-prospects [data-draft-id]:not([disabled])').click();await until(()=>save(p).draftChoices.length===count+1);}
  assert.equal(q(p,'#training-camp-button').hidden,false);assert.equal(q(p,'#manage-roster').hidden,true);assert.equal(q(p,'#next-season').hidden,true);assert.equal(p.d.querySelectorAll('#roster-groups [data-drop-id]').length,0);
  const beforeCamp=raw(p);p.state.failCamp=true;q(p,'#training-camp-button').click();await until(()=>!q(p,'#error').hidden&&!q(p,'#training-camp-button').disabled);
  assert.equal(raw(p),beforeCamp);assert.match(q(p,'#error').textContent,/temporarily unavailable/);p.state.failCamp=false;

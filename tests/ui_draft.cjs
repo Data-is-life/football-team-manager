@@ -8,7 +8,7 @@ const html=fs.readFileSync(path.join(root,'app/static/index.html'),'utf8');
 async function api(url,init){const response=await fetch(base+url,init);assert.equal(response.ok,true,url);return response.json()}
 async function until(check){for(let i=0;i<1500;i++){if(check())return;await new Promise(r=>setTimeout(r,10))}throw new Error('UI state timed out')}
 const q=(p,sel)=>p.d.querySelector(sel),raw=p=>p.w.localStorage.getItem(key),save=p=>JSON.parse(raw(p));
-function page(checkpoint){
+function page(checkpoint, autoEnabled=false){
  const dom=new JSDOM(html,{url:base,runScripts:'outside-only'}),w=dom.window,d=w.document;
  w.localStorage.setItem(key,checkpoint);
  w.HTMLElement.prototype.scrollIntoView=function(){state.scrolls.push(this.id)};
@@ -27,9 +27,9 @@ function page(checkpoint){
   }
   return fetch(new URL(url,base),init);
  };
- w.eval(script);return {dom,w,d,state};
+ w.eval(autoEnabled?script.replace('const AUTO_DRAFT_ENABLED = false;','const AUTO_DRAFT_ENABLED = true;'):script);return {dom,w,d,state};
 }
-async function restore(checkpoint){const p=page(checkpoint);await until(()=>/restored|could not/.test(q(p,'#save-status').textContent));return p}
+async function restore(checkpoint, autoEnabled=false){const p=page(checkpoint,autoEnabled);await until(()=>/restored|could not/.test(q(p,'#save-status').textContent));return p}
 function oldStats(p){q(p,'#roster-stats-button').click();return new Map([...p.d.querySelectorAll('#roster-groups .roster-season-player')].filter(r=>!r.dataset.playerId.startsWith('rookie-')).map(r=>[r.dataset.playerId,r.textContent]))}
 function checkRecap(p, picks) {
  const own=picks.filter(pick=>pick.team.id===save(p).teamId);
@@ -43,6 +43,13 @@ function checkRecap(p, picks) {
  assert.equal(q(p,'#draft-recap-table-wrap').tabIndex,0);
  assert.equal(q(p,'#draft-recap-table-wrap').getAttribute('aria-labelledby'),'draft-recap-title');
  assert.equal(q(p,'#draft-board').compareDocumentPosition(q(p,'#draft-recap'))&p.w.Node.DOCUMENT_POSITION_FOLLOWING,p.w.Node.DOCUMENT_POSITION_FOLLOWING);
+}
+async function checkNoAutoDraft(p) {
+ const button=q(p,'#auto-draft');assert.equal(button.hidden,true);assert.equal(button.disabled,true);
+ const checkpoint=raw(p),calls=p.state.calls;
+ button.hidden=false;button.disabled=false;button.click();await p.w.loadDraft(null,true);
+ assert.equal(p.state.calls,calls,'Disabled feature cannot issue auto-draft requests, even through forced invocation');
+ assert.equal(raw(p),checkpoint);p.w.renderDraft();assert.equal(button.hidden,true);assert.equal(button.disabled,true);
 }
 function checkDraftNotices(p) {
  for(const selector of ['#season-status','#qualification-status','#season-simulation-status'])assert.equal(q(p,selector).hidden,true,selector+' stays hidden after drafting starts');
@@ -77,7 +84,7 @@ async function checks(){
  assert.deepEqual([q(p,'#season-status').textContent,q(p,'#qualification-status').textContent],noticesBefore,'Failed draft start retains the season notices');
  assert.equal(raw(p),legacy,'Failed start does not erase the saved season');assert.equal(q(p,'#draft-recap').hidden,true);assert.equal(q(p,'#next-season').disabled,true);assert.equal(q(p,'#next-season').hidden,true);
  p.state.fail=false;q(p,'#draft-retry').click();await until(()=>save(p).draftChoices?.length===0);
- checkDraftNotices(p);
+ checkDraftNotices(p);await checkNoAutoDraft(p);
  const started=raw(p);q(p,'#draft-close').click();checkDraftNotices(p);assert.equal(raw(p),started);
  q(p,'#draft-button').click();await until(()=>!q(p,'#draft-button').disabled);checkDraftNotices(p);
  assert.equal(p.state.last.class_size,200);assert.equal(p.state.last.order.length,30);
@@ -119,7 +126,7 @@ async function checks(){
   assert.equal(signed.length,turn);assert.deepEqual(signed.map(r=>r.dataset.playerId).sort(),[...selectedIds].sort());
   // Reload after every turn. Replay must preserve CPU picks, rookie IDs, roster counts, and stats.
   const checkpoint=raw(p),picks=JSON.stringify(previousPicks);p.dom.window.close();p=await restore(checkpoint);
-  checkDraftNotices(p);assert.match(q(p,'#save-status').textContent,/restored/);assert.equal(JSON.stringify(p.state.last.picks),picks);checkRecap(p,p.state.last.picks);
+  checkDraftNotices(p);await checkNoAutoDraft(p);assert.match(q(p,'#save-status').textContent,/restored/);assert.equal(JSON.stringify(p.state.last.picks),picks);checkRecap(p,p.state.last.picks);
   assert.equal(p.d.querySelectorAll('#roster-groups .roster-player').length,38+turn);
   assert.deepEqual(oldStats(p),before);
   assert.equal(q(p,'#next-season').disabled,true);assert.equal(q(p,'#next-season').hidden,true);if(turn<6)assert.equal(q(p,'#manage-roster').hidden,true);
@@ -174,9 +181,9 @@ async function checks(){
  if(noMatches){q(p,'#draft-position').value=noMatches;q(p,'#draft-position').dispatchEvent(new p.w.Event('change'));assert.equal(q(p,'#draft-no-matches').hidden,false);assert.equal(q(p,'#draft-prospects').children.length,0);}
  p.dom.window.close();
  const badFilter=JSON.stringify({...JSON.parse(filtered),draftPosition:'invalid-position'});p=await restore(badFilter);assert.match(q(p,'#save-status').textContent,/could not be read/);assert.equal(raw(p),badFilter);p.dom.window.close();
- // Auto-draft can finish from any user turn, preserves manual choices, and uses ordinary saved IDs.
+ // A deliberate test-only feature opt-in preserves auto-draft for future restoration. The shipped UI remains manual.
  for(const manualCount of [0,1,2,3,4,5]){
-  p=await restore(legacy);const previousStats=oldStats(p);
+  p=await restore(legacy,true);const previousStats=oldStats(p);
   q(p,'#draft-button').click();await until(()=>save(p).draftChoices?.length===0);
   for(let turn=1;turn<=manualCount;turn++){q(p,'#draft-prospects [data-draft-id]').click();await until(()=>save(p).draftChoices.length===turn)}
   const prefix=[...save(p).draftChoices],priorPicks=structuredClone(p.state.last.picks),checkpoint=raw(p);
@@ -195,7 +202,7 @@ async function checks(){
   assert.equal(p.d.querySelectorAll('#roster-groups .roster-player').length,44);assert.equal(q(p,'#next-season').disabled,true);
   assert.equal(q(p,'#draft-board').hidden,true);assert.deepEqual(oldStats(p),previousStats);
   const allPicks=structuredClone(p.state.last.picks),saved=raw(p);p.dom.window.close();p=await restore(saved);
-  assert.deepEqual(p.state.last.picks,allPicks);checkRecap(p,allPicks);assert.equal(raw(p),saved);p.dom.window.close();
+  await checkNoAutoDraft(p);assert.deepEqual(p.state.last.picks,allPicks);checkRecap(p,allPicks);assert.equal(raw(p),saved);p.dom.window.close();
  }
  // Started legacy four-round drafts retain their format, including a saved empty board.
  const post=body=>api(`/api/draft/${owner}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({season:1,run_seed:1234,...body})});
@@ -208,7 +215,7 @@ async function checks(){
   const beforeGuide=raw(p);q(p,'#view-help').click();assert.match(q(p,'#draft-format').textContent,/4 rounds/);assert.equal(q(p,'#draft-format').closest('[role=tabpanel]').id,'panel-help');assert.equal(q(p,'#contract-info').hidden,true);assert.equal(raw(p),beforeGuide);
   q(p,'#draft-button').click();assert.match(q(p,'#draft-format').textContent,/4 rounds/);
   if(count<4){
-   q(p,'#auto-draft').click();await until(()=>save(p).draftChoices.length===4);
+   for(let turn=count+1;turn<=4;turn++){q(p,`[data-draft-id="${oldDraft.manual_picks[turn-1]}"]`).click();await until(()=>save(p).draftChoices.length===turn);}
    assert.equal(save(p).version,31);assert.equal(save(p).draftRounds,4);
    assert.deepEqual(p.state.last.picks,oldDraft.picks);checkRecap(p,oldDraft.picks);
    const frozen=raw(p);p.dom.window.close();p=await restore(frozen);assert.equal(p.state.last.rounds,4);assert.deepEqual(p.state.last.picks,oldDraft.picks);checkRecap(p,oldDraft.picks);
