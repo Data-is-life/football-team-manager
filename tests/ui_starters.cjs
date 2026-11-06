@@ -85,7 +85,24 @@ async function checks(){
  for(const id of planned)assert.equal(q(p,`#roster-groups .roster-rating-wrap [data-player-id="${id}"]`).hidden,true);
  q(p,'#view-roster').click();q(p,'#roster-stats-button').click();
  const stats=new Map(planned.map(id=>{const row=q(p,`.roster-season-player[data-player-id="${id}"]`);assert.match(row.cells[1].textContent,/Retired/);return [id,[...row.cells].slice(3).map(cell=>cell.textContent)]}));
+ q(p,'#draft-button').click();await until(()=>save(p).draftChoices?.length===0);
+ assert.equal(q(p,'#retirement-summary').hidden,false,'Retirement notice remains available during the draft');
+ for(let turn=1;turn<save(p).draftRounds;turn++){
+  q(p,'#draft-prospects [data-draft-id]:not([disabled])').click();await until(()=>save(p).draftChoices.length===turn);
+  assert.equal(q(p,'#retirement-summary').hidden,false);
+ }
+ const unfinished=save(p);p.dom.window.close();p=await restore(unfinished);
+ assert.equal(q(p,'#retirement-summary').hidden,false,'An unfinished draft restores the notice');
+ const beforeFinalPick=raw(p),realFetch=p.w.fetch;
+ p.w.fetch=(url,init)=>url.startsWith('/api/draft/')?Promise.resolve({ok:false}):realFetch(url,init);
+ q(p,'#draft-button').click();q(p,'#draft-prospects [data-draft-id]:not([disabled])').click();await until(()=>!q(p,'#draft-error').hidden);
+ assert.equal(raw(p),beforeFinalPick);assert.equal(q(p,'#retirement-summary').hidden,false,'A failed last pick cannot clear the retirement notice');
+ p.w.fetch=realFetch;q(p,'#draft-retry').click();await until(()=>save(p).draftChoices.length===save(p).draftRounds);
+ assert.equal(q(p,'#retirement-summary').hidden,true,'The successful final pick hides the notice');
+ const finishedDraft=save(p);p.dom.window.close();p=await restore(finishedDraft);
+ assert.equal(q(p,'#retirement-summary').hidden,true,'A completed draft restores without the retirement notice');
  await finishOffseason(p,until);
+ assert.equal(q(p,'#retirement-summary').hidden,true);
  assert.ok(planned.every(id=>!q(p,`.roster-rating-wrap [data-player-id="${id}"]`)));
  const cuts=save(p).dropped.length;
  const drop=p.d.querySelector('#roster-groups [data-drop-id]:not([disabled])');drop.click();q(p,'#cut-confirm').click();await until(()=>save(p).dropped.length===cuts+1);
@@ -94,7 +111,7 @@ async function checks(){
  q(p,'#roster-stats-button').click();
  for(const [id,values]of stats)assert.deepEqual([...q(p,`.roster-season-player[data-player-id="${id}"]`).cells].slice(3).map(cell=>cell.textContent),values,'Retired players keep their earned stats');
  const afterRetirement=save(p);p.dom.window.close();p=await restore(afterRetirement);
- assert.equal(p.d.querySelectorAll('#retirement-list li').length,5);assert.ok(planned.every(id=>!q(p,`.roster-rating-wrap [data-player-id="${id}"]`)));
+ assert.equal(q(p,'#retirement-summary').hidden,true);assert.equal(p.d.querySelectorAll('#retirement-list li').length,5);assert.ok(planned.every(id=>!q(p,`.roster-rating-wrap [data-player-id="${id}"]`)));
  q(p,'#next-season').click();await until(()=>save(p).season===2);
  assert.ok(planned.every(id=>!q(p,`.roster-rating-wrap [data-player-id="${id}"]`)));assertBest(p);assert.equal(q(p,'#retirement-summary').hidden,true);p.dom.window.close();
  console.log('Automatic starter UI checks passed: controls removed, best-rated starters, legacy regular/playoff migration, historical result parity, failed restore/retry, idempotent reload, draft/cuts/rollover, preserved manual history, retirement labels/removal, archived stats and low-rated replacements.');

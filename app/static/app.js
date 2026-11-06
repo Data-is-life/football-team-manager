@@ -762,7 +762,7 @@ function addRetirementBadge(cell, player) {
 function renderRetirements() {
   const section = document.querySelector("#retirement-summary");
   const ended = activeLineupRules >= 10 && playoffState?.postseason_complete;
-  section.hidden = !ended || !seasonRetirees.length;
+  section.hidden = !ended || !seasonRetirees.length || Boolean(draftState?.complete);
   const list = document.querySelector("#retirement-list");
   list.replaceChildren();
   for (const player of seasonRetirees) {
