@@ -93,6 +93,7 @@ async function checks(){
  assert.equal(q(p,'#next-season').hidden,true);await finishOffseason(p,until);await checkDraftClosed(p);
  assert.equal(p.d.querySelectorAll('#draft-recap-rows .salary-cell').length,6);
  assert.ok([...p.d.querySelectorAll('#draft-recap-rows .salary-cell')].every(cell=>/Provisional/.test(cell.textContent)));
+ for(const selector of ['#season-status','#qualification-status','#season-simulation-status','#owner-update'])assert.equal(q(p,selector).hidden,true,'Camp hides '+selector);
  const campRookies=[...p.d.querySelectorAll('#roster-groups .roster-player')].filter(row=>row.dataset.playerId.startsWith('rookie-'));
  assert.ok(campRookies.length>0);assert.ok(campRookies.every(row=>/Provisional/.test(row.querySelector('.salary-cell').textContent)));
  assert.ok(campRookies.every(row=>/unsigned until retained past training camp/.test(row.querySelector('.salary-cell').title)));
@@ -144,6 +145,7 @@ async function checks(){
  }
  assert.match(q(p,'#payroll-status').textContent,/Season 2 payroll.*\$210.00M cap/);
  assert.ok([...p.d.querySelectorAll('#roster-groups .salary-cell')].every(cell=>!/Provisional/.test(cell.textContent)));
+ assert.equal(q(p,'#season-status').hidden,false);assert.equal(q(p,'#qualification-status').hidden,true);
  const yearTwo=save(p);p.dom.window.close();p=await restore(yearTwo);await checkDraftClosed(p);assert.equal(q(p,'#gm-regular').textContent,record(managed));assert.equal(q(p,'#simulate-button').textContent,'Simulate Week 1');
  q(p,'#simulate-button').click();await until(()=>save(p).week===1&&!q(p,'#simulate-button').disabled);const total={...managed};for(const k of ['wins','losses','ties'])total[k]+=p.state.lastWeek.record[k];assert.equal(q(p,'#gm-regular').textContent,record(total));p.dom.window.close();
  // Exercise the second draft and the 39→38 UI boundary.
@@ -158,6 +160,7 @@ async function checks(){
  assert.match(q(p,'#training-camp-status').textContent,/Season 3 development complete/);assert.equal(q(p,'#development-dialog').open,true);q(p,'#development-close').click();
  const campSnapshot=[...p.d.querySelectorAll('#roster-groups .roster-player')].map(row=>[row.dataset.playerId,row.textContent]);
  const campCheckpoint=save(p);p.dom.window.close();p=await restore(campCheckpoint);
+ for(const selector of ['#season-status','#qualification-status','#season-simulation-status','#owner-update'])assert.equal(q(p,selector).hidden,true,'Restored camp hides '+selector);
  assert.equal(raw(p),JSON.stringify(campCheckpoint));assert.equal(q(p,'#training-camp-status').hidden,false);assert.deepEqual([...p.d.querySelectorAll('#roster-groups .roster-player')].map(row=>[row.dataset.playerId,row.textContent]),campSnapshot);assert.equal(q(p,'#development-dialog').open,false);
  await checkDraftClosed(p);q(p,'#manage-roster').click();
  const renewButton=q(p,'#roster-groups [data-resign-id]:not([disabled])');assert.ok(renewButton);

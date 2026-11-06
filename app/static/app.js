@@ -355,7 +355,7 @@ function renderOwnerUpdate(state, intro) {
   const update = document.querySelector("#owner-update");
   const qualified = regularSnapshot?.season_complete && regularSnapshot.standings.playoff_race.some(row => row.team.id === activeTeamId);
   const finished = Boolean(regularSnapshot?.season_complete && (!qualified || playoffState?.eliminated || playoffState?.postseason_complete));
-  update.hidden = !state.fired && (!finished || ownerUpdateDismissed === activeSeason);
+  update.hidden = !state.fired && (activeDraftChoices !== null || !finished || ownerUpdateDismissed === activeSeason);
   if (update.hidden) return;
   const champion = playoffState?.champion?.team.id === activeTeamId;
   const reward = state.reward ? ` ${state.reward}-year extension.` : " No extension.";
@@ -1091,6 +1091,13 @@ function draftNavigationAvailable() {
 function updatePhaseActions() {
   leadersButton.hidden = !LEAGUE_LEADERS_ENABLED;
   leadersButton.disabled = !LEAGUE_LEADERS_ENABLED || !activeTeamId || weekSimulationBusy || advancingSeason || restoring;
+  const draftingStarted = activeDraftChoices !== null;
+  document.querySelector("#season-status").hidden = draftingStarted;
+  if (draftingStarted) {
+    renderQualification(null);
+    seasonSimulationStatus.hidden = true;
+    if (!careerEnded()) document.querySelector("#owner-update").hidden = true;
+  }
   const live = Boolean(activeTeamId) && !careerEnded();
   const regular = live && currentWeek < 17;
   simulateButton.hidden = !regular || seasonSimulationActive;
@@ -1282,7 +1289,7 @@ function selectBoxScore(side) {
 
 function renderQualification(data) {
   const status = document.querySelector("#qualification-status");
-  status.hidden = !data?.season_complete;
+  status.hidden = !data?.season_complete || activeDraftChoices !== null;
   status.textContent = "";
   status.dataset.outcome = "neutral";
   if (status.hidden) return;

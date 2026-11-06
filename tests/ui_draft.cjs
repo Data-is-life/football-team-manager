@@ -44,11 +44,26 @@ function checkRecap(p, picks) {
  assert.equal(q(p,'#draft-recap-table-wrap').getAttribute('aria-labelledby'),'draft-recap-title');
  assert.equal(q(p,'#draft-board').compareDocumentPosition(q(p,'#draft-recap'))&p.w.Node.DOCUMENT_POSITION_FOLLOWING,p.w.Node.DOCUMENT_POSITION_FOLLOWING);
 }
+function checkDraftNotices(p) {
+ for(const selector of ['#season-status','#qualification-status','#season-simulation-status'])assert.equal(q(p,selector).hidden,true,selector+' stays hidden after drafting starts');
+ assert.equal(q(p,'#qualification-status').textContent,'');
+ assert.equal(q(p,'#qualification-status').dataset.outcome,'neutral');
+}
 async function checks(){
+ const allTeams=(await api('/api/teams')).teams;
+ const leagueFinal=await api('/api/playoffs/seattle/round/4?season=1&run_seed=1234');
+ const missed=allTeams.find(t=>!leagueFinal.field.some(entry=>entry.team.id===t.id)).id;
+ const missedSave=JSON.stringify({version:2,teamId:missed,runSeed:1234,season:1,week:17,playoffRound:4,priorStandings:{},history:[]});
+ let missedPage=await restore(missedSave);assert.equal(q(missedPage,'#qualification-status').hidden,false);assert.match(q(missedPage,'#qualification-status').textContent,/missed/);
+ q(missedPage,'#draft-button').click();await until(()=>save(missedPage).draftChoices?.length===0);checkDraftNotices(missedPage);
+ const missedDraft=raw(missedPage);missedPage.dom.window.close();missedPage=await restore(missedDraft);checkDraftNotices(missedPage);assert.equal(raw(missedPage),missedDraft);missedPage.dom.window.close();
  const final=await api('/api/playoffs/seattle/round/4?season=1&run_seed=1234');
  const owner=final.champion.team.id;
  const legacy=JSON.stringify({version:2,teamId:owner,runSeed:1234,season:1,week:17,playoffRound:4,priorStandings:{},history:[]});
  let p=await restore(legacy);assert.match(q(p,'#save-status').textContent,/restored/);
+ assert.equal(q(p,'#season-status').hidden,false);assert.equal(q(p,'#qualification-status').hidden,false);
+ const noticesBefore=[q(p,'#season-status').textContent,q(p,'#qualification-status').textContent];
+ assert.match(noticesBefore[1],/qualified/);
  assert.equal(q(p,'#draft-button').hidden,false);
  assert.equal(q(p,'#draft-dialog'),null);assert.equal(q(p,'#panel-draft').closest('main')?.tagName,'MAIN');
  assert.equal(q(p,'#view-draft').hidden,false);
@@ -58,8 +73,13 @@ async function checks(){
  assert.equal(p.state.urls.length,calls,'Even a forced click cannot bypass the draft');assert.equal(raw(p),legacy);
  const before=oldStats(p);q(p,'#roster-groups [data-position="QB"]').open=false;
  p.state.fail=true;q(p,'#draft-button').click();await until(()=>!q(p,'#draft-error').hidden);
+ assert.equal(q(p,'#season-status').hidden,false);assert.equal(q(p,'#qualification-status').hidden,false);
+ assert.deepEqual([q(p,'#season-status').textContent,q(p,'#qualification-status').textContent],noticesBefore,'Failed draft start retains the season notices');
  assert.equal(raw(p),legacy,'Failed start does not erase the saved season');assert.equal(q(p,'#draft-recap').hidden,true);assert.equal(q(p,'#next-season').disabled,true);assert.equal(q(p,'#next-season').hidden,true);
  p.state.fail=false;q(p,'#draft-retry').click();await until(()=>save(p).draftChoices?.length===0);
+ checkDraftNotices(p);
+ const started=raw(p);q(p,'#draft-close').click();checkDraftNotices(p);assert.equal(raw(p),started);
+ q(p,'#draft-button').click();await until(()=>!q(p,'#draft-button').disabled);checkDraftNotices(p);
  assert.equal(p.state.last.class_size,200);assert.equal(p.state.last.order.length,30);
  assert.equal(p.state.last.next_pick,30,'Champion drafts last');
  assert.equal(q(p,'#next-season').disabled,true);
@@ -81,7 +101,7 @@ async function checks(){
    assert.equal(raw(p),prior,'Failed pick preserves the checkpoint');assert.equal(list.scrollTop,700);assert.equal(list.scrollLeft,24);assert.equal(p.d.activeElement.id,'draft-retry');checkRecap(p,p.state.last.picks);p.state.fail=false;q(p,'#draft-retry').click();
   }else{const count=p.state.calls;buttons[0].click();buttons[0].click();assert.equal(p.state.calls,count+1,'Double click cannot pick twice')}
   await until(()=>save(p).draftChoices?.length===turn);
-  checkRecap(p,p.state.last.picks);
+  checkDraftNotices(p);checkRecap(p,p.state.last.picks);
   assert.equal(q(p,'#draft-prospect-list').scrollTop,0);assert.equal(q(p,'#draft-prospect-list').scrollLeft,0);
   assert.equal(p.d.activeElement.id,turn===6?'draft-title':'draft-prospect-list');
   assert.equal(q(p,'#draft-position').disabled,false);assert.equal(q(p,'#panel-draft').getAttribute('aria-busy'),'false');
@@ -99,7 +119,7 @@ async function checks(){
   assert.equal(signed.length,turn);assert.deepEqual(signed.map(r=>r.dataset.playerId).sort(),[...selectedIds].sort());
   // Reload after every turn. Replay must preserve CPU picks, rookie IDs, roster counts, and stats.
   const checkpoint=raw(p),picks=JSON.stringify(previousPicks);p.dom.window.close();p=await restore(checkpoint);
-  assert.match(q(p,'#save-status').textContent,/restored/);assert.equal(JSON.stringify(p.state.last.picks),picks);checkRecap(p,p.state.last.picks);
+  checkDraftNotices(p);assert.match(q(p,'#save-status').textContent,/restored/);assert.equal(JSON.stringify(p.state.last.picks),picks);checkRecap(p,p.state.last.picks);
   assert.equal(p.d.querySelectorAll('#roster-groups .roster-player').length,38+turn);
   assert.deepEqual(oldStats(p),before);
   assert.equal(q(p,'#next-season').disabled,true);assert.equal(q(p,'#next-season').hidden,true);if(turn<6)assert.equal(q(p,'#manage-roster').hidden,true);
