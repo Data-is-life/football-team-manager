@@ -10,6 +10,35 @@ BASE_SALARIES = {'QB':8_000_000,'WR':4_500_000,'TE':3_000_000,'RB':3_000_000,
                  'CB':4_500_000,'S':3_500_000}
 
 
+# Annual dollars at the $200M base cap, calibrated from 2026 NFL APY/cap
+# relationships. These are game rating anchors, not NFL player grades.
+MARKET_RATINGS = (40, 60, 70, 75, 80, 90, 99)
+MARKET_SALARIES = {
+    'QB': (1_000_000, 1_500_000, 7_800_000, 12_000_000, 20_000_000, 34_000_000, 42_000_000),
+    'WR': (1_000_000, 1_500_000, 4_225_000, 6_500_000, 10_000_000, 20_000_000, 28_000_000),
+    'TE': (1_000_000, 1_500_000, 2_925_000, 4_500_000, 8_000_000, 12_000_000, 14_000_000),
+    'RB': (1_000_000, 1_500_000, 2_600_000, 4_000_000, 7_000_000, 12_000_000, 15_000_000),
+    'OL': (1_000_000, 1_500_000, 3_575_000, 5_500_000, 8_000_000, 14_000_000, 19_000_000),
+    'DL': (1_000_000, 1_500_000, 4_225_000, 6_500_000, 10_000_000, 20_000_000, 30_000_000),
+    'LB': (1_000_000, 1_500_000, 2_925_000, 4_500_000, 6_000_000, 11_000_000, 14_000_000),
+    'CB': (1_000_000, 1_500_000, 3_900_000, 6_000_000, 9_000_000, 16_000_000, 22_000_000),
+    'S': (1_000_000, 1_500_000, 2_925_000, 4_500_000, 6_000_000, 11_000_000, 14_000_000),
+    'K': (1_000_000, 1_050_000, 1_170_000, 1_800_000, 2_500_000, 4_000_000, 4_600_000),
+}
+
+
+def market_salary(position, rating, season):
+    """Interpolate market anchors, scale to the signing cap, round to $10k."""
+    rating = max(MARKET_RATINGS[0], min(MARKET_RATINGS[-1], rating))
+    amounts = MARKET_SALARIES[position]
+    for index, (low, high) in enumerate(zip(MARKET_RATINGS, MARKET_RATINGS[1:])):
+        if rating <= high:
+            raw = Decimal(amounts[index]) + Decimal(amounts[index+1]-amounts[index]) * (rating-low) / (high-low)
+            raw = raw * salary_cap(season,21) / SALARY_CAP
+            return max(minimum_salary(season,21), int((raw/10_000).quantize(Decimal('1'),rounding=ROUND_HALF_UP))*10_000)
+    raise AssertionError('Unreachable salary anchor')
+
+
 @dataclass(frozen=True)
 class PlayerContract:
     annual_salary: int
@@ -50,13 +79,18 @@ def starting_contract(player, season, rules=15):
         return PlayerContract(minimum_salary(signed,rules),signed,1,'replacement')
     if player.id.startswith('rookie-'):
         raise ValueError('Drafted players need their recorded selection to assign salary')
-    return veteran_contract(player,season,rules)
+    # Inherited contracts were already signed before the GM arrived. Preserve
+    # their original terms; the current market applies only to new agreements.
+    return veteran_contract(player,season,min(rules,20))
 
 
 def veteran_contract(player, season, rules=15):
     category, years = ('franchise',5) if player.rating >= 90 else ('low_rated',2) if player.rating < 70 else ('veteran',4) if player.age >= 28 else ('young',3)
-    raw = Decimal(BASE_SALARIES[player.position]) * player.rating ** 2 / 75 ** 2
-    salary = max(minimum_salary(season,rules),int((raw / 10_000).quantize(Decimal('1'),rounding=ROUND_HALF_UP))*10_000)
+    if rules >= 21:
+        salary = market_salary(player.position,player.rating,season)
+    else:
+        raw = Decimal(BASE_SALARIES[player.position]) * player.rating ** 2 / 75 ** 2
+        salary = max(minimum_salary(season,rules),int((raw / 10_000).quantize(Decimal('1'),rounding=ROUND_HALF_UP))*10_000)
     return PlayerContract(salary,season,years,category)
 
 

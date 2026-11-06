@@ -722,7 +722,7 @@ Recap visibility is derived from camp/season/week state without a new saved flag
 
 The roster now says **Contract expired**, replacing Renewal due. Once training-camp development finishes, expired players have a **Re-sign** button beside Drop in Roster → Ratings. Review the quoted annual salary, term and first playing season in the inline confirmation; Cancel changes nothing. Confirming replaces only that expired contract, updates payroll immediately and removes that player's renewal action. Active deals and provisional rookies cannot be re-signed. Retired/released players and other teams' players are not eligible.
 
-Offers use the established position/current-rating formula and current season minimum, after camp development: `position base at 75 × (current / 75)²`, rounded half up to $10,000. Position bases remain the fixed game-balance values documented above; only the new-contract minimum grows annually. Potential does not affect price. These are fixed offers, with the previously agreed terms:
+For rules 20 and earlier, offers use the established position/current-rating formula and current season minimum, after camp development: `position base at 75 × (current / 75)²`, rounded half up to $10,000. Position bases remain the fixed game-balance values documented above; only the new-contract minimum grows annually. Potential does not affect price. These are fixed offers, with the previously agreed terms:
 
 | Current player category | New term |
 | --- | ---: |
@@ -738,3 +738,29 @@ Former draft picks and generated replacements use these renewal categories once 
 Cuts and re-signings are stored as bounded, ordered roster decisions, alongside the existing dropped IDs. Order matters: a renewal changes cap usage, which can affect whether a later cut creates a minimum replacement. Reload, retry and historical replay apply the same sequence from immutable camp results. The server recomputes all prices/terms; no quoted salary is trusted from the browser. Duplicate re-signings, active/provisional/foreign players, invalid phases and inconsistent drop/action histories are rejected. Released players carry no remaining salary charge under the existing simplified contract rules, including a player released after a renewal.
 
 New careers use rules 20. Rules-19 careers can adopt these contract decisions on restore, including camp: existing dropped IDs become ordered drop decisions, while all previous signed deals and rookie holds retain their amounts/terms. The old checkpoint is not overwritten just by reading it. Completed history steps retain their own versions, so old seasons are never retroactively renewed or blocked. Earlier signed draft/camp formats retain their current transaction rules until rollover. Legacy 38-player careers remain on their prior flow. Re-signing controls remain hidden during regular-season play and before camp; historical stats, draft-day recap values and camp development are unchanged.
+
+
+### NFL-informed veteran market (rules 21)
+
+New veteran agreements use a steeper current-ability curve and positional market values. At the initial $200M cap:
+
+| Position | 75 current | 80 current | 90 current | 99 current |
+| --- | ---: | ---: | ---: | ---: |
+| QB | $12M | $20M | $34M | $42M |
+| WR | $6.5M | $10M | $20M | $28M |
+| TE | $4.5M | $8M | $12M | $14M |
+| RB | $4M | $7M | $12M | $15M |
+| OL | $5.5M | $8M | $14M | $19M |
+| DL | $6.5M | $10M | $20M | $30M |
+| LB | $4.5M | $6M | $11M | $14M |
+| CB | $6M | $9M | $16M | $22M |
+| S | $4.5M | $6M | $11M | $14M |
+| K | $1.8M | $2.5M | $4M | $4.6M |
+
+Intermediate ratings interpolate linearly; lower-rated depth follows cheaper anchors in `MARKET_SALARIES`. Prices use current ability, not potential, and do not depend on the depth chart. Scale the resulting base amount by **signing-season cap / $200M**, round half up to $10,000, then apply that season's minimum. The term categories remain unchanged. For example, an 80-current TE asks $8M in Season 1 and $8.84M in Season 3 ($221M cap); an 80-current QB asks $20M and $22.1M respectively. A signed deal stays flat for its full term.
+
+Research checked November 6, 2026: the [NFL's 2026 cap is $301.2M](https://operations.nfl.com/calendar-events/nfl-free-agency/nfl-salary-cap). Positional average-per-year benchmarks come from Over The Cap's [QB](https://overthecap.com/position/quarterback), [WR](https://overthecap.com/position/wide-receiver), [TE](https://overthecap.com/position/tight-end), [RB](https://overthecap.com/position/running-back), [LT](https://overthecap.com/position/left-tackle), [C](https://overthecap.com/position/center), [edge](https://overthecap.com/position/edge-rusher), [LB](https://overthecap.com/position/linebacker), [CB](https://overthecap.com/position/cornerback), [S](https://overthecap.com/position/safety), and [K](https://overthecap.com/position/kicker) tables. These are **game-calibrated rating anchors informed by NFL APY/cap proportions**, not real-player rating equivalents or a reproduction of individual NFL contracts. OL blends line roles; DL includes premium pass rushers; LB represents off-ball pay. APY differs from real annual cap hits because NFL contracts have bonus/restructure accounting; this game retains flat annual cap charges and its $200M starting cap.
+
+**Existing contracts remain fixed**, including the deals inherited at career creation. Those use the original initial-pay formula, reflecting an existing roster rather than 35 simultaneous market signings. Only new veteran re-signings use this market. Rookie slots, minimum-pay replacements and their agreed annual growth are unchanged. CPU teams receive the same quotes and must clear the existing final cap/roster checks; expensive stars create real retention choices rather than automatic discounts.
+
+Save format 31 accepts rules 21. Rules-20 checkpoints without a current-camp accepted re-signing adopt the new market on restore, without changing any signed salary, rookie offer, roster or completed history. A camp with an already accepted old-market renewal keeps rules 20 for the rest of that camp so replay cannot reprice the accepted deal; it adopts rules 21 at season rollover. Older history steps keep their original pricing versions. Earlier draft formats retain their existing migration behavior. Reading a save does not overwrite its checkpoint.
