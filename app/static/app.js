@@ -57,6 +57,8 @@ let draftPendingAuto = false;
 const draftButton = document.querySelector("#draft-button");
 const draftPanel = document.querySelector("#panel-draft");
 let draftScrollPending = false;
+// Retained for a future opt-in return; manual drafting is the current UI.
+const AUTO_DRAFT_ENABLED = false;
 const autoDraftButton = document.querySelector("#auto-draft");
 const nextSeasonButton = document.querySelector("#next-season");
 let currentWeek = 0;
@@ -1960,7 +1962,8 @@ function renderDraftRecap() {
 function renderDraft() {
   if (!draftState) return;
   renderDraftRecap();
-  autoDraftButton.disabled = draftBusy || draftState.complete;
+  autoDraftButton.hidden = !AUTO_DRAFT_ENABLED;
+  autoDraftButton.disabled = !AUTO_DRAFT_ENABLED || draftBusy || draftState.complete;
   document.querySelector("#draft-position").disabled = draftBusy;
   draftPanel.setAttribute("aria-busy", String(draftBusy));
   document.querySelector("#draft-title").textContent = `Season ${draftState.draft_season} rookie draft`;
@@ -2003,6 +2006,7 @@ function renderDraft() {
 }
 
 async function loadDraft(choice = null, autoDraft = false) {
+  if (autoDraft && !AUTO_DRAFT_ENABLED) return;
   if (careerEnded() || draftBusy || campBusy || activeTrainingCamp || advancingSeason || !playoffState?.postseason_complete || activeSeason >= 999) return;
   if (autoDraft && draftState?.complete) return;
   const list = document.querySelector("#draft-prospect-list");
