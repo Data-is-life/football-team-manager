@@ -434,6 +434,31 @@ def assign_possession(home_box: dict, away_box: dict) -> None:
         box["team_stats"]["time_of_possession"] = f"{duration // 60}:{duration % 60:02d}"
 
 
+@lru_cache(maxsize=120)
+def inherited_win_weeks(team_id, run_seed):
+    """Three background wins before the GM arrives; Week 17 is unrestricted."""
+    return frozenset(sorted(range(1,17), key=lambda week: _run_number(
+        f'inherited-record:{team_id}:week:{week}',run_seed))[:3])
+
+
+def _inherited_scoring(home_box, away_box, owner, week, run_seed):
+    """Assign the generated scoring lines before usage/stat aggregation."""
+    own = home_box if home_box['team']['id']==owner else away_box
+    other = away_box if own is home_box else home_box
+    if (own['score'] > other['score']) == (week in inherited_win_weeks(owner,run_seed)):
+        return
+    # Swap only scoring packages. Player identities, ability and yardage stay
+    # with their teams; subsequent usage allocates TDs to the correct roster.
+    for key in ('score','scoring'):
+        own[key],other[key] = other[key],own[key]
+    for group,fields in (('passing',('touchdowns',)),('rushing',('touchdowns',)),
+                         ('receiving',('touchdowns',)),
+                         ('kicking',('field_goals_made','field_goals_attempted','extra_points_made'))):
+        for own_row,other_row in zip(own[group],other[group]):
+            for field in fields:
+                own_row[field],other_row[field] = other_row[field],own_row[field]
+
+
 def _scoring_boxes(selected_team_id, game, season, *, allow_ties=True,
                    neutral_site=False, run_seed=0, roster_context=()):
     """The shared scoring RNG path; usage/rotation streams cannot affect outcomes."""
@@ -450,7 +475,12 @@ def _scoring_boxes(selected_team_id, game, season, *, allow_ties=True,
     away_team = opponent if selected_is_home else selected_team
     home_box = _team_box(home_team, away_team, None if neutral_site else True, rng, run_seed, roster_context)
     away_box = _team_box(away_team, home_team, None if neutral_site else False, rng, run_seed, roster_context)
-    overtime = resolve_overtime(home_box, away_box, rng, allow_ties=allow_ties, neutral_site=neutral_site, run_seed=run_seed, roster_context=roster_context)
+    owner = getattr(roster_context,'rebuild_team',None)
+    inherited = (getattr(roster_context,'lineup_rules',1)>=22 and season==1
+                 and 1<=game.week<=16 and owner in (home_team.id,away_team.id))
+    overtime = resolve_overtime(home_box, away_box, rng, allow_ties=False if inherited else allow_ties, neutral_site=neutral_site, run_seed=run_seed, roster_context=roster_context)
+    if inherited:
+        _inherited_scoring(home_box,away_box,owner,game.week,run_seed)
     return home_box, away_box, overtime, seed
 
 
