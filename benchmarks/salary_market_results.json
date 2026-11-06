@@ -1,0 +1,30 @@
+{
+  "method": "Seeds 1\u201320, Seattle managed team; 580 opponent rosters, 35 players each. Season-1 $200M cap. Hypothetical market portfolio quotes every player at current ability simultaneously; it is NOT actual payroll or a forecast. Inherited signed deals remain fixed. Later real renewals are staggered and subject to final cap cuts.",
+  "inherited_opponents": {
+    "count": 580,
+    "mean_m": 137.99,
+    "median_m": 137.53,
+    "standard_deviation_m": 14.93,
+    "minimum_m": 95.99,
+    "maximum_m": 188.6,
+    "above_200m": 0
+  },
+  "hypothetical_market_portfolio": {
+    "count": 580,
+    "mean_m": 203.05,
+    "median_m": 195.16,
+    "standard_deviation_m": 60.67,
+    "minimum_m": 76.66,
+    "maximum_m": 432.94,
+    "above_200m": 273
+  },
+  "inherited_managed": {
+    "count": 20,
+    "mean_m": 118.29,
+    "median_m": 118.39,
+    "standard_deviation_m": 0.84,
+    "minimum_m": 116.12,
+    "maximum_m": 119.62,
+    "above_200m": 0
+  }
+}
