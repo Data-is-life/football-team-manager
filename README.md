@@ -771,3 +771,10 @@ Save format 31 accepts rules 21. Rules-20 checkpoints without a current-camp acc
 ### Season notices during the offseason
 
 Season-end and playoff-qualification banners remain visible through the playoffs, then hide after the draft successfully loads (including before your first pick). The completed regular-season simulation notice and non-terminal season-end owner update also hide. They stay hidden while reviewing the draft, browsing rosters, making cuts, attending camp and restoring a saved draft/camp. Failed draft starts preserve the existing notices and saved progress. The next season restores its normal status messages. GM Records retains contract feedback, and historical playoff results remain available; a terminal firing notice is still shown. This is derived from existing draft progress, with no new saved state or gameplay changes.
+
+
+### Struggling inherited season (rules 22)
+
+New careers start before Week 17 with a **3–13 inherited team record**. Three seeded background win weeks are selected among Weeks 1–16; their locations vary with the city and run seed. The shared scoring path assigns consistent scoring packages before player usage and statistical allocation. Schedule scores, box scores, opponent results, league results, points for/against, head-to-head/group records, standings and draft order therefore derive from the same actual games. Inherited games have no ties. Team/player ratings and salaries are not reduced.
+
+**Week 17 is a normal simulated game**, giving a 3–14 finish after a loss or 4–13 after a win (the existing rare tie outcome remains possible). Only that game counts toward the new GM's record. Other matchups, playoffs and later seasons use the normal engine. Existing careers keep their original inherited results and history versions; this background record is not retroactively applied when restoring them. New careers use rules 22/save format 32; older careers can adopt rules 22 at a later season rollover without rewriting their first season.
