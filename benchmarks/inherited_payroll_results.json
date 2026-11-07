@@ -1,0 +1,15 @@
+{
+  "method": "200 new careers: seeds 1\u201350, four selected cities, rules 25, Season 1. Actual 35-player signed payroll; three weaker-player 3\u20134 year deals per career. Existing careers and opponent contracts are not repriced.",
+  "careers": 200,
+  "payroll_m": {
+    "minimum": 160.0,
+    "maximum": 200.0,
+    "median": 183.0,
+    "mean": 180.5
+  },
+  "three_bad_deals_combined_annual_m": {
+    "minimum": 32.3,
+    "maximum": 56.8,
+    "mean": 43.87
+  }
+}

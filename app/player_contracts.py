@@ -155,6 +155,50 @@ def signed_rosters(rosters, season, rules=15):
                               for p in players)) for owner,players in rosters)
 
 
+
+def inherited_payroll(rosters, owner, seed, season):
+    """Career creation only: distribute an actual floor-to-cap signed payroll."""
+    from .simulation import ROSTER_RULES, _run_number
+    from .retirement import retirement_age
+    players=dict(rosters)[owner]
+    if any(p.contract is None or p.rookie_offer is not None for p in players):
+        raise ValueError('Inherited payroll requires an initially signed roster')
+    if any(p.contract.category=='inherited_bad' for p in players):
+        return rosters
+    def draw(purpose):return _run_number(f'inherited-payroll:{owner}:{purpose}',seed)
+    low,high=payroll_floor(season,25),salary_cap(season,25)
+    target=low+draw('total')%((high-low)//1_000_000+1)*1_000_000
+    weak=[p for p in players if p.rating<70 and p.depth>ROSTER_RULES[p.position][1]]
+    groups=([p for p in weak if p.position=='QB'],
+            [p for p in weak if p.position in ('WR','TE','RB','OL')],
+            [p for p in weak if p.position in ('DL','LB','CB','S')])
+    bad={}
+    for index,group in enumerate(groups):
+        if not group:continue
+        # Prefer deals that survive the first offseason, without changing ages
+        # or retirement rules to manufacture the financial challenge.
+        viable=[p for p in group if retirement_age(p,seed)>=p.age+2]
+        selected=min(viable or group,key=lambda p:draw(f'bad:{index}:{p.id}'))
+        quote_rating=78+draw(f'price:{selected.id}')%5 if selected.position=='QB' else 82+draw(f'price:{selected.id}')%7
+        bad[selected.id]=replace(selected.contract,
+            annual_salary=market_salary(selected.position,quote_rating,season),
+            years=3+draw(f'term:{selected.id}')%2,category='inherited_bad')
+    ordinary=[p for p in players if p.id not in bad]
+    minimum=minimum_salary(season,25)
+    extra=target-sum(c.annual_salary for c in bad.values())-len(ordinary)*minimum
+    if extra<0 or extra%10_000:raise ValueError('Inherited payroll cannot fit its required contracts')
+    units=extra//10_000
+    weights={p.id:max(1,p.contract.annual_salary-minimum) for p in ordinary}
+    total_weight=sum(weights.values())
+    portions={identity:units*weight//total_weight for identity,weight in weights.items()}
+    remaining=units-sum(portions.values())
+    order=sorted(weights,key=lambda identity:(-(units*weights[identity]%total_weight),draw(f'rounding:{identity}')))
+    for identity in order[:remaining]:portions[identity]+=1
+    updated=tuple(replace(p,contract=bad[p.id] if p.id in bad else replace(p.contract,
+                  annual_salary=minimum+portions[p.id]*10_000)) for p in players)
+    if payroll(updated)!=target:raise AssertionError('Inherited payroll must match the seeded target')
+    return tuple((team,updated if team==owner else roster) for team,roster in rosters)
+
 def ensure_contracts(context, season):
     return replace(context,rosters=signed_rosters(context.rosters,season,getattr(context,"lineup_rules",1)))
 
