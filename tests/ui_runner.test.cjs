@@ -1,6 +1,6 @@
 const {test} = require('node:test');
 const assert = require('node:assert/strict');
-const {mkdtempSync,writeFileSync,readFileSync,existsSync,rmSync} = require('node:fs');
+const {mkdtempSync,mkdirSync,writeFileSync,readFileSync,existsSync,rmSync} = require('node:fs');
 const {tmpdir} = require('node:os');
 const path = require('node:path');
 const {runSuites, discoverSuites} = require('../scripts/run-ui-tests.cjs');
@@ -45,10 +45,17 @@ test('invalid concurrency is rejected before starting suites',async()=>{
   for(const workers of [0,5,1.5,NaN])await assert.rejects(runSuites([],{workers}),/Workers/);
 });
 
-test('discovery includes interaction suites but excludes helpers and runner self-tests',()=>{
-  const files=discoverSuites(path.resolve(__dirname,'..'));
-  assert.ok(files.includes('tests/ui_tabs.cjs'));assert.equal(files.length,14);
-  assert.ok(!files.some(file=>file.includes('helpers')||file.includes('.test.')));
+test('discovery includes interaction suites but excludes helpers and runner self-tests',t=>{
+  const root=mkdtempSync(path.join(tmpdir(),'league-discovery-'));
+  t.after(()=>rmSync(root,{recursive:true,force:true}));
+  const tests=path.join(root,'tests');mkdirSync(tests);
+  for(const name of ['ui_future_feature.cjs','ui_tabs.cjs','ui_draft.cjs',
+      'ui_offseason_helpers.cjs','ui_runner.test.cjs','test_misc.cjs','notes.txt']){
+    writeFileSync(path.join(tests,name),'');
+  }
+  assert.deepEqual(discoverSuites(root),[
+    'tests/ui_tabs.cjs','tests/ui_draft.cjs','tests/ui_future_feature.cjs',
+  ]);
 });
 
 test('timeout also stops the suite API-server process group', {skip:process.platform==='win32'}, async t=>{
