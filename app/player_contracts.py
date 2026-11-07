@@ -40,6 +40,50 @@ def market_salary(position, rating, season):
 
 
 @dataclass(frozen=True)
+class DeadCapCharge:
+    owner: str
+    player_id: str
+    player_name: str
+    annual_salary: int
+    start_season: int
+    end_season: int
+    signed_season: int
+
+
+def record_release(context, owner, player, season):
+    """Immutable obligations: unsigned and expired releases owe nothing."""
+    if getattr(context,'lineup_rules',1)<23 or player.contract is None:
+        return context
+    contract=player.contract
+    start=max(season,contract.signed_season)
+    end=contract.signed_season+contract.years-1
+    if end<start:return context
+    charge=DeadCapCharge(owner,player.id,player.name,contract.annual_salary,start,end,contract.signed_season)
+    existing=context.dead_cap
+    if charge in existing:return context
+    return replace(context,dead_cap=existing+(charge,))
+
+
+def payroll_owner(players, context, owner=None):
+    if owner is not None:return owner
+    ids={p.id for p in players}
+    owners=[team for team,roster in context if any(p.id in ids for p in roster)]
+    if len(owners)!=1:raise ValueError('Payroll requires an unambiguous team')
+    return owners[0]
+
+
+def dead_cap_total(context, owner, season):
+    if getattr(context,'lineup_rules',1)<23:return 0
+    return sum(c.annual_salary for c in context.dead_cap if c.owner==owner and c.start_season<=season<=c.end_season)
+
+
+def cap_payroll(players, context, season=None, owner=None):
+    year=context.season if season is None else season
+    dead=dead_cap_total(context,payroll_owner(players,context,owner),year) if getattr(context,'lineup_rules',1)>=23 else 0
+    return payroll(players)+dead
+
+
+@dataclass(frozen=True)
 class PlayerContract:
     annual_salary: int
     signed_season: int
@@ -125,7 +169,7 @@ def attach_historical_draft_contracts(context, board):
 
 def contract_payload(contract, season, rules=15):
     end = contract.signed_season + contract.years - 1
-    return {**asdict(contract),'expires_after_season':end,
+    return {**asdict(contract),**({'fully_guaranteed':True} if rules>=23 else {}),'expires_after_season':end,
             'years_remaining':max(0,min(contract.years,end-season+1)),
             'status':'upcoming' if season<contract.signed_season else 'active' if season<=end else 'expired' if rules>=20 else 'renewal_due'}
 
@@ -143,6 +187,10 @@ def public_player_fields(player, context=()):
         result['renewal_offer'] = {'annual_salary':offer.annual_salary,'years':offer.years,
             'starts_season':offer.signed_season,'category':offer.category,
             'annual_change':offer.annual_salary-player.contract.annual_salary}
+        if context.lineup_rules>=23:
+            owner=payroll_owner([player],context)
+            amount=cap_payroll(dict(context)[owner],context,owner=owner)
+            result['renewal_offer']['affordable']=amount+offer.annual_salary-player.contract.annual_salary<=salary_cap(context.season,context.lineup_rules)
     return result
 
 
@@ -184,34 +232,37 @@ def sign_retained_rookies(context, season):
     return replace(context,rosters=tuple((owner,tuple(sign(p) for p in players)) for owner,players in context))
 
 
-def payroll_payload(players, context, season=None):
+def payroll_payload(players, context, season=None, owner=None):
     if getattr(context,'lineup_rules',1) < 16:
         return {}
     season = context.season if season is None else season
     rules = context.lineup_rules
-    total, cap, floor = payroll(players), salary_cap(season,rules), payroll_floor(season,rules)
+    roster_total=payroll(players)
+    dead=dead_cap_total(context,payroll_owner(players,context,owner),season) if rules>=23 else 0
+    total, cap, floor = roster_total+dead, salary_cap(season,rules), payroll_floor(season,rules)
     committed = sum(p.contract.annual_salary for p in players if p.contract is not None
                     and (rules < 20 or not contract_expired(p,season)))
     rookie_holds = sum(p.rookie_offer.annual_salary for p in players if p.rookie_offer is not None)
-    expired_holds = total-committed-rookie_holds if rules >= 20 else 0
+    expired_holds = roster_total-committed-rookie_holds if rules >= 20 else 0
     floor_payroll = committed if rules >= 19 else total
     return {'payroll': {'total':total,'cap':cap,'floor':floor,
             'cap_space':cap-total,'over_cap':max(0,total-cap),
             'below_floor':max(0,floor-floor_payroll),'floor_enforced':False,
             **({'committed':committed,'rookie_holds':rookie_holds} if rules>=19 else {}),
             **({'expired_holds':expired_holds} if rules>=20 else {}),
+            **({'dead_cap':dead} if rules>=23 else {}),
             **({'season':season,'minimum_salary':minimum_salary(season,rules)} if rules>=17 else {})}}
 
 
-def cap_ready(players, context, season=None):
-    return getattr(context,'lineup_rules',1) < 16 or payroll(players) <= salary_cap(context.season if season is None else season,context.lineup_rules)
+def cap_ready(players, context, season=None, owner=None):
+    return getattr(context,'lineup_rules',1) < 16 or cap_payroll(players,context,season,owner) <= salary_cap(context.season if season is None else season,context.lineup_rules)
 
 
 def cap_release(players, identity, owner, season, seed, context, excluded):
     """An atomic release/refill preserves position and total minimums at the cap.
 
-    Cap cuts can replace mandatory players; there are no dead-money penalties
-    before player renewal and free agency are available.
+    This changes the roster only. Guaranteed-career callers separately record
+    the released contract and validate the resulting cap obligations.
     """
     from .retirement import fill_roster
     if not any(p.id == identity for p in players):
@@ -221,6 +272,8 @@ def cap_release(players, identity, owner, season, seed, context, excluded):
 
 
 def cpu_cap_cuts(players, owner, season, seed, context):
+    if getattr(context,'lineup_rules',1)>=23:
+        raise ValueError('Guaranteed CPU cuts require their obligation-aware offseason transaction')
     remaining, excluded = list(players), []
     while not cap_ready(remaining,context,season+1):
         # Preserve ability per dollar; the ID tie-break makes replay deterministic.
@@ -242,10 +295,43 @@ def pending_renewals(players, context):
     return sum(contract_expired(p,context.season) for p in players) if getattr(context,'lineup_rules',1)>=20 else 0
 
 
-def renew_player(players, identity, season, rules):
+def renew_player(players, identity, season, rules, context=None, owner=None):
     player = next((p for p in players if p.id==identity),None)
     if player is None: raise ValueError('Player is not on this roster')
     if not contract_expired(player,season):
         raise ValueError('Only an expired contract can be re-signed after training camp')
     deal = veteran_contract(player,season,rules)
-    return [replace(p,contract=deal) if p.id==identity else p for p in players]
+    updated=[replace(p,contract=deal) if p.id==identity else p for p in players]
+    if rules>=23 and context is not None and not cap_ready(updated,context,season,owner):
+        raise ValueError('Re-signing would exceed the salary cap. Release unsigned rookies or expired contracts first; signed salaries are fully guaranteed.')
+    return updated
+
+
+
+def guaranteed_cpu_offseason(players, owner, season, seed, context):
+    """Honor obligations; only unsigned/expired holds can provide cap relief."""
+    from .career import cpu_cuts
+    from .simulation import roster_limit,roster_minimum
+    from .retirement import fill_roster
+    year=season+1
+    original=tuple(players)
+    remaining=cpu_cuts(players,roster_limit(context),roster_minimum(context))
+    retained={p.id for p in remaining}
+    for p in original:
+        if p.id not in retained:context=record_release(context,owner,p,year)
+    excluded=[p.id for p in original if p.id not in retained]
+    while not cap_ready(remaining,context,year,owner):
+        eligible=[p for p in remaining if (p.contract is None or contract_expired(p,year))
+                  and contract_terms(p).annual_salary>minimum_salary(year,context.lineup_rules)]
+        if not eligible:raise ValueError('CPU guaranteed obligations cannot fit under the salary cap')
+        p=min(eligible,key=lambda p:(p.rating/contract_terms(p).annual_salary,-contract_terms(p).annual_salary,p.id))
+        excluded.append(p.id)
+        remaining=cap_release(remaining,p.id,owner,season,seed,context,excluded)
+    for p in tuple(remaining):
+        if not contract_expired(p,year):continue
+        try:
+            remaining=renew_player(remaining,p.id,year,context.lineup_rules,context,owner)
+        except ValueError:
+            excluded.append(p.id)
+            remaining=fill_roster([v for v in remaining if v.id!=p.id],owner,season,seed,excluded,context=context)
+    return remaining,context

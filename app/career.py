@@ -6,7 +6,7 @@ from .draft import build_draft, player_payload
 from .simulation import ROSTER_RULES, validate_roster, ranked_players, roster_limit, roster_minimum
 from .lineups import lineup_context, replace_lineup_rosters
 from .starter_choices import with_starters
-from .player_contracts import cap_ready, cap_release, cpu_cap_cuts, salary_cap, payroll, pending_renewals, contract_expired, renew_player
+from .player_contracts import cap_ready, cap_release, cpu_cap_cuts, salary_cap, payroll, pending_renewals, contract_expired, renew_player, record_release, cap_payroll, guaranteed_cpu_offseason
 
 ROSTER_MAX = 38
 
@@ -79,15 +79,23 @@ def offseason(team_id, season, run_seed, choices, dropped, prior=(), roster_cont
             raise ValueError('Roster actions must preserve the recorded drop order')
         for kind,identity in decisions:
             if kind == 'resign':
-                rosters[team_id] = renew_player(rosters[team_id],identity,season+1,roster_context.lineup_rules)
+                rosters[team_id] = renew_player(rosters[team_id],identity,season+1,roster_context.lineup_rules,roster_context,team_id)
                 continue
             if kind != 'drop': raise ValueError('Unknown roster action')
+            released=next((p for p in rosters[team_id] if p.id==identity),None)
+            if released is None:raise ValueError('Player is not on this roster')
             excluded.append(identity)
-            if not cap_ready(rosters[team_id],roster_context,season+1):
+            if getattr(roster_context,'lineup_rules',1)>=23 or not cap_ready(rosters[team_id],roster_context,season+1,team_id):
                 rosters[team_id] = cap_release(rosters[team_id],identity,team_id,season,run_seed,roster_context,excluded)
             else:
                 rosters[team_id] = drop_players(rosters[team_id], [identity], roster_minimum(roster_context))
                 rosters[team_id] = fill_roster(rosters[team_id],team_id,season,run_seed,excluded,context=roster_context)
+            roster_context=record_release(roster_context,team_id,released,season+1)
+            if roster_context.lineup_rules>=23:
+                from .player_contracts import dead_cap_total
+                guaranteed=sum(p.contract.annual_salary for p in rosters[team_id] if p.contract is not None and not contract_expired(p,season+1))
+                if guaranteed+dead_cap_total(roster_context,team_id,season+1)>salary_cap(season+1,roster_context.lineup_rules):
+                    raise ValueError('This release cannot fit its guaranteed salary plus required replacement under the cap')
         rosters[team_id] = arrange_depth(rosters[team_id])
         draft['replacements'] = [player_payload(p,roster_context) for p in rosters[team_id] if p.id.startswith(f'replacement-{run_seed}-{season+1}-')]
     else:
@@ -96,6 +104,9 @@ def offseason(team_id, season, run_seed, choices, dropped, prior=(), roster_cont
         draft['roster_actions'] = [{'kind':kind,'player_id':identity} for kind,identity in roster_actions]
     for other in rosters:
         if other != team_id:
+            if getattr(roster_context,'lineup_rules',1)>=23:
+                rosters[other],roster_context=guaranteed_cpu_offseason(rosters[other],other,season,run_seed,roster_context)
+                continue
             if getattr(roster_context,'lineup_rules',1) >= 20:
                 for p in tuple(rosters[other]):
                     if contract_expired(p,season+1):
@@ -132,8 +143,8 @@ def replay_career(team_id: str, run_seed: int, steps: tuple, lineup_rules: int =
         if lineup_rules >= 15:
             from .player_contracts import attach_historical_draft_contracts
             context = attach_historical_draft_contracts(context,board)
-        if not cap_ready(dict(context)[team_id],context,season+1):
-            raise ValueError(f'Clear ${ (payroll(dict(context)[team_id])-salary_cap(season+1,context.lineup_rules))/1_000_000:.2f}M in cap space before starting the next season')
+        if not cap_ready(dict(context)[team_id],context,season+1,team_id):
+            raise ValueError(f'Clear ${ (cap_payroll(dict(context)[team_id],context,season+1,team_id)-salary_cap(season+1,context.lineup_rules))/1_000_000:.2f}M in cap space before starting the next season')
         if len(dict(context)[team_id]) > roster_limit(context):
             raise ValueError(f'Finalize each past roster at {roster_limit(context)} players or fewer')
         if len(dict(context)[team_id]) < roster_minimum(context):
