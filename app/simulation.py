@@ -42,11 +42,13 @@ def roster_rules(context=()):
 
 
 def roster_fill_target(context=()):
+    """Initial roster size; legacy emergency refills also use this target."""
     return sum(target for target, _ in roster_rules(context).values())
 
 
 def roster_minimum(context=()):
-    return 35 if getattr(context, 'lineup_rules', 1) >= 14 else 31 if getattr(context, 'lineup_rules', 1) >= 13 else 0
+    rules=getattr(context,'lineup_rules',1)
+    return 31 if rules>=24 else 35 if rules>=14 else 31 if rules>=13 else 0
 
 
 def roster_limit(context=()):

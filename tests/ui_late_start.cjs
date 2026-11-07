@@ -41,7 +41,7 @@ async function checkDraftClosed(p) {
 const record=r=>`${r.wins}–${r.losses}–${r.ties}`;
 async function checks(){
  let p=page();await start(p);await checkDraftClosed(p);
- const newCareer=save(p);assert.equal(newCareer.lineupRules,23);assert.deepEqual(p.state.lastWeek.record,{wins:3,losses:13,ties:0});assert.deepEqual(p.state.weeks,[16]);
+ const newCareer=save(p);assert.equal(newCareer.lineupRules,24);assert.deepEqual(p.state.lastWeek.record,{wins:3,losses:13,ties:0});assert.deepEqual(p.state.weeks,[16]);
  q(p,'#simulate-button').click();await until(()=>save(p).week===17);
  assert.ok([3,4].includes(p.state.lastWeek.record.wins));assert.equal(p.state.lastWeek.record.ties,0);assert.match(q(p,'#gm-regular').textContent,/^(1–0–0|0–1–0)$/);
  p.dom.window.close();
@@ -146,7 +146,7 @@ async function checks(){
  assert.equal(q(p,'#career-welcome').hidden,true);assert.equal(save(p).welcomeDismissed,true);assert.equal(save(p).week,0);assert.equal(save(p).careerStartWeek,17);assert.deepEqual(save(p).history[0].gmRecord,JSON.parse(JSON.stringify(managed)));
  for(const k of ['wins','losses','ties'])assert.equal(save(p).history[0][k],full[k]);assert.equal(q(p,'#gm-regular').textContent,record(managed));assert.equal(q(p,'#career-start-note').hidden,true);assert.equal(q(p,'#gm-tenure-note').hidden,false);assert.match(q(p,'#owner-feedback').textContent,/first full contract season/);
  assert.match(q(p,'#contract-status').textContent,/4 years remaining.*Season 5/);assert.equal(q(p,'#simulate-button').textContent,'Simulate Week 1');assert.equal(p.d.querySelectorAll('#schedule .completed').length,0);assert.match(q(p,'#season-history-rows').textContent,/\(team /);
- assert.equal(save(p).lineupRules,23);assert.equal(p.d.querySelectorAll('#roster-groups .roster-player').length,35);
+ assert.equal(save(p).lineupRules,24);assert.equal(p.d.querySelectorAll('#roster-groups .roster-player').length,35);
  for(const row of p.d.querySelectorAll('#roster-groups .roster-player')){
   if(originalPay.has(row.dataset.playerId))assert.ok(row.querySelector('.salary-cell').textContent.startsWith(`$${(originalPay.get(row.dataset.playerId)/1000000).toFixed(2)}M/yr`),'Development never reprices an existing deal');
  }
@@ -213,16 +213,16 @@ async function checks(){
  q(p,'#playoffs-start').click();await until(()=>save(p).playoffRound===0);
  for(let round=1;round<=4;round++){q(p,'#playoff-simulate').click();await until(()=>save(p).playoffRound===round)}
  await finishOffseason(p,until);q(p,'#next-season').click();await until(()=>save(p).season===2);
- assert.equal(save(p).lineupRules,23);assert.equal(save(p).career[0].lineup_rules,11);
+ assert.equal(save(p).lineupRules,24);assert.equal(save(p).career[0].lineup_rules,11);
  const upgraded=save(p);p.dom.window.close();p=await restore(upgraded);
- assert.equal(save(p).lineupRules,23);q(p,'#simulate-button').click();await until(()=>save(p).week===1&&!q(p,'#simulate-button').disabled);
+ assert.equal(save(p).lineupRules,24);q(p,'#simulate-button').click();await until(()=>save(p).week===1&&!q(p,'#simulate-button').disabled);
  const rivals=p.state.lastWeek.standings.groups.flatMap(g=>g.teams).filter(r=>r.team.id!=='seattle');
  assert.equal(rivals.reduce((sum,r)=>sum+r.ratings.offense,0)/rivals.length,75);
  assert.equal(rivals.reduce((sum,r)=>sum+r.ratings.defense,0)/rivals.length,75);p.dom.window.close();
  // Legacy careers keep Week 1 and their original four-year deadline after autosave.
  const old={version:13,contracts:true,lineupChanges:[],teamId:'seattle',runSeed:1234,season:1,week:0,playoffRound:null,lineupRules:6,developmentStart:1,rebuildTeam:'seattle',priorStandings:{},history:[],career:[],draftChoices:null,dropped:[]};
  p=await restore(old);assert.equal(p.d.querySelectorAll('#roster-groups .roster-player').length,38);assert.match(q(p,'#roster-limit-note').textContent,/maximum: 38/);assert.equal(q(p,'#simulate-button').textContent,'Simulate Week 1');assert.match(q(p,'#contract-status').textContent,/Season 4/);assert.equal(q(p,'#career-start-note').hidden,true);
- q(p,'#simulate-button').click();await until(()=>save(p).week===1&&!q(p,'#simulate-button').disabled);assert.equal(save(p).careerStartWeek,1);assert.equal(save(p).version,33);
+ q(p,'#simulate-button').click();await until(()=>save(p).week===1&&!q(p,'#simulate-button').disabled);assert.equal(save(p).careerStartWeek,1);assert.equal(save(p).version,34);
  const oldSaved=raw(p);p.state.failStart=true;q(p,'#change-team-button').click();q(p,'#team-select').value='seattle';q(p,'#team-form').dispatchEvent(new p.w.Event('submit',{cancelable:true}));await until(()=>!q(p,'#error').hidden);assert.equal(raw(p),oldSaved);assert.equal(save(p).careerStartWeek,1);p.dom.window.close();
  for(const input of [{...renewedCheckpoint,rosterActions:[...renewedCheckpoint.rosterActions,{kind:'drop',player_id:'unknown'}]},{...inherited,week:0},{...inherited,careerStartWeek:16},{...yearTwo,history:yearTwo.history.map(({gmRecord,...entry})=>entry)}]){
   p=page(input);await until(()=>/could not be read/.test(q(p,'#save-status').textContent));assert.equal(raw(p),JSON.stringify(input));p.dom.window.close();
@@ -243,7 +243,7 @@ async function checks(){
  p=await restore(signedCamp);assert.equal(raw(p),JSON.stringify(signedCamp));
  assert.ok([...p.d.querySelectorAll('#roster-groups .salary-cell')].every(cell=>!/Provisional/.test(cell.textContent)));
  assert.equal(q(p,'#training-camp-status').hidden,false);q(p,'#next-season').click();await until(()=>save(p).season===2);
- assert.equal(save(p).lineupRules,23);assert.equal(save(p).career[0].lineup_rules,18);
+ assert.equal(save(p).lineupRules,24);assert.equal(save(p).career[0].lineup_rules,18);
  assert.ok([...p.d.querySelectorAll('#roster-groups .salary-cell')].every(cell=>!/Provisional/.test(cell.textContent)));p.dom.window.close();
  // Rules-20 market migration: untouched contracts survive, accepted old quotes
  // stay on the old market until rollover, and reading never rewrites a save.
