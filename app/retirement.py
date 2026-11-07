@@ -1,7 +1,7 @@
 """Rules 10: seeded retirements and low-quality offseason roster fillers."""
 from collections import Counter
 import random
-from .simulation import Player, ranked_players, _run_number, roster_rules, roster_fill_target
+from .simulation import Player, ranked_players, _run_number, roster_rules, roster_fill_target, roster_minimum
 from .attributes import generate_attributes
 from .names import FIRST_NAMES, LAST_NAMES
 
@@ -24,11 +24,14 @@ def retirement_payload(player):
 
 
 def fill_roster(players, owner, season, seed, excluded=(), context=(), identity_suffix=""):
-    """Fill minimums, then vacancies toward initial targets, without filling optional bench capacity.
+    """Fill required positions, then vacancies toward the versioned total target.
 
     Minimums can require temporary oversizing after an imbalanced draft; normal
     cuts still apply. Excluded IDs prevent released fillers from returning.
     """
+    # New leagues still start at 35; later emergency fills target the legal
+    # floor, so intentional cuts to 31 never refill the optional bench.
+    fill_target=roster_minimum(context) if getattr(context,'lineup_rules',1)>=24 else roster_fill_target(context)
     remaining = list(players)
     ids = {p.id for p in remaining} | set(excluded)
     names = {p.name for p in remaining}
@@ -36,7 +39,7 @@ def fill_roster(players, owner, season, seed, excluded=(), context=(), identity_
     for minimum_only in (True, False):
         for position,(target,minimum) in roster_rules(context).items():
             needed = max(0,(minimum if minimum_only else target)-counts[position])
-            if not minimum_only: needed = min(needed,max(0,roster_fill_target(context)-len(remaining)))
+            if not minimum_only: needed = min(needed,max(0,fill_target-len(remaining)))
             for _ in range(needed):
                 index = 1
                 identity = f'replacement-{seed}-{season+1}-{owner}-{position}{identity_suffix}-{index}'
