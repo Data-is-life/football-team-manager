@@ -190,7 +190,7 @@ def advance_context(context, run_seed, season, development_start=1, lineup_rules
     if rebuild_team is None and current_rules >= 3:
         rebuild_team = context.rebuild_team
     lineup_rules = lineup_rules if lineup_rules is not None else max(3, current_rules)
-    if lineup_rules not in (3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24) or current_rules > lineup_rules:
+    if lineup_rules not in (3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25) or current_rules > lineup_rules:
         raise ValueError('Invalid development rules')
     if not 1 <= development_start <= season <= 999:
         raise ValueError('Invalid development season')
@@ -226,6 +226,9 @@ def advance_context(context, run_seed, season, development_start=1, lineup_rules
         if lineup_rules >= 15:
             from .player_contracts import signed_rosters
             rosters = signed_rosters(rosters,development_start,lineup_rules)
+            if lineup_rules>=25 and rebuild_team is not None:
+                from .player_contracts import inherited_payroll
+                rosters=inherited_payroll(rosters,rebuild_team,run_seed,development_start)
         states = tuple(sorted((p.id,initial_state(p,run_seed,lineup_rules >= 9)) for _,players in rosters for p in players))
         context = DevelopmentContext(rosters,max(1,development_start-1),run_seed,states,lineup_rules,rebuild_team)
         if lineup_rules >= 5 and development_start == 1:

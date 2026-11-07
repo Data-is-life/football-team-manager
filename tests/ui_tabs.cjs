@@ -495,9 +495,16 @@ async function checkUI() {
   assert.equal(d.querySelector('#gm-regular').textContent,'0–0–0');
   assert.equal(d.querySelector('#roster-ratings-button').getAttribute('aria-pressed'),'true');
   assert.equal(d.querySelector('#roster-competition').value,'regular');
-  const freshProfile=await (await fetch(base+`/api/team/seattle?run_seed=${fixtureSeed+2}&lineup_rules=15&rebuild_team=seattle`)).json();
+  const freshProfile=await (await fetch(base+`/api/team/seattle?run_seed=${fixtureSeed+2}&lineup_rules=25&rebuild_team=seattle`)).json();
   const oldSeattle=await (await fetch(base+`/api/team/seattle?run_seed=${fixtureSeed}`)).json();
   checkRatings(freshProfile);
+  assert.equal(freshProfile.roster.reduce((total,p)=>total+p.contract.annual_salary,0),freshProfile.payroll.total);
+  assert.ok(freshProfile.payroll.total>=freshProfile.payroll.floor&&freshProfile.payroll.total<=freshProfile.payroll.cap);
+  assert.equal(freshProfile.payroll.below_floor,0);
+  const badDeals=freshProfile.roster.filter(p=>p.contract.category==='inherited_bad');
+  assert.equal(badDeals.length,3);assert.ok(badDeals.every(p=>p.current_rating<70&&p.contract.fully_guaranteed));
+  assert.ok(d.querySelector('#payroll-status').textContent.includes('Season 1 payroll $'+(freshProfile.payroll.total/1e6).toFixed(2)+'M'));
+
   assert.notDeepEqual(freshProfile.roster.map(player=>player.name),oldSeattle.roster.map(player=>player.name));
   assert.deepEqual([...d.querySelectorAll('#roster-groups .roster-player')].map(row=>row.children[1].firstChild.textContent),freshProfile.roster.map(player=>player.name));
   assert.equal(d.querySelector('#offense-rating').textContent,String(freshProfile.ratings.offense));
@@ -521,7 +528,7 @@ async function checkUI() {
   d.querySelector('#simulate-button').click();
   await until(()=>d.querySelector('#simulate-button').textContent==='Regular season complete');
   assert.equal(usedSeeds.at(-1),fixtureSeed+2);
-  const freshGame=await (await fetch(base+`/api/season/seattle/week/17?run_seed=${fixtureSeed+2}&lineup_rules=24&rebuild_team=seattle`)).json();
+  const freshGame=await (await fetch(base+`/api/season/seattle/week/17?run_seed=${fixtureSeed+2}&lineup_rules=25&rebuild_team=seattle`)).json();
   assert.equal(d.querySelector('#season-record').textContent,`${freshGame.record.wins}–${freshGame.record.losses}${freshGame.record.ties?`–${freshGame.record.ties}`:''}`);
   assert.equal(d.querySelector('#schedule .game-final').textContent,`${freshGame.game_results[0].outcome} · ${freshGame.game_results[0].team_score}–${freshGame.game_results[0].opponent_score}${freshGame.game_results[0].overtime?' · OT':''}`);
   if(index===0) {

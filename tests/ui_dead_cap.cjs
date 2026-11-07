@@ -17,7 +17,7 @@ async function checks(){
  const request={season:1,run_seed:1234,lineup_rules:24,rebuild_team:'seattle',draft_rounds:6};
  const draft=await api({...request,action:'draft',auto_draft:true});
  const camp=await api({...request,action:'camp',manual_picks:draft.manual_picks});
- const checkpoint={version:34,welcomeDismissed:true,ownerUpdateDismissed:0,draftRounds:6,careerStartWeek:17,lineupChanges:[],contracts:false,teamId:'seattle',runSeed:1234,season:1,week:17,lineupRules:24,developmentStart:1,rebuildTeam:'seattle',priorStandings:{},history:[],draftChoices:draft.manual_picks,dropped:[],career:[],playoffRound:4,trainingCamp:true};
+ const checkpoint={version:35,welcomeDismissed:true,ownerUpdateDismissed:0,draftRounds:6,careerStartWeek:17,lineupChanges:[],contracts:false,teamId:'seattle',runSeed:1234,season:1,week:17,lineupRules:24,developmentStart:1,rebuildTeam:'seattle',priorStandings:{},history:[],draftChoices:draft.manual_picks,dropped:[],career:[],playoffRound:4,trainingCamp:true};
  let p=await page(checkpoint);const player=camp.profile.roster.find(v=>v.position==='K'&&v.contract?.status==='active') ?? camp.profile.roster.find(v=>v.contract?.status==='active');
  q(p,'#view-roster').click();q(p,'#roster-ratings-button').click();
  const before=raw(p),initialPay=camp.profile.payroll.total;
