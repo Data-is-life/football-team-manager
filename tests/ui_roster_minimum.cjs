@@ -28,7 +28,7 @@ async function checks(){
   const button=q(p,'#roster-groups [data-drop-id]:not([disabled])');assert.ok(button);firstRelease??=button.dataset.dropId;
   button.click();q(p,'#cut-confirm').click();await until(()=>save(p).dropped.length===drops+1);
   assert.equal(count(p),before-1,'A surplus cut cannot refill the optional bench');
-  assert.equal(save(p).lineupRules,24);assert.equal(save(p).version,35);
+  assert.equal(save(p).lineupRules,24);assert.equal(save(p).version,36);
  }
  assert.match(q(p,'#cut-count').textContent,/31\/38 players \(minimum 31\).*No more cuts needed/);
  assert.ok([...p.d.querySelectorAll('#roster-groups [data-drop-id]')].every(b=>b.disabled));
