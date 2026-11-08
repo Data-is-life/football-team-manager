@@ -15,7 +15,7 @@ from .leaders import league_leaders
 from .simulation import roster_for, simulate_through_week, team_ratings, roster_rules, roster_limit, roster_minimum
 from .attributes import ATTRIBUTE_INFO, attribute_keys
 from .ratings import rating_payload
-from .player_contracts import public_player_fields, payroll_payload, cap_ready, pending_renewals, release_preview
+from .player_contracts import public_player_fields, payroll_payload, cap_ready, pending_renewals, release_preview, payroll_breakdown
 from .lineups import lineup_context, replace_lineup_rosters
 from .simulation import ranked_players
 from .draft import build_draft
@@ -79,6 +79,7 @@ def profile_payload(team_id, players, run_seed, roster_context=(), preferred=(),
         }} for player in players],
         "roster_stats": aggregate_player_stats(players, []),
         **payroll_payload(players,roster_context,payroll_season,team_id),
+        **payroll_breakdown(players,roster_context,payroll_season,team_id),
         **({"roster_limits": {"minimum": roster_minimum(roster_context), "maximum": roster_limit(roster_context)}} if getattr(roster_context,"lineup_rules",1) >= 13 else {}),
         "roster_rules": [
             {"position": position, "initial": initial, "minimum": minimum,

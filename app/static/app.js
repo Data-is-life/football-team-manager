@@ -1710,9 +1710,64 @@ function capOverage() {
 function renderPayroll() {
   const status = document.querySelector("#payroll-status"), pay = rosterProfile?.payroll;
   status.hidden = !pay;
+  renderPayrollBreakdown();
   if (!pay) { status.textContent = ""; return; }
   const money = amount => `$${(amount / 1000000).toFixed(2)}M`;
   status.textContent = `${pay.season ? `Season ${pay.season} payroll` : "Payroll"} ${money(pay.total)} / ${money(pay.cap)} cap${pay.rookie_holds || pay.expired_holds ? ` (${money(pay.committed)} signed${pay.rookie_holds ? ` + ${money(pay.rookie_holds)} rookie holds` : ""}${pay.expired_holds ? ` + ${money(pay.expired_holds)} expired holds` : ""})` : ""}${pay.dead_cap ? ` · ${money(pay.dead_cap)} dead cap` : ""} · ${pay.over_cap ? `${money(pay.over_cap)} over cap; clear space before next season` : `${money(pay.cap_space)} available`}${pay.below_floor ? ` · ${money(pay.below_floor)} below payroll floor (warning only)` : ""}`;
+}
+
+function renderPayrollBreakdown() {
+  const panel = document.querySelector("#payroll-breakdown");
+  const content = document.querySelector("#payroll-breakdown-content");
+  const detail = rosterProfile?.payroll_breakdown, pay = rosterProfile?.payroll;
+  const owner = rosterProfile?.team.id;
+  const sameOwner = panel.dataset.owner === owner;
+  const openGroups = sameOwner ? new Set([...content.querySelectorAll("details[open]")].map(group => group.dataset.kind)) : new Set();
+  if (!sameOwner) panel.open = false;
+  panel.dataset.owner = owner ?? "";
+  content.replaceChildren();
+  panel.hidden = !detail || !pay;
+  if (panel.hidden) { panel.open = false; return; }
+  panel.querySelector("summary").textContent = `Payroll breakdown · Season ${detail.season}`;
+  const money = amount => `${amount < 0 ? "−" : ""}$${(Math.abs(amount)/1e6).toFixed(2)}M`;
+  const budget = document.createElement("dl"); budget.className = "payroll-budget";
+  for (const [label, amount] of [["Salary cap",pay.cap],["Total cap usage",pay.total],
+    [pay.cap_space < 0 ? "Over cap" : "Cap space available",Math.abs(pay.cap_space)],
+    ["Payroll floor",pay.floor],["Floor-eligible payroll",detail.floor_payroll]]) {
+    const pair = document.createElement("div"); const term = document.createElement("dt"), value = document.createElement("dd");
+    term.textContent = label; value.textContent = money(amount); pair.append(term,value); budget.append(pair);
+  }
+  content.append(budget);
+  const note = document.createElement("p"); note.className = "roster-note";
+  note.textContent = pay.below_floor ? `${money(pay.below_floor)} below the floor · warning only.` : "Payroll floor met.";
+  content.append(note);
+  const labels = {signed:"Signed salaries",rookie_holds:"Unsigned rookie holds",expired_holds:"Expired-contract holds",dead_cap:"Dead cap"};
+  for (const category of detail.categories) {
+    const group = document.createElement("details"); group.dataset.kind = category.kind;
+    group.open = openGroups.has(category.kind);
+    const summary = document.createElement("summary");
+    summary.textContent = `${labels[category.kind]} · ${category.players.length} ${category.kind === "dead_cap" ? "charges" : "players"} · ${money(category.total)}`;
+    group.append(summary);
+    if (!category.players.length) {
+      const empty = document.createElement("p"); empty.textContent = "None this season."; group.append(empty);
+    } else {
+      const wrap = document.createElement("div"); wrap.className = "payroll-table-wrap";
+      wrap.tabIndex = 0; wrap.setAttribute("role","region"); wrap.setAttribute("aria-label",`${labels[category.kind]} player details`);
+      const table = document.createElement("table");
+      table.createCaption().textContent = `${labels[category.kind]} · Season ${detail.season} cap amounts`;
+      const header = table.createTHead().insertRow();
+      for (const label of ["Player","Position","Cap amount",category.kind === "expired_holds" ? "Contract ended" : "Through season"]) {
+        const th = document.createElement("th"); th.scope = "col"; th.textContent = label; header.append(th);
+      }
+      const body = table.createTBody();
+      for (const player of category.players) {
+        const row = body.insertRow(); row.dataset.payrollPlayerId = player.player_id;
+        for (const value of [player.name,player.position ?? "—",money(player.amount),`Season ${player.expires_after_season}`]) row.insertCell().textContent = value;
+      }
+      wrap.append(table); group.append(wrap);
+    }
+    content.append(group);
+  }
 }
 
 function pendingRenewals() {
