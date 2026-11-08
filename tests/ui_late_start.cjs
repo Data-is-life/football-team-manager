@@ -41,7 +41,7 @@ async function checkDraftClosed(p) {
 const record=r=>`${r.wins}–${r.losses}–${r.ties}`;
 async function checks(){
  let p=page();await start(p);await checkDraftClosed(p);
- const newCareer=save(p);assert.equal(newCareer.lineupRules,26);assert.deepEqual(p.state.lastWeek.record,{wins:3,losses:13,ties:0});assert.deepEqual(p.state.weeks,[16]);
+ const newCareer=save(p);assert.equal(newCareer.lineupRules,27);assert.deepEqual(p.state.lastWeek.record,{wins:3,losses:13,ties:0});assert.deepEqual(p.state.weeks,[16]);
  q(p,'#simulate-button').click();await until(()=>save(p).week===17);
  assert.ok([3,4].includes(p.state.lastWeek.record.wins));assert.equal(p.state.lastWeek.record.ties,0);assert.match(q(p,'#gm-regular').textContent,/^(1–0–0|0–1–0)$/);
  p.dom.window.close();
@@ -147,7 +147,7 @@ async function checks(){
  assert.equal(q(p,'#career-welcome').hidden,true);assert.equal(save(p).welcomeDismissed,true);assert.equal(save(p).week,0);assert.equal(save(p).careerStartWeek,17);assert.deepEqual(save(p).history[0].gmRecord,JSON.parse(JSON.stringify(managed)));
  for(const k of ['wins','losses','ties'])assert.equal(save(p).history[0][k],full[k]);assert.equal(q(p,'#gm-regular').textContent,record(managed));assert.equal(q(p,'#career-start-note').hidden,true);assert.equal(q(p,'#gm-tenure-note').hidden,false);assert.match(q(p,'#owner-feedback').textContent,/first full contract season/);
  assert.match(q(p,'#contract-status').textContent,/4 years remaining.*Season 5/);assert.equal(q(p,'#simulate-button').textContent,'Simulate Week 1');assert.equal(p.d.querySelectorAll('#schedule .completed').length,0);assert.match(q(p,'#season-history-rows').textContent,/\(team /);
- assert.equal(save(p).lineupRules,26);assert.equal(p.d.querySelectorAll('#roster-groups .roster-player').length,35);
+ assert.equal(save(p).lineupRules,27);assert.equal(p.d.querySelectorAll('#roster-groups .roster-player').length,35);
  for(const row of p.d.querySelectorAll('#roster-groups .roster-player')){
   if(originalPay.has(row.dataset.playerId))assert.ok(row.querySelector('.salary-cell').textContent.startsWith(`$${(originalPay.get(row.dataset.playerId)/1000000).toFixed(2)}M/yr`),'Development never reprices an existing deal');
  }
@@ -178,14 +178,15 @@ async function checks(){
  const demandData=await p.w.careerRequest('cuts',{manual_picks:save(p).draftChoices,dropped:save(p).dropped});
  const demanded=demandData.profile.roster.find(v=>v.id===renewalId);
  assert.equal(demanded.renewal_offer.demand_rating,(demanded.current_rating+demanded.potential_rating)/2);
- assert.equal(q(p,'#salary-demand-guide').hidden,false);assert.match(q(p,'#salary-demand-guide').textContent,/current rating \+ potential rating/);
- renewButton.click();assert.ok(q(p,'#cut-confirm-text').textContent.includes(`average ${demanded.renewal_offer.demand_rating}`));assert.match(q(p,'#cut-confirm-text').textContent,/Re-sign .* for \$[0-9.]+M\/year, [2345] years, starting Season 3/);
+ assert.equal(q(p,'#salary-curve-guide').hidden,false);assert.equal(q(p,'#salary-demand-guide').hidden,false);assert.match(q(p,'#salary-demand-guide').textContent,/current rating \+ potential rating/);
+ renewButton.click();assert.ok(q(p,'#cut-confirm-text').textContent.includes(`$${(demanded.renewal_offer.annual_salary/1e6).toFixed(2)}M/year`));assert.ok(q(p,'#cut-confirm-text').textContent.includes(`average ${demanded.renewal_offer.demand_rating}`));assert.match(q(p,'#cut-confirm-text').textContent,/Re-sign .* for \$[0-9.]+M\/year, [2345] years, starting Season 3/);
  assert.equal(q(p,'#cut-confirm').textContent,'Confirm re-sign');q(p,'#cut-cancel').click();assert.equal(raw(p),beforeRenew);
  q(p,`[data-resign-id="${renewalId}"]`).click();p.state.failRenew=true;q(p,'#cut-confirm').click();await until(()=>!q(p,'#cut-error').hidden&&!q(p,'#cut-confirm').disabled);
  assert.equal(raw(p),beforeRenew);assert.match(q(p,'#cut-error').textContent,/temporarily unavailable/);p.state.failRenew=false;
  const renewCalls=p.state.renewCalls,actionCount=save(p).rosterActions?.length??0;
  q(p,'#cut-confirm').click();q(p,'#cut-confirm').click();assert.equal(p.state.renewCalls,renewCalls+1);
  await until(()=>(save(p).rosterActions?.length??0)===actionCount+1);
+ const acceptedCurve=await p.w.careerRequest('cuts',{manual_picks:save(p).draftChoices,dropped:save(p).dropped});assert.equal(acceptedCurve.profile.roster.find(v=>v.id===renewalId).contract.annual_salary,demanded.renewal_offer.annual_salary);
  const renewedRow=q(p,`#roster-groups [data-player-id="${renewalId}"]`);assert.equal(renewedRow.querySelector('[data-resign-id]'),null);assert.doesNotMatch(renewedRow.querySelector('.salary-cell').textContent,/Contract expired/);
  const renewedText=renewedRow.textContent,renewedCheckpoint=save(p);p.dom.window.close();p=await restore(renewedCheckpoint);
  assert.equal(raw(p),JSON.stringify(renewedCheckpoint));assert.equal(q(p,`#roster-groups [data-player-id="${renewalId}"]`).textContent,renewedText);
@@ -219,16 +220,16 @@ async function checks(){
  q(p,'#playoffs-start').click();await until(()=>save(p).playoffRound===0);
  for(let round=1;round<=4;round++){q(p,'#playoff-simulate').click();await until(()=>save(p).playoffRound===round)}
  await finishOffseason(p,until);q(p,'#next-season').click();await until(()=>save(p).season===2);
- assert.equal(save(p).lineupRules,26);assert.equal(save(p).career[0].lineup_rules,11);
+ assert.equal(save(p).lineupRules,27);assert.equal(save(p).career[0].lineup_rules,11);
  const upgraded=save(p);p.dom.window.close();p=await restore(upgraded);
- assert.equal(save(p).lineupRules,26);q(p,'#simulate-button').click();await until(()=>save(p).week===1&&!q(p,'#simulate-button').disabled);
+ assert.equal(save(p).lineupRules,27);q(p,'#simulate-button').click();await until(()=>save(p).week===1&&!q(p,'#simulate-button').disabled);
  const rivals=p.state.lastWeek.standings.groups.flatMap(g=>g.teams).filter(r=>r.team.id!=='seattle');
  assert.equal(rivals.reduce((sum,r)=>sum+r.ratings.offense,0)/rivals.length,75);
  assert.equal(rivals.reduce((sum,r)=>sum+r.ratings.defense,0)/rivals.length,75);p.dom.window.close();
  // Legacy careers keep Week 1 and their original four-year deadline after autosave.
  const old={version:13,contracts:true,lineupChanges:[],teamId:'seattle',runSeed:1234,season:1,week:0,playoffRound:null,lineupRules:6,developmentStart:1,rebuildTeam:'seattle',priorStandings:{},history:[],career:[],draftChoices:null,dropped:[]};
  p=await restore(old);assert.equal(p.d.querySelectorAll('#roster-groups .roster-player').length,38);assert.match(q(p,'#roster-limit-note').textContent,/maximum: 38/);assert.equal(q(p,'#simulate-button').textContent,'Simulate Week 1');assert.match(q(p,'#contract-status').textContent,/Season 4/);assert.equal(q(p,'#career-start-note').hidden,true);
- q(p,'#simulate-button').click();await until(()=>save(p).week===1&&!q(p,'#simulate-button').disabled);assert.equal(save(p).careerStartWeek,1);assert.equal(save(p).version,36);
+ q(p,'#simulate-button').click();await until(()=>save(p).week===1&&!q(p,'#simulate-button').disabled);assert.equal(save(p).careerStartWeek,1);assert.equal(save(p).version,37);
  const oldSaved=raw(p);p.state.failStart=true;q(p,'#change-team-button').click();q(p,'#team-select').value='seattle';q(p,'#team-form').dispatchEvent(new p.w.Event('submit',{cancelable:true}));await until(()=>!q(p,'#error').hidden);assert.equal(raw(p),oldSaved);assert.equal(save(p).careerStartWeek,1);p.dom.window.close();
  for(const input of [{...renewedCheckpoint,rosterActions:[...renewedCheckpoint.rosterActions,{kind:'drop',player_id:'unknown'}]},{...inherited,week:0},{...inherited,careerStartWeek:16},{...yearTwo,history:yearTwo.history.map(({gmRecord,...entry})=>entry)}]){
   p=page(input);await until(()=>/could not be read/.test(q(p,'#save-status').textContent));assert.equal(raw(p),JSON.stringify(input));p.dom.window.close();
@@ -249,7 +250,7 @@ async function checks(){
  p=await restore(signedCamp);assert.equal(raw(p),JSON.stringify(signedCamp));
  assert.ok([...p.d.querySelectorAll('#roster-groups .salary-cell')].every(cell=>!/Provisional/.test(cell.textContent)));
  assert.equal(q(p,'#training-camp-status').hidden,false);q(p,'#next-season').click();await until(()=>save(p).season===2);
- assert.equal(save(p).lineupRules,26);assert.equal(save(p).career[0].lineup_rules,18);
+ assert.equal(save(p).lineupRules,27);assert.equal(save(p).career[0].lineup_rules,18);
  assert.ok([...p.d.querySelectorAll('#roster-groups .salary-cell')].every(cell=>!/Provisional/.test(cell.textContent)));p.dom.window.close();
  // Rules-20 market migration: untouched contracts survive, accepted old quotes
  // stay on the old market until rollover, and reading never rewrites a save.
@@ -271,7 +272,7 @@ async function checks(){
  const beforeDemand={...campCheckpoint,version:35,lineupRules:25};
  p=await restore(beforeDemand);assert.equal(raw(p),JSON.stringify(beforeDemand));
  const adoptedDemand=await p.w.careerRequest('cuts',{manual_picks:beforeDemand.draftChoices,dropped:beforeDemand.dropped});
- assert.equal(adoptedDemand.profile.lineup_rules,26);
+ assert.equal(adoptedDemand.profile.lineup_rules,27);
  for(const player of adoptedDemand.profile.roster.filter(v=>v.renewal_offer))assert.equal(player.renewal_offer.demand_rating,(player.current_rating+player.potential_rating)/2);
  p.dom.window.close();
  const acceptedBeforeDemand={...renewedCheckpoint,version:35,lineupRules:25};
@@ -282,6 +283,19 @@ async function checks(){
  p.dom.window.close();p=await restore(acceptedBeforeDemand);
  const restoredDeal=(await p.w.careerRequest('cuts',{manual_picks:acceptedBeforeDemand.draftChoices,dropped:acceptedBeforeDemand.dropped})).profile.roster.find(v=>v.id===renewalId).contract;
  assert.deepEqual(restoredDeal,preservedDeal);assert.equal(raw(p),JSON.stringify(acceptedBeforeDemand));p.dom.window.close();
+ // Unaccepted rules-26 offers may adopt the curve; accepted renewals retain 26.
+ const beforeCurve={...campCheckpoint,version:36,lineupRules:26};
+ p=await restore(beforeCurve);assert.equal(raw(p),JSON.stringify(beforeCurve));
+ const curveOffers=await p.w.careerRequest('cuts',{manual_picks:beforeCurve.draftChoices,dropped:beforeCurve.dropped});
+ assert.equal(curveOffers.profile.lineup_rules,27);assert.equal(q(p,'#salary-curve-guide').hidden,false);p.dom.window.close();
+ const acceptedBeforeCurve={...renewedCheckpoint,version:36,lineupRules:26};
+ p=await restore(acceptedBeforeCurve);assert.equal(raw(p),JSON.stringify(acceptedBeforeCurve));assert.equal(q(p,'#salary-curve-guide').hidden,true);
+ const oldCurve=await p.w.careerRequest('cuts',{manual_picks:acceptedBeforeCurve.draftChoices,dropped:acceptedBeforeCurve.dropped});
+ assert.equal(oldCurve.profile.lineup_rules,26);const oldCurveDeal=oldCurve.profile.roster.find(v=>v.id===renewalId).contract;
+ const originalCurve=await (await fetch(base+'/api/career/seattle',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'cuts',season:acceptedBeforeCurve.season,run_seed:acceptedBeforeCurve.runSeed,lineup_rules:26,rebuild_team:acceptedBeforeCurve.rebuildTeam,development_start:acceptedBeforeCurve.developmentStart,prior_standings:acceptedBeforeCurve.priorStandings,lineup_changes:acceptedBeforeCurve.lineupChanges,draft_rounds:6,career:acceptedBeforeCurve.career,training_camp:true,manual_picks:acceptedBeforeCurve.draftChoices,dropped:acceptedBeforeCurve.dropped,roster_actions:acceptedBeforeCurve.rosterActions})})).json();
+ assert.ok(originalCurve.profile,JSON.stringify(originalCurve));assert.deepEqual(oldCurveDeal,originalCurve.profile.roster.find(v=>v.id===renewalId).contract);
+ p.dom.window.close();p=await restore(acceptedBeforeCurve);assert.equal(raw(p),JSON.stringify(acceptedBeforeCurve));
+ assert.deepEqual((await p.w.careerRequest('cuts',{manual_picks:acceptedBeforeCurve.draftChoices,dropped:acceptedBeforeCurve.dropped})).profile.roster.find(v=>v.id===renewalId).contract,oldCurveDeal);p.dom.window.close();
  console.log('Late-start UI checks passed: inherited 16 games, one managed final game, GM/team record separation, four full contract seasons without intro extensions, reloads, automatic starters, mandatory draft/cuts, full Season 2, archived GM record, legacy rules, failed replacement, and invalid-save preservation.');
 }
 (async()=>{const server=spawn(process.env.PYTHON||'python',['-m','uvicorn','app.main:app','--host','127.0.0.1','--port','8779'],{cwd:root,stdio:['ignore','pipe','pipe']});let logs='';server.stdout.on('data',d=>logs+=d);server.stderr.on('data',d=>logs+=d);try{for(let i=0;;i++){if(server.exitCode!==null)throw new Error(logs);try{if((await fetch(base+'/api/teams')).ok)break}catch{}if(i===100)throw new Error(logs);await new Promise(r=>setTimeout(r,100))}await checks()}finally{server.kill()}})().catch(e=>{console.error(e);process.exitCode=1});
