@@ -2204,9 +2204,50 @@ function openCuts() {
   renderCuts();
 }
 manageRoster.addEventListener("click", openCuts);
+function releaseBlocked() {
+  return pendingRosterKind === "drop" && rosterProfile?.roster.find(p => p.id === pendingCut)?.release_preview?.allowed === false;
+}
+function showReleaseImpact(player) {
+  const area = document.querySelector("#cut-impact");
+  area.replaceChildren();
+  const preview = pendingRosterKind === "drop" ? player.release_preview : null;
+  area.hidden = !preview;
+  document.querySelector("#cut-confirm").disabled = preview?.allowed === false;
+  if (!preview) return;
+  const money = value => `${value < 0 ? "−" : ""}$${(Math.abs(value)/1e6).toFixed(2)}M`;
+  const line = (label, value) => {
+    const p = document.createElement("p");
+    const strong = document.createElement("strong"); strong.textContent = label;
+    p.append(strong, document.createTextNode(` ${value}`)); area.append(p);
+  };
+  line(`Season ${preview.season} new dead cap:`, money(preview.new_dead_cap));
+  if (preview.cap_space_change !== undefined) {
+    line(preview.cap_space_change >= 0 ? "Cap space freed:" : "Cap space change:", money(preview.cap_space_change));
+    line("Cap space after release:", money(preview.cap_space_after));
+    if (preview.replacements.length) line("Required minimum-pay replacements:", `${preview.replacements.map(p => p.position).join(", ")} · ${money(preview.replacement_cost)}/year`);
+  }
+  if (preview.dead_cap_schedule.length) {
+    const table = document.createElement("table");
+    const caption = table.createCaption(); caption.textContent = "New dead-cap charges from this release";
+    const header = table.createTHead().insertRow();
+    for (const title of ["Season", "Dead cap"]) { const th = document.createElement("th"); th.scope = "col"; th.textContent = title; header.append(th); }
+    const body = table.createTBody();
+    for (const charge of preview.dead_cap_schedule) {
+      const row = body.insertRow(); row.insertCell().textContent = `Season ${charge.season}`; row.insertCell().textContent = money(charge.amount);
+    }
+    area.append(table);
+    line("Remaining guaranteed obligation:", money(preview.total_obligation));
+    line("Signed salary remains guaranteed.", "Charges stay in their original seasons; they are not accelerated.");
+  } else {
+    line("No dead-cap penalty.", player.contract_offer ? "The unsigned rookie hold is removed." : player.renewal_offer ? "The expired-contract hold is removed." : "This career's release rules do not retain the salary.");
+  }
+  if (preview.allowed === false) line("Release unavailable:", preview.reason);
+  else if (preview.cap_space_after < 0) line("Still over cap:", `${money(-preview.cap_space_after)} after this release.`);
+}
 function cancelCut() {
   const place = captureCutPlace(pendingCut);
   pendingCut = null;
+  document.querySelector("#cut-impact").hidden = true;
   document.querySelector("#cut-confirmation").hidden = true;
   document.querySelector("#cut-error").hidden = true;
   renderCuts();
@@ -2222,17 +2263,18 @@ document.querySelector("#roster-groups").addEventListener("click", event => {
   document.querySelector("#cut-error").hidden = true;
   if (pendingRosterKind === "resign" && !player.renewal_offer) { pendingCut = null; return; }
   document.querySelector("#cut-confirm").textContent = pendingRosterKind === "resign" ? "Confirm re-sign" : "Confirm drop";
-  document.querySelector("#cut-confirm-text").textContent = pendingRosterKind === "resign" ? `Re-sign ${player.name} (${player.position}) for $${(player.renewal_offer.annual_salary/1000000).toFixed(2)}M/year, ${player.renewal_offer.years} years, starting Season ${player.renewal_offer.starts_season}? ${player.renewal_offer.demand_rating !== undefined ? `Priced from ${player.current_rating} current / ${player.potential_rating} potential (average ${player.renewal_offer.demand_rating}). ` : ""}Final payroll must fit the cap before continuing.` : `Drop ${player.name} (${player.position})? This removes the player from your next-season roster.${activeLineupRules >= 23 && player.contract?.years_remaining > 0 ? ` Remaining signed salary stays on the cap through Season ${player.contract.expires_after_season}.` : ""}${capOverage() || activeLineupRules >= 23 ? ` Any vacancy receives a weak ${replacementPay()} replacement to preserve minimums.` : ""}`;
+  document.querySelector("#cut-confirm-text").textContent = pendingRosterKind === "resign" ? `Re-sign ${player.name} (${player.position}) for $${(player.renewal_offer.annual_salary/1000000).toFixed(2)}M/year, ${player.renewal_offer.years} years, starting Season ${player.renewal_offer.starts_season}? ${player.renewal_offer.demand_rating !== undefined ? `Priced from ${player.current_rating} current / ${player.potential_rating} potential (average ${player.renewal_offer.demand_rating}). ` : ""}Final payroll must fit the cap before continuing.` : `Drop ${player.name} (${player.position})? This removes the player from your next-season roster.${!player.release_preview && activeLineupRules >= 23 && player.contract?.years_remaining > 0 ? ` Remaining signed salary stays on the cap through Season ${player.contract.expires_after_season}.` : ""}${!player.release_preview && (capOverage() || activeLineupRules >= 23) ? ` Any vacancy receives a weak ${replacementPay()} replacement to preserve minimums.` : ""}`;
+  showReleaseImpact(player);
   cutConfirmation.hidden = false;
   renderCuts();
   // Confirmation is now beside the chosen player, not above the whole roster.
-  document.querySelector("#cut-confirm").focus({ preventScroll: true });
+  document.querySelector(releaseBlocked() ? "#cut-cancel" : "#cut-confirm").focus({ preventScroll: true });
   const bottom = cutConfirmation.getBoundingClientRect().bottom;
   if (bottom > window.innerHeight) window.scrollTo({ left: window.scrollX,
     top: window.scrollY + bottom - window.innerHeight + 16, behavior: "instant" });
 });
 document.querySelector("#cut-confirm").addEventListener("click", async () => {
-  if (careerEnded() || !pendingCut || cutBusy || advancingSeason || !draftState?.complete || (activeLineupRules >= 18 && !activeTrainingCamp) || (pendingRosterKind === "drop" && rosterProfile.roster.length <= rosterMinimum() && !capOverage() && activeLineupRules < 23)) return;
+  if (releaseBlocked() || careerEnded() || !pendingCut || cutBusy || advancingSeason || !draftState?.complete || (activeLineupRules >= 18 && !activeTrainingCamp) || (pendingRosterKind === "drop" && rosterProfile.roster.length <= rosterMinimum() && !capOverage() && activeLineupRules < 23)) return;
   cutBusy = true;
   document.querySelector("#cut-confirm").disabled = true;
   document.querySelector("#cut-cancel").disabled = true;
@@ -2258,7 +2300,7 @@ document.querySelector("#cut-confirm").addEventListener("click", async () => {
     document.querySelector("#cut-error").hidden = false;
   } finally {
     cutBusy = false;
-    document.querySelector("#cut-confirm").disabled = false;
+    document.querySelector("#cut-confirm").disabled = releaseBlocked();
     document.querySelector("#cut-cancel").disabled = false;
     document.querySelector("#change-team-button").disabled = false;
     updateOffseasonActions();

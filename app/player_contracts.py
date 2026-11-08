@@ -333,6 +333,48 @@ def cap_release(players, identity, owner, season, seed, context, excluded):
                        excluded,context=context)
 
 
+def release_preview(players, player, owner, season, seed, context):
+    """Read-only projection using the same release/refill and cap rules as cuts.
+
+    Replacement identities are deliberately omitted: prior cuts can change their
+    generated IDs, but their position and minimum-pay obligations are identical.
+    """
+    from .career import drop_players
+    from .retirement import fill_roster
+    from .simulation import roster_minimum
+    before = payroll_payload(players,context,season,owner)['payroll']
+    charged = record_release(context,owner,player,season)
+    schedule = []
+    if context.lineup_rules >= 23 and player.contract is not None:
+        terms = player.contract
+        schedule = [{'season': year, 'amount': terms.annual_salary}
+                    for year in range(max(season,terms.signed_season),terms.signed_season+terms.years)]
+    preview = {'allowed': True, 'season': season, 'dead_cap_schedule': schedule,
+               'new_dead_cap': dead_cap_total(charged,owner,season)-dead_cap_total(context,owner,season),
+               'total_obligation': sum(row['amount'] for row in schedule),
+               'payroll_before': before['total'], 'cap_space_before': before['cap_space'],
+               'cap': before['cap']}
+    try:
+        if context.lineup_rules >= 23 or not cap_ready(players,context,season,owner):
+            remaining = cap_release(players,player.id,owner,season-1,seed,context,(player.id,))
+        else:
+            remaining = drop_players(players,(player.id,),roster_minimum(context))
+            remaining = fill_roster(remaining,owner,season-1,seed,(player.id,),context=context)
+        after = payroll_payload(remaining,charged,season,owner)['payroll']
+        original_ids = {p.id for p in players}
+        replacements = [{'position': p.position, 'annual_salary': p.contract.annual_salary}
+                        for p in remaining if p.id not in original_ids]
+        preview.update(payroll_after=after['total'],cap_space_after=after['cap_space'],
+                       cap_space_change=after['cap_space']-before['cap_space'],
+                       replacements=replacements,
+                       replacement_cost=sum(p['annual_salary'] for p in replacements))
+        if context.lineup_rules >= 23 and after['committed']+after['dead_cap'] > after['cap']:
+            raise ValueError('This release cannot fit its guaranteed salary plus required replacement under the cap')
+    except ValueError as error:
+        preview.update(allowed=False,reason=str(error))
+    return preview
+
+
 def cpu_cap_cuts(players, owner, season, seed, context):
     if getattr(context,'lineup_rules',1)>=23:
         raise ValueError('Guaranteed CPU cuts require their obligation-aware offseason transaction')
