@@ -316,6 +316,32 @@ def payroll_payload(players, context, season=None, owner=None):
             **({'season':season,'minimum_salary':minimum_salary(season,rules)} if rules>=17 else {})}}
 
 
+def payroll_breakdown(players, context, season=None, owner=None):
+    """Current budget detail only; never reprice or modify a contract."""
+    if getattr(context,'lineup_rules',1) < 16:
+        return {}
+    year = context.season if season is None else season
+    owner = payroll_owner(players,context,owner)
+    categories = {key: [] for key in ('signed','rookie_holds','expired_holds','dead_cap')}
+    for player in players:
+        terms = contract_terms(player)
+        kind = ('rookie_holds' if player.rookie_offer is not None else
+                'expired_holds' if context.lineup_rules>=20 and contract_expired(player,year) else 'signed')
+        categories[kind].append({'player_id':player.id,'name':player.name,'position':player.position,
+                                'amount':terms.annual_salary,
+                                'expires_after_season':terms.signed_season+terms.years-1})
+    if context.lineup_rules>=23:
+        for charge in context.dead_cap:
+            if charge.owner==owner and charge.start_season<=year<=charge.end_season:
+                categories['dead_cap'].append({'player_id':charge.player_id,'name':charge.player_name,
+                    'position':None,'amount':charge.annual_salary,'expires_after_season':charge.end_season})
+    groups = [{'kind':key,'total':sum(p['amount'] for p in rows),
+               'players':sorted(rows,key=lambda p:(-p['amount'],p['name'],p['player_id']))}
+              for key,rows in categories.items()]
+    floor_payroll = groups[0]['total'] if context.lineup_rules>=19 else sum(g['total'] for g in groups)
+    return {'payroll_breakdown':{'season':year,'floor_payroll':floor_payroll,'categories':groups}}
+
+
 def cap_ready(players, context, season=None, owner=None):
     return getattr(context,'lineup_rules',1) < 16 or cap_payroll(players,context,season,owner) <= salary_cap(context.season if season is None else season,context.lineup_rules)
 

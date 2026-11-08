@@ -413,3 +413,15 @@ tr.selected-team td { color: var(--cyan); background: rgba(72,230,210,0.07); }
 .release-impact table { width: 100%; margin: .75rem 0; }
 .release-impact caption { text-align: left; font-weight: 600; }
 .release-impact th, .release-impact td { padding: .4rem .6rem; white-space: normal; }
+
+.payroll-breakdown { margin: .75rem 0 1rem; padding: .75rem; border: 1px solid var(--line); border-radius: .5rem; }
+.payroll-breakdown summary { cursor: pointer; font-weight: 600; padding: .45rem 0; }
+.payroll-breakdown details { border-top: 1px solid var(--line); padding: .3rem 0; }
+.payroll-budget { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: .75rem; }
+.payroll-budget dt { font-size: .9rem; }
+.payroll-budget dd { margin: .2rem 0 0; font-size: 1.1rem; font-weight: 600; }
+.payroll-table-wrap { overflow-x: auto; max-width: 100%; }
+.payroll-table-wrap:focus-visible, .payroll-breakdown summary:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+.payroll-breakdown table { width: 100%; }
+.payroll-breakdown caption { text-align: left; padding: .5rem 0; }
+.payroll-breakdown th, .payroll-breakdown td { padding: .5rem; text-align: left; }
