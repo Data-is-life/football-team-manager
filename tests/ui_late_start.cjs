@@ -125,7 +125,8 @@ async function checks(){
  const minimumProfile=(await (await fetch(base+'/api/career/seattle',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'cuts',season:1,run_seed:5678,lineup_rules:20,roster_actions:minimumSave.rosterActions??[],training_camp:true,rebuild_team:'seattle',draft_rounds:6,manual_picks:minimumSave.draftChoices,dropped:minimumSave.dropped})})).json()).profile;
  assert.ok(minimumProfile.payroll.rookie_holds>0);assert.equal(minimumProfile.payroll.total,minimumProfile.payroll.committed+minimumProfile.payroll.rookie_holds);
  assert.equal(minimumProfile.payroll.season,2);assert.equal(minimumProfile.payroll.cap,210000000);assert.equal(minimumProfile.payroll.minimum_salary,1050000);
- p.w.renderTeamProfile({...minimumProfile,payroll:{season:2,minimum_salary:1050000,total:211000000,cap:210000000,floor:168000000,cap_space:-1000000,over_cap:1000000,below_floor:0,floor_enforced:false}});
+ // Synthetic over-cap data has no matching server projection; exercise the legacy fallback.
+ p.w.renderTeamProfile({...minimumProfile,roster:minimumProfile.roster.map(({release_preview,...player})=>player),payroll:{season:2,minimum_salary:1050000,total:211000000,cap:210000000,floor:168000000,cap_space:-1000000,over_cap:1000000,below_floor:0,floor_enforced:false}});
  p.w.renderCuts();p.w.updateOffseasonActions();
  assert.match(q(p,'#payroll-status').textContent,/\$1.00M over cap/);
  assert.equal(q(p,'#next-season').hidden,true);assert.equal(q(p,'#next-season').disabled,true);

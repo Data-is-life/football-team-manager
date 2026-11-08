@@ -407,3 +407,9 @@ tr.selected-team td { color: var(--cyan); background: rgba(72,230,210,0.07); }
   #draft-prospects td:nth-child(7) { grid-area: 4 / 1 / 5 / 7; }
   #draft-prospects button { width: 100%; min-height: 48px; }
 }
+
+.release-impact { max-width: 38rem; white-space: normal; text-align: left; }
+.release-impact p { margin: .5rem 0; }
+.release-impact table { width: 100%; margin: .75rem 0; }
+.release-impact caption { text-align: left; font-weight: 600; }
+.release-impact th, .release-impact td { padding: .4rem .6rem; white-space: normal; }

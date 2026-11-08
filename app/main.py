@@ -15,7 +15,7 @@ from .leaders import league_leaders
 from .simulation import roster_for, simulate_through_week, team_ratings, roster_rules, roster_limit, roster_minimum
 from .attributes import ATTRIBUTE_INFO, attribute_keys
 from .ratings import rating_payload
-from .player_contracts import public_player_fields, payroll_payload, cap_ready, pending_renewals
+from .player_contracts import public_player_fields, payroll_payload, cap_ready, pending_renewals, release_preview
 from .lineups import lineup_context, replace_lineup_rosters
 from .simulation import ranked_players
 from .draft import build_draft
@@ -60,7 +60,7 @@ def team_profile(team_id: str, run_seed: Annotated[int, Query(ge=0, le=429496729
     return profile_payload(team_id, players, run_seed, context)
 
 
-def profile_payload(team_id, players, run_seed, roster_context=(), preferred=(), payroll_season=None):
+def profile_payload(team_id, players, run_seed, roster_context=(), preferred=(), payroll_season=None, release_previews=False):
     if preferred or getattr(roster_context, 'lineup_rules', 1) >= 2:
         players = selected_roster(players, preferred, fill=True) if preferred else tuple(players) if isinstance(roster_context, StarterPlan) else ranked_players(players)
         rosters = dict(roster_context)
@@ -72,7 +72,9 @@ def profile_payload(team_id, players, run_seed, roster_context=(), preferred=(),
         "run_seed": run_seed,
         "lineup_rules": getattr(roster_context, "lineup_rules", 1),
         **({"rebuild_team": roster_context.rebuild_team} if getattr(roster_context, "rebuild_team", None) else {}),
-        "roster": [{**public_player_fields(player,roster_context), **rating_payload(player,roster_context), "attributes": {
+        "roster": [{**public_player_fields(player,roster_context),
+            **({"release_preview": release_preview(players,player,team_id,payroll_season,run_seed,roster_context)}
+               if release_previews and getattr(roster_context,"lineup_rules",1)>=16 else {}), **rating_payload(player,roster_context), "attributes": {
             key: getattr(player.attributes, key) for key in attribute_keys(player.position)
         }} for player in players],
         "roster_stats": aggregate_player_stats(players, []),
@@ -293,7 +295,7 @@ def career_action(team_id: str, request: CareerRequest) -> dict:
                 return {**draft, 'dropped': request.dropped, 'cuts_applied': True,
                         **({'contracts_pending':pending_renewals(dict(cut_context)[team_id],cut_context)} if request.lineup_rules>=20 else {}),
                         'can_continue': not pending_renewals(dict(cut_context)[team_id],cut_context) and roster_minimum(cut_context) <= len(dict(cut_context)[team_id]) <= roster_limit(cut_context) and cap_ready(dict(cut_context)[team_id],cut_context,request.season+1,team_id),
-                        'profile': profile_payload(viewed, players, request.run_seed, cut_context, current_starters(context) if viewed == team_id and request.lineup_rules < 18 else (),payroll_season=request.season+1)}
+                        'profile': profile_payload(viewed, players, request.run_seed, cut_context, current_starters(context) if viewed == team_id and request.lineup_rules < 18 else (),payroll_season=request.season+1, release_previews=viewed == team_id)}
             draft, players = build_draft(team_id, request.season, request.run_seed,
                                         tuple(request.manual_picks), prior, context, auto_pick=request.auto_draft, draft_rounds=request.draft_rounds)
             return {**draft, 'profile': profile_payload(team_id, players, request.run_seed, context, payroll_season=request.season+1)}
