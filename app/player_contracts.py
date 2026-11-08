@@ -29,7 +29,7 @@ MARKET_SALARIES = {
 
 def market_salary(position, rating, season):
     """Interpolate market anchors, scale to the signing cap, round to $10k."""
-    rating = max(MARKET_RATINGS[0], min(MARKET_RATINGS[-1], rating))
+    rating = max(MARKET_RATINGS[0], min(MARKET_RATINGS[-1], Decimal(str(rating))))
     amounts = MARKET_SALARIES[position]
     for index, (low, high) in enumerate(zip(MARKET_RATINGS, MARKET_RATINGS[1:])):
         if rating <= high:
@@ -128,10 +128,25 @@ def starting_contract(player, season, rules=15):
     return veteran_contract(player,season,min(rules,20))
 
 
-def veteran_contract(player, season, rules=15):
+def salary_demand_rating(player, potential):
+    """Keep the exact half-point average; potential is server-derived ability."""
+    if type(potential) is not int or not 1<=potential<=99:
+        raise ValueError('A valid potential rating is required for salary demands')
+    return Decimal(player.rating+potential)/2
+
+
+def contract_potential(player, context):
+    if context is None:
+        raise ValueError('Salary demands require the player development context')
+    from .development import rating_view
+    return rating_view(player,context)['potential_rating']
+
+
+def veteran_contract(player, season, rules=15, potential=None):
     category, years = ('franchise',5) if player.rating >= 90 else ('low_rated',2) if player.rating < 70 else ('veteran',4) if player.age >= 28 else ('young',3)
     if rules >= 21:
-        salary = market_salary(player.position,player.rating,season)
+        rating=salary_demand_rating(player,potential) if rules>=26 else player.rating
+        salary = market_salary(player.position,rating,season)
     else:
         raw = Decimal(BASE_SALARIES[player.position]) * player.rating ** 2 / 75 ** 2
         salary = max(minimum_salary(season,rules),int((raw / 10_000).quantize(Decimal('1'),rounding=ROUND_HALF_UP))*10_000)
@@ -227,10 +242,13 @@ def public_player_fields(player, context=()):
     if getattr(context,'lineup_rules',1) >= 19 and player.rookie_offer is not None:
         result['contract_offer'] = rookie_offer_payload(player.rookie_offer)
     if getattr(context,'lineup_rules',1) >= 20 and contract_expired(player,context.season):
-        offer = veteran_contract(player,context.season,context.lineup_rules)
+        potential=contract_potential(player,context) if context.lineup_rules>=26 else None
+        offer = veteran_contract(player,context.season,context.lineup_rules,potential)
         result['renewal_offer'] = {'annual_salary':offer.annual_salary,'years':offer.years,
             'starts_season':offer.signed_season,'category':offer.category,
             'annual_change':offer.annual_salary-player.contract.annual_salary}
+        if context.lineup_rules>=26:
+            result['renewal_offer']['demand_rating']=float(salary_demand_rating(player,potential))
         if context.lineup_rules>=23:
             owner=payroll_owner([player],context)
             amount=cap_payroll(dict(context)[owner],context,owner=owner)
@@ -344,7 +362,8 @@ def renew_player(players, identity, season, rules, context=None, owner=None):
     if player is None: raise ValueError('Player is not on this roster')
     if not contract_expired(player,season):
         raise ValueError('Only an expired contract can be re-signed after training camp')
-    deal = veteran_contract(player,season,rules)
+    potential=contract_potential(player,context) if rules>=26 else None
+    deal = veteran_contract(player,season,rules,potential)
     updated=[replace(p,contract=deal) if p.id==identity else p for p in players]
     if rules>=23 and context is not None and not cap_ready(updated,context,season,owner):
         raise ValueError('Re-signing would exceed the salary cap. Release unsigned rookies or expired contracts first; signed salaries are fully guaranteed.')

@@ -813,3 +813,14 @@ The inherited book includes **three expensive deals for weaker bench players**: 
 Player ratings, potential, names, attributes, starter hierarchy, 3–13 inherited results and 35 starting / 31 minimum / 38 maximum roster rules are unchanged. Opponents' original contract books are unchanged; this assignment applies to the team the user inherits, not a league-wide payroll-floor enforcement change. New renewal offers, rookie slots and minimum replacements retain their existing pricing rules.
 
 New careers use rules 25/save 35. **Restoring an existing career never reprices its inherited roster.** Current saved rules are retained, and a later rollover can adopt rules 25 while its historical origin step preserves the original contract book. Initialization is the only call site for the inherited-payroll allocator; normal development, camp, refill, replay and profile requests preserve signed amounts. How to Play notes the starting payroll and costly inherited deals.
+
+
+### Current/potential salary demands (rules 26)
+
+New veteran salary offers use **(current rating + potential rating) ÷ 2** in the existing position-specific salary curve, scaled to the signing season's cap and rounded half up to $10,000, subject to that season's minimum. Keep half points: 75 current / 86 potential is priced at **80.5**, not 80 or 81. For a TE at the $200M cap, 75/85 asks $8M and 75/86 asks $8.2M; at the Season-3 $221M cap those become $8.84M and $9.06M. Equal current/potential retains the prior current-only price. Kickers use the same formula.
+
+Use the actual **post-camp displayed potential**, including that transition's development/reassessment, rather than draft-day estimates. The public renewal offer exposes its demand rating, and the inline confirmation shows current, potential and their average. How to Play explains the formula only for careers using it. User and CPU acceptance use the same price as the quote, including the existing guarantee/cap affordability checks. This shared pricing helper is available for future free agency; no free-agent flow is added here.
+
+This changes **salary demand only**. Contract lengths/categories still use current rating and age. Signed annual amounts, inherited contract books (including bad deals), rookie slot pay, minimum replacements and existing dead-cap charges remain fixed. Later development or potential changes cannot reprice a signed deal.
+
+New careers use rules 26/save 36. A rules-25 checkpoint with no accepted current-camp renewal may adopt the new offer formula without changing its roster, signed contracts, cuts or saved checkpoint. If any current-camp re-signing was already accepted, that camp keeps rules 25 through rollover so its agreed salary and any resulting dead cap replay unchanged. All completed history retains its pricing version; older inherited books are not regenerated under new-career salary rules. Reading/restoring never writes a replacement checkpoint by itself.
