@@ -27,8 +27,17 @@ MARKET_SALARIES = {
 }
 
 
-def market_salary(position, rating, season):
-    """Interpolate market anchors, scale to the signing cap, round to $10k."""
+def market_salary(position, rating, season, rules=21):
+    """Versioned market demand, signing-cap scaling and $10k rounding."""
+    if rules >= 27:
+        # Floor through 60; smoothly accelerating cubic above it. Integer powers
+        # and Decimal keep half-rating quotes and replay independent of floats.
+        ability = max(Decimal(60), min(Decimal(99), Decimal(str(rating))))
+        share = ((ability-40)**3-20**3) / Decimal(59**3-20**3)
+        floor = Decimal(minimum_salary(season,rules))
+        ceiling = Decimal(MARKET_SALARIES[position][-1]) * salary_cap(season,rules) / SALARY_CAP
+        raw = floor + (ceiling-floor)*share
+        return max(minimum_salary(season,rules),int((raw/10_000).quantize(Decimal('1'),rounding=ROUND_HALF_UP))*10_000)
     rating = max(MARKET_RATINGS[0], min(MARKET_RATINGS[-1], Decimal(str(rating))))
     amounts = MARKET_SALARIES[position]
     for index, (low, high) in enumerate(zip(MARKET_RATINGS, MARKET_RATINGS[1:])):
@@ -146,7 +155,7 @@ def veteran_contract(player, season, rules=15, potential=None):
     category, years = ('franchise',5) if player.rating >= 90 else ('low_rated',2) if player.rating < 70 else ('veteran',4) if player.age >= 28 else ('young',3)
     if rules >= 21:
         rating=salary_demand_rating(player,potential) if rules>=26 else player.rating
-        salary = market_salary(player.position,rating,season)
+        salary = market_salary(player.position,rating,season,rules)
     else:
         raw = Decimal(BASE_SALARIES[player.position]) * player.rating ** 2 / 75 ** 2
         salary = max(minimum_salary(season,rules),int((raw / 10_000).quantize(Decimal('1'),rounding=ROUND_HALF_UP))*10_000)
