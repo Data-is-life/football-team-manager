@@ -179,7 +179,7 @@ async function checks(){
  const demanded=demandData.profile.roster.find(v=>v.id===renewalId);
  assert.equal(demanded.renewal_offer.demand_rating,(demanded.current_rating+demanded.potential_rating)/2);
  assert.equal(q(p,'#salary-curve-guide').hidden,false);assert.equal(q(p,'#salary-demand-guide').hidden,false);assert.match(q(p,'#salary-demand-guide').textContent,/current rating \+ potential rating/);
- renewButton.click();assert.ok(q(p,'#cut-confirm-text').textContent.includes(`$${(demanded.renewal_offer.annual_salary/1e6).toFixed(2)}M/year`));assert.ok(q(p,'#cut-confirm-text').textContent.includes(`average ${demanded.renewal_offer.demand_rating}`));assert.match(q(p,'#cut-confirm-text').textContent,/Re-sign .* for \$[0-9.]+M\/year, [2345] years, starting Season 3/);
+ renewButton.click();assert.ok(q(p,'#cut-confirm-text').textContent.includes(`$${(demanded.renewal_offer.annual_salary/1e6).toFixed(2)}M/year`));assert.doesNotMatch(q(p,'#cut-confirm-text').textContent,/Priced from|average/i);assert.match(q(p,'#cut-confirm-text').textContent,/Re-sign .* for \$[0-9.]+M\/year, [2345] years, starting Season 3/);
  assert.equal(q(p,'#cut-confirm').textContent,'Confirm re-sign');q(p,'#cut-cancel').click();assert.equal(raw(p),beforeRenew);
  q(p,`[data-resign-id="${renewalId}"]`).click();p.state.failRenew=true;q(p,'#cut-confirm').click();await until(()=>!q(p,'#cut-error').hidden&&!q(p,'#cut-confirm').disabled);
  assert.equal(raw(p),beforeRenew);assert.match(q(p,'#cut-error').textContent,/temporarily unavailable/);p.state.failRenew=false;
