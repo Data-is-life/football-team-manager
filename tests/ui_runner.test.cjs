@@ -15,7 +15,7 @@ test('bounded workers overlap suites, retain output and run every file exactly o
   const dir=mkdtempSync(path.join(tmpdir(),'league-overlap-'));
   t.after(()=>rmSync(dir,{recursive:true,force:true}));
   const events=path.join(dir,'events');
-  const files=fixtures(t,Array.from({length:5},()=>`const fs=require('node:fs');console.log('started');fs.appendFileSync(${JSON.stringify(events)},'start\n');setTimeout(()=>{fs.appendFileSync(${JSON.stringify(events)},'end\n');console.log('finished')},150)`));
+  const files=fixtures(t,Array.from({length:5},()=>`const fs=require('node:fs');console.log('started');fs.appendFileSync(${JSON.stringify(events)},'start\\n');setTimeout(()=>{fs.appendFileSync(${JSON.stringify(events)},'end\\n');console.log('finished')},150)`));
   const completed=[];
   const result=await runSuites(files,{workers:2,onResult:r=>completed.push(r.suite)});
   assert.equal(result.passed,true);assert.deepEqual([...completed].sort(),[...files].sort());
