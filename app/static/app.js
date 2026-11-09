@@ -186,7 +186,10 @@ function readSave() {
   if (save.lineupRules === 25 && !(save.rosterActions ?? []).some(a => a?.kind === "resign")) save.lineupRules = 26;
   // Keep any accepted renewal on its original curve until the next season.
   if (save.lineupRules === 26 && !(save.rosterActions ?? []).some(a => a?.kind === "resign")) save.lineupRules = 27;
-  // CPU contract strategy changes only at the next untouched season. Preserve\n  // the replay of any offseason that is already in progress.\n  if (save.lineupRules === 27 && save.draftChoices === null) save.lineupRules = 28;\n  const validActions = (actions, dropped, rules) => Array.isArray(actions) && actions.length <= 132
+  // CPU contract strategy changes only at the next untouched season. Preserve
+  // the replay of any offseason that is already in progress.
+  if (save.lineupRules === 27 && save.draftChoices === null) save.lineupRules = 28;
+  const validActions = (actions, dropped, rules) => Array.isArray(actions) && actions.length <= 132
     && (!actions.length || rules >= 20) && actions.every(a => a && ["drop", "resign"].includes(a.kind) && typeof a.player_id === "string" && a.player_id.length > 0 && a.player_id.length <= 100)
     && (rules < 20 || JSON.stringify(actions.filter(a => a.kind === "drop").map(a => a.player_id)) === JSON.stringify(dropped));
   save.rosterActions ??= [];
