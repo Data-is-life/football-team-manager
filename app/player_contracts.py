@@ -492,6 +492,32 @@ def cpu_contract_priorities(players, context, year):
     return priorities
 
 
+
+
+def smart_cpu_roster_cuts(players, context, year):
+    """Cut surplus non-guaranteed depth before creating guaranteed dead cap."""
+    from collections import Counter
+    from .career import arrange_depth
+    from .simulation import roster_limit, roster_minimum, roster_rules, validate_roster
+    remaining = list(players)
+    minimums = {position: minimum for position, (_, minimum) in roster_rules(context).items()}
+    priorities = cpu_contract_priorities(remaining, context, year)
+    while len(remaining) > roster_limit(context):
+        counts = Counter(p.position for p in remaining)
+        eligible = [p for p in remaining if counts[p.position] > minimums[p.position]]
+        if not eligible:
+            raise ValueError('No legal CPU cut is available')
+        # A valid signed deal cannot be undone to free cap space; releasing it
+        # incurs the same amount as dead cap. Prefer unsigned/expired surplus.
+        cut = min(eligible, key=lambda p:(
+            p.contract is not None and not contract_expired(p,year),
+            priorities.get(p.id,0), -contract_terms(p).annual_salary, p.id))
+        remaining.remove(cut)
+    validate_roster(remaining,minimum_total=roster_minimum(context),
+                    maximum_total=roster_limit(context))
+    return arrange_depth(remaining)
+
+
 def smart_cpu_offseason(players, owner, season, seed, context):
     """Prioritize valuable expiring players without breaking cap guarantees."""
     from .career import cpu_cuts
@@ -500,7 +526,7 @@ def smart_cpu_offseason(players, owner, season, seed, context):
     year = season+1
     original = tuple(players)
     priorities = cpu_contract_priorities(original,context,year)
-    remaining = cpu_cuts(players,roster_limit(context),roster_minimum(context))
+    remaining = smart_cpu_roster_cuts(players,context,year)
     for p in original:
         if p.id not in {v.id for v in remaining}:
             context = record_release(context,owner,p,year)
