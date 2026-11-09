@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const {mkdtempSync,mkdirSync,writeFileSync,readFileSync,existsSync,rmSync} = require('node:fs');
 const {tmpdir} = require('node:os');
 const path = require('node:path');
-const {runSuites, discoverSuites} = require('../scripts/run-ui-tests.cjs');
+const {runSuites, discoverSuites, failedSuiteSummary} = require('../scripts/run-ui-tests.cjs');
 
 function fixtures(t, sources) {
   const dir = mkdtempSync(path.join(tmpdir(),'league-runner-'));
@@ -67,4 +67,16 @@ test('timeout also stops the suite API-server process group', {skip:process.plat
   const result=await runSuites(files,{workers:1,timeoutMs:300});
   assert.match(result.suites[0].output,/child started/);assert.equal(result.suites[0].timedOut,true);
   await new Promise(resolve=>setTimeout(resolve,700));assert.equal(existsSync(marker),false);
+});
+
+test('failure summary lists only failed suites and reports timeouts and errors',()=>{
+  const result={suites:[
+    {suite:'tests/ui_tabs.cjs',passed:true},
+    {suite:'tests/ui_save.cjs',passed:false,timedOut:false},
+    {suite:'tests/ui_draft.cjs',passed:false,timedOut:true},
+    {suite:'tests/ui_gm.cjs',passed:false,error:'spawn failed'},
+  ]};
+  assert.equal(failedSuiteSummary(result),
+    'Failed UI suites:\\n- tests/ui_save.cjs\\n- tests/ui_draft.cjs (timed out)\\n- tests/ui_gm.cjs (spawn failed)');
+  assert.equal(failedSuiteSummary({suites:result.suites.slice(0,1)}),'');
 });
