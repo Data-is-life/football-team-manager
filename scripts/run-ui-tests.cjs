@@ -47,6 +47,13 @@ async function runSuites(files, {workers = 2, timeoutMs = 300000, onResult = () 
   }
 }
 
+function failedSuiteSummary(result) {
+  const failed = result.suites.filter(suite => !suite.passed);
+  if (!failed.length) return '';
+  return 'Failed UI suites:\n' + failed.map(suite =>
+    `- ${suite.suite}${suite.timedOut ? ' (timed out)' : ''}${suite.error ? ` (${suite.error})` : ''}`).join('\n');
+}
+
 function discoverSuites(root) {
   return readdirSync(path.join(root, 'tests')).filter(file => /^ui_[a-z_]+\.cjs$/.test(file) && !file.endsWith('_helpers.cjs'))
     // Start the measured longest suite first so it does not become a tail job.
@@ -70,8 +77,11 @@ async function main() {
   }});
   if (report) writeFileSync(report, JSON.stringify(result, null, 2) + '\n');
   console.log(`\n${result.suites.filter(r => r.passed).length}/${files.length} UI suites passed in ${result.totalSeconds}s (${workers} workers)`);
-  if (!result.passed) process.exitCode = 1;
+  if (!result.passed) {
+    console.error(failedSuiteSummary(result));
+    process.exitCode = 1;
+  }
 }
 
-module.exports = {runSuites, discoverSuites};
+module.exports = {runSuites, discoverSuites, failedSuiteSummary};
 if (require.main === module) main().catch(error => { console.error(error); process.exitCode = 1; });
