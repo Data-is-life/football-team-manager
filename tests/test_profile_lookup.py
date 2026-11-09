@@ -50,7 +50,14 @@ class ProfileLookupTests(TestCase):
         self.assertEqual(total.call_count, 1)
         for old, actual in zip(expected, response['roster']):
             for key, value in old.items():
-                self.assertEqual(actual[key], value)
+                if key == 'attributes':
+                    # The public profile deliberately omits position-inapplicable
+                    # attributes that are present as None in the internal model.
+                    self.assertEqual(actual[key], {
+                        attr: value for attr, value in value.items() if value is not None
+                    })
+                else:
+                    self.assertEqual(actual[key], value)
         self.assertEqual(
             {player['id']: player['renewal_offer']['affordable']
              for player in response['roster'] if 'renewal_offer' in player},
