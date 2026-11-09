@@ -448,8 +448,106 @@ def renew_player(players, identity, season, rules, context=None, owner=None):
 
 
 
+# Marginal on-field usage by depth slot. These are roster-planning priorities,
+# not the future drive engine's unit ratings.
+CPU_SLOT_WEIGHTS = {
+    'QB': (.95, .05), 'WR': (.40, .30, .20, .10),
+    'RB': (.75, .25), 'TE': (.75, .25),
+    'OL': (.17, .17, .17, .17, .17, .10, .05),
+    'DL': (.1875, .1875, .1875, .1875, .20, .05),
+    'LB': (.25, .25, .25, .20, .05),
+    'CB': (.40, .35, .20, .05), 'S': (.50, .40, .10),
+    'K': (1.0,),
+}
+# Keep competing position groups meaningful without valuing a backup QB as
+# highly as a contributing wide receiver, corner or lineman.
+CPU_GROUP_IMPORTANCE = {
+    'QB': .25, 'WR': .23, 'RB': .13, 'TE': .12, 'OL': .27,
+    'DL': .34, 'LB': .22, 'CB': .28, 'S': .16, 'K': .08,
+}
+
+
+def cpu_contract_priorities(players, context, year):
+    """Deterministic marginal roster value per salary for CPU retention."""
+    by_position = {}
+    for p in players:
+        by_position.setdefault(p.position, []).append(p)
+    priorities = {}
+    for position, group in by_position.items():
+        group.sort(key=lambda p: (-p.rating, p.id))
+        weights = CPU_SLOT_WEIGHTS[position]
+        for index, player in enumerate(group):
+            slot = weights[index] if index < len(weights) else 0.01
+            potential = contract_potential(player, context)
+            upside = max(0, potential-player.rating)
+            ability = max(0, player.rating-50) + .20*upside
+            if contract_expired(player,year):
+                salary = veteran_contract(player,year,context.lineup_rules,potential).annual_salary
+            else:
+                salary = contract_terms(player).annual_salary
+            # Price discourages costly depth, but does not let minimum-salary
+            # backups routinely outrank indispensable starters.
+            cost = max(1, salary/1_000_000)**.30
+            priorities[player.id] = CPU_GROUP_IMPORTANCE[position]*slot*ability/cost
+    return priorities
+
+
+def smart_cpu_offseason(players, owner, season, seed, context):
+    """Prioritize valuable expiring players without breaking cap guarantees."""
+    from .career import cpu_cuts
+    from .simulation import roster_limit, roster_minimum
+    from .retirement import fill_roster
+    year = season+1
+    original = tuple(players)
+    priorities = cpu_contract_priorities(original,context,year)
+    remaining = cpu_cuts(players,roster_limit(context),roster_minimum(context))
+    for p in original:
+        if p.id not in {v.id for v in remaining}:
+            context = record_release(context,owner,p,year)
+    excluded = [p.id for p in original if p.id not in {v.id for v in remaining}]
+
+    def release(player):
+        nonlocal remaining, context
+        excluded.append(player.id)
+        remaining = cap_release(remaining,player.id,owner,season,seed,context,excluded)
+        context = record_release(context,owner,player,year)
+
+    # Only unsigned/expired holds provide relief; releasing a guaranteed deal
+    # merely converts its salary to dead cap and should not be a budget tactic.
+    while not cap_ready(remaining,context,year,owner):
+        eligible = [p for p in remaining if
+                    (p.contract is None or contract_expired(p,year))
+                    and contract_terms(p).annual_salary > minimum_salary(year,context.lineup_rules)]
+        if not eligible:
+            raise ValueError('CPU guaranteed obligations cannot fit under the salary cap')
+        release(min(eligible,key=lambda p:(priorities.get(p.id,0),-contract_terms(p).annual_salary,p.id)))
+
+    expiring = sorted((p for p in remaining if contract_expired(p,year)),
+                      key=lambda p:(-priorities.get(p.id,0),p.id))
+    for target in expiring:
+        if not any(p.id == target.id for p in remaining):
+            continue
+        while True:
+            try:
+                remaining = renew_player(remaining,target.id,year,context.lineup_rules,context,owner)
+                break
+            except ValueError:
+                # Give a valuable starter first claim on available cap before
+                # spending on less useful expiring depth.
+                lesser = [p for p in remaining if p.id != target.id
+                          and contract_expired(p,year)
+                          and priorities.get(p.id,0) < priorities.get(target.id,0)]
+                if not lesser:
+                    release(target)
+                    break
+                release(min(lesser,key=lambda p:(priorities.get(p.id,0),p.id)))
+    return remaining,context
+
+
 def guaranteed_cpu_offseason(players, owner, season, seed, context):
     """Honor obligations; only unsigned/expired holds can provide cap relief."""
+    if context.lineup_rules >= 28:
+        return smart_cpu_offseason(players,owner,season,seed,context)
     from .career import cpu_cuts
     from .simulation import roster_limit,roster_minimum
     from .retirement import fill_roster
