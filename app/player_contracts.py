@@ -492,8 +492,6 @@ def cpu_contract_priorities(players, context, year):
     return priorities
 
 
-
-
 def smart_cpu_roster_cuts(players, context, year):
     """Cut surplus non-guaranteed depth before creating guaranteed dead cap."""
     from collections import Counter
@@ -520,17 +518,15 @@ def smart_cpu_roster_cuts(players, context, year):
 
 def smart_cpu_offseason(players, owner, season, seed, context):
     """Prioritize valuable expiring players without breaking cap guarantees."""
-    from .career import cpu_cuts
-    from .simulation import roster_limit, roster_minimum
-    from .retirement import fill_roster
     year = season+1
     original = tuple(players)
     priorities = cpu_contract_priorities(original,context,year)
     remaining = smart_cpu_roster_cuts(players,context,year)
-    for p in original:
-        if p.id not in {v.id for v in remaining}:
-            context = record_release(context,owner,p,year)
-    excluded = [p.id for p in original if p.id not in {v.id for v in remaining}]
+    retained_ids = {player.id for player in remaining}
+    excluded = [player.id for player in original if player.id not in retained_ids]
+    for player in original:
+        if player.id not in retained_ids:
+            context = record_release(context,owner,player,year)
 
     def release(player):
         nonlocal remaining, context
@@ -540,10 +536,11 @@ def smart_cpu_offseason(players, owner, season, seed, context):
 
     # Only unsigned/expired holds provide relief; releasing a guaranteed deal
     # merely converts its salary to dead cap and should not be a budget tactic.
+    minimum = minimum_salary(year, context.lineup_rules)
     while not cap_ready(remaining,context,year,owner):
         eligible = [p for p in remaining if
                     (p.contract is None or contract_expired(p,year))
-                    and contract_terms(p).annual_salary > minimum_salary(year,context.lineup_rules)]
+                    and contract_terms(p).annual_salary > minimum]
         if not eligible:
             raise ValueError('CPU guaranteed obligations cannot fit under the salary cap')
         release(min(eligible,key=lambda p:(priorities.get(p.id,0),-contract_terms(p).annual_salary,p.id)))

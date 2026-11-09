@@ -29,6 +29,16 @@ class CpuContractStrategyTests(TestCase):
         self.assertGreater(scores[wr[2].id],scores[qb[1].id])
         self.assertGreater(scores[cb[2].id],scores[qb[1].id])
 
+    def test_priority_scoring_ignores_input_order_and_does_not_mutate_players(self):
+        context = lineup_context((), 1234, 28, rebuild_team='seattle')
+        roster = dict(context)['seattle']
+        original = tuple(roster)
+        forward = cpu_contract_priorities(roster, context, 1)
+        backward = cpu_contract_priorities(tuple(reversed(roster)), context, 1)
+        self.assertEqual(forward, backward)
+        self.assertEqual(tuple(roster), original)
+        self.assertEqual(set(forward), {player.id for player in roster})
+
     def test_cpu_offseason_fits_cap_and_replays_deterministically(self):
         current = replay_career('seattle',1234,(self.step,),28,2,1,'seattle')
         _,context = offseason('seattle',2,1234,self.choices,(),(),current,6,())
