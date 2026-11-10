@@ -16,8 +16,9 @@ ROUNDS = 6
 CLASS_SIZE = 200
 
 
-def player_payload(player: Player, roster_context=()) -> dict:
-    result = {**public_player_fields(player,roster_context), **rating_payload(player,roster_context)}
+def player_payload(player: Player, roster_context=(), *, rating_fields=None, development_states=None) -> dict:
+    result = {**public_player_fields(player,roster_context,development_states=development_states),
+              **(rating_fields if rating_fields is not None else rating_payload(player,roster_context,development_states))}
     result['attributes'] = {key: value for key, value in result['attributes'].items() if value is not None}
     return result
 
@@ -75,7 +76,7 @@ def draft_value(player):
     return player.rating + DRAFT_POSITION_BONUS[player.position]
 
 
-def need_aware_pick(available, current, additions, context):
+def need_aware_pick(available, current, additions, context, *, prospect_ratings=None):
     from .simulation import roster_rules
     groups = {position:[] for position in ROSTER_RULES}
     for player in current:
@@ -89,11 +90,12 @@ def need_aware_pick(available, current, additions, context):
     shortages = [p for p in available if len(groups[p.position]) < strength[p.position][2]]
     if shortages:
         available = shortages
-    states = dict(context.development)
+    states = dict(context.development) if prospect_ratings is None else None
     def key(player):
         quality, weakest, slots = strength[player.position]
         gain = max(0, player.rating-weakest)/slots
-        potential = rating_payload(player,context,states)['potential_rating']
+        view = prospect_ratings[player.id] if prospect_ratings is not None else rating_payload(player,context,states)
+        potential = view['potential_rating']
         # Measure starters rather than the full room: a weak QB2 does not
         # turn an excellent QB1 into an early-round need. Recompute after picks.
         gain_weight = .25 if player.position == 'K' else 1.5
@@ -102,10 +104,10 @@ def need_aware_pick(available, current, additions, context):
     return max(available,key=key)
 
 
-def cpu_pick(available, current, additions, retirement_rules=False, *, context=None):
+def cpu_pick(available, current, additions, retirement_rules=False, *, context=None, prospect_ratings=None):
     """Shared quality/need/repeat-position policy for CPU and user auto-picks."""
     if context is not None and context.lineup_rules >= 30:
-        return need_aware_pick(available,current,additions,context)
+        return need_aware_pick(available,current,additions,context,prospect_ratings=prospect_ratings)
     counts = dict.fromkeys(ROSTER_RULES, 0)
     totals = dict.fromkeys(ROSTER_RULES, 0)
     for player in current:
@@ -136,6 +138,11 @@ def build_draft(team_id: str, season: int, run_seed: int, choices: tuple[str, ..
     if len(set(choices)) != len(choices):
         raise ValueError('A prospect cannot be selected twice')
     prospects = draft_class(season, run_seed)
+    states = dict(roster_context.development) if getattr(roster_context,'lineup_rules',1)>=3 else None
+    # Prospect metadata is fixed for this draft; only team needs change per pick.
+    prospect_ratings = {p.id:rating_payload(p,roster_context,states) for p in prospects}
+    def payload(player):
+        return player_payload(player,roster_context,rating_fields=prospect_ratings.get(player.id),development_states=states)
     available = {player.id: player for player in prospects}
     if any(choice not in available for choice in choices):
         raise ValueError('Unknown prospect')
@@ -170,7 +177,7 @@ def build_draft(team_id: str, season: int, run_seed: int, choices: tuple[str, ..
             if owner == team_id and not auto_pick:
                 break
             if getattr(roster_context,'lineup_rules',1) >= 30:
-                prospect = cpu_pick(available.values(),rosters[owner],additions[owner],retirement_rules,context=roster_context)
+                prospect = cpu_pick(available.values(),rosters[owner],additions[owner],retirement_rules,context=roster_context,prospect_ratings=prospect_ratings)
             else:
                 prospect = cpu_pick(available.values(),rosters[owner],additions[owner],retirement_rules)
             if owner == team_id:
@@ -184,7 +191,7 @@ def build_draft(team_id: str, season: int, run_seed: int, choices: tuple[str, ..
         rosters[owner].append(signed)
         additions[owner][signed.position] = additions[owner].get(signed.position, 0) + 1
         picks.append({'overall': overall, 'round': (overall - 1) // len(order) + 1,
-                      'team': asdict(TEAM_BY_ID[owner]), 'player': player_payload(signed,roster_context)})
+                      'team': asdict(TEAM_BY_ID[owner]), 'player': payload(signed)})
     complete = len(picks) == draft_rounds * len(order)
     if retirement_rules and complete:
         from .retirement import fill_roster
@@ -199,9 +206,9 @@ def build_draft(team_id: str, season: int, run_seed: int, choices: tuple[str, ..
     return ({'season': season, 'draft_season': season + 1, 'run_seed': run_seed,
              'team': asdict(TEAM_BY_ID[team_id]), 'rounds': draft_rounds, 'total_picks': draft_rounds * len(order),
              'class_size': CLASS_SIZE, 'order': order, 'picks': picks,
-             'available': [{**player_payload(player,roster_context), 'draft_value':draft_value(player)} for player in prospects if player.id in available],
+             'available': [{**payload(player), 'draft_value':draft_value(player)} for player in prospects if player.id in available],
              'manual_picks': resolved_choices, 'complete': complete,
              **contract_preview,
              'next_pick': None if complete else len(picks) + 1,
              'next_round': None if complete else len(resolved_choices) + 1,
-             **({'retirements':retired[team_id], 'replacements':[player_payload(p,roster_context) for p in rosters[team_id] if p.id.startswith(f'replacement-{run_seed}-{season+1}-')]} if retirement_rules else {})}, rosters if return_league else rosters[team_id])
+             **({'retirements':retired[team_id], 'replacements':[payload(p) for p in rosters[team_id] if p.id.startswith(f'replacement-{run_seed}-{season+1}-')]} if retirement_rules else {})}, rosters if return_league else rosters[team_id])
