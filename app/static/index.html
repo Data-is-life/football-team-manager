@@ -43,6 +43,26 @@
 
         <div id="error" class="error" role="alert" hidden></div>
 
+        <section id="free-agency" class="selector-card" aria-labelledby="fa-title" hidden>
+          <h2 id="fa-title" tabindex="-1">Free agency</h2>
+          <p id="fa-status" role="status"></p>
+          <p>You pick first each wave. Sign one player or pass, then the other 29 teams act. Waiting lowers prices but risks losing your target. Finish resolves the remaining CPU turns and advances to next season.</p>
+          <p>Demands: 120%, 110%, 105%, 100%, then 5 percentage points less each wave, down to minimum salary. Contracts are fully guaranteed.</p>
+          <label for="fa-sort">Sort by</label>
+          <select id="fa-sort"><option value="current_rating">Current rating</option><option value="potential_rating">Potential rating</option></select>
+          <label for="fa-position">Position</label>
+          <select id="fa-position"><option value="">All positions</option><option>QB</option><option>RB</option><option>WR</option><option>TE</option><option>OL</option><option>DL</option><option>LB</option><option>CB</option><option>S</option><option>K</option></select>
+          <div class="table-wrap" tabindex="0" role="region" aria-label="Available free agents"><table>
+            <caption>Available players · Annual salary demands</caption>
+            <thead><tr><th>Name</th><th>Position</th><th>Age</th><th>Current</th><th>Potential</th><th>Salary/year</th><th>Term</th><th>Action</th></tr></thead>
+            <tbody id="fa-players"></tbody></table></div>
+          <p id="fa-empty" hidden>No available players match this position.</p>
+          <button id="fa-pass" type="button">Pass to next wave</button>
+          <button id="fa-finish" type="button">Finish free agency</button>
+          <p id="fa-error" role="alert" hidden></p>
+          <details><summary>League turns and signings</summary><p id="fa-order"></p><p id="fa-log"></p></details>
+        </section>
+
         <section id="schedule-section" class="schedule-section" hidden>
           <div class="schedule-heading">
             <div>

@@ -287,7 +287,7 @@ def payroll(players):
 
 def rookie_offer_payload(offer):
     return {'annual_salary':offer.annual_salary,'years':offer.years,
-            'category':'rookie','draft_round':offer.draft_round,'overall_pick':offer.overall_pick,
+            'category':offer.category,'draft_round':offer.draft_round,'overall_pick':offer.overall_pick,
             'starts_season':offer.signed_season,'status':'provisional'}
 
 
@@ -298,7 +298,9 @@ def sign_retained_rookies(context, season):
         if player.contract is not None or player.rookie_offer.signed_season != season:
             raise ValueError('Rookie signing must match the upcoming playing season')
         offer = player.rookie_offer
-        if offer != rookie_contract(offer.draft_round,offer.overall_pick,season,context.lineup_rules):
+        emergency = (context.lineup_rules >= 29 and player.id.startswith('replacement-')
+                     and offer == starting_contract(player,season,context.lineup_rules))
+        if not emergency and offer != rookie_contract(offer.draft_round,offer.overall_pick,season,context.lineup_rules):
             raise ValueError('Rookie offer must match its recorded draft slot')
         return replace(player,contract=offer,rookie_offer=None)
     return replace(context,rosters=tuple((owner,tuple(sign(p) for p in players)) for owner,players in context))
@@ -398,13 +400,15 @@ def release_preview(players, player, owner, season, seed, context):
             remaining = fill_roster(remaining,owner,season-1,seed,(player.id,),context=context)
         after = payroll_payload(remaining,charged,season,owner)['payroll']
         original_ids = {p.id for p in players}
-        replacements = [{'position': p.position, 'annual_salary': p.contract.annual_salary}
+        replacements = [{'position': p.position, 'annual_salary': contract_terms(p).annual_salary}
                         for p in remaining if p.id not in original_ids]
         preview.update(payroll_after=after['total'],cap_space_after=after['cap_space'],
                        cap_space_change=after['cap_space']-before['cap_space'],
                        replacements=replacements,
                        replacement_cost=sum(p['annual_salary'] for p in replacements))
-        if context.lineup_rules >= 23 and after['committed']+after['dead_cap'] > after['cap']:
+        emergency_holds = sum(p.rookie_offer.annual_salary for p in remaining
+                              if p.rookie_offer is not None and p.rookie_offer.category == 'replacement')
+        if context.lineup_rules >= 23 and after['committed']+after['dead_cap']+emergency_holds > after['cap']:
             raise ValueError('This release cannot fit its guaranteed salary plus required replacement under the cap')
     except ValueError as error:
         preview.update(allowed=False,reason=str(error))
@@ -503,7 +507,9 @@ def smart_cpu_roster_cuts(players, context, year, *, priorities=None):
     minimums = {position: minimum for position, (_, minimum) in roster_rules(context).items()}
     if priorities is None:
         priorities = cpu_contract_priorities(remaining, context, year)
-    while len(remaining) > roster_limit(context):
+    # New offseasons leave three optional roster spots for the shared market.
+    target = min(35, roster_limit(context)) if context.lineup_rules >= 29 else roster_limit(context)
+    while len(remaining) > target:
         counts = Counter(p.position for p in remaining)
         eligible = [p for p in remaining if counts[p.position] > minimums[p.position]]
         if not eligible:

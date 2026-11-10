@@ -425,3 +425,13 @@ tr.selected-team td { color: var(--cyan); background: rgba(72,230,210,0.07); }
 .payroll-breakdown table { width: 100%; }
 .payroll-breakdown caption { text-align: left; padding: .5rem 0; }
 .payroll-breakdown th, .payroll-breakdown td { padding: .5rem; text-align: left; }
+
+/* Keep the shared market readable on short and narrow screens. */
+#free-agency { margin: 20px 0; min-width: 0; }
+#free-agency .table-wrap { max-height: 440px; overflow: auto; margin: 14px 0; }
+#free-agency th { position: sticky; top: 0; background: var(--panel, #142031); }
+#free-agency td { white-space: nowrap; }
+#free-agency select { width: auto; max-width: 100%; margin: 6px 12px 6px 0; }
+#free-agency button { margin: 4px; }
+#fa-order, #fa-log { overflow-wrap: anywhere; }
+#free-agency .table-wrap:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }

@@ -837,3 +837,33 @@ At the $200M base cap, QB offers at salary-demand ratings 60/70/80/90/99 are **$
 Existing signed salaries, inherited payrolls/bad deals, rookie draft-slot pay, replacement pay and dead-cap amounts are unchanged. Own-team re-signing and CPU renewals use the same new curve and existing cap enforcement. Team offense/defense ratings are unchanged in this PR.
 
 New careers use rules 27/save 37. A rules-26 checkpoint without an accepted current-camp renewal may adopt new offers without repricing signed contracts or writing a save merely by restoring it. Camps with accepted renewals stay on their original curve through rollover; completed history always replays its original rules. Earlier salary/inherited-book migration restrictions remain intact.
+
+### Free agency (rules 29)
+
+After training camp, finish roster cuts and re-sign or release expired players, then
+choose **Open free agency**. New careers use this stage; saved rules-28 seasons
+with no draft underway can adopt it without changing completed games. Accepted
+older drafts and camps retain their original offseason behavior.
+
+All released and undrafted non-retired players enter the shared market. Your team
+acts first every wave; the other 29 act in a fixed order from weakest to strongest
+by the preceding regular-season record, then point differential, points scored
+and team ID. Each team can sign at most one player on its turn. CPU teams finalize at most 35 players before the market, leaving room to
+compete for signings. Teams with 38 players must pass; the market makes no hidden
+releases. Guaranteed dead cap stays with the releasing team.
+
+Sort the market by current or potential rating and filter by position. Annual
+salary demands use the existing normal market price at 120%, 110%, 105%, 100%,
+then 95%, 90%, and so on, rounded to the existing $10,000 quantum and never below
+minimum salary. Contract lengths retain the existing age/rating policy. Signings
+must fit cap space (including dead cap), the 38-player maximum and the cost of
+filling any required roster vacancies. Release unwanted players before opening
+the market if you need roster space.
+
+**Pass to next wave** risks other teams signing your target. **Finish free agency**
+is final: remaining CPU turns resolve automatically, emergency players fill any
+remaining minimum-roster shortages, and the next season loads. The market closes
+at wave 24, when every remaining player asks for minimum salary. Unsigned players
+remain in the market across seasons, age/develop and retire. Signing preserves
+player identity and development; it never offsets the old team's guaranteed dead
+cap. Saved action logs deterministically reconstruct every signing and CPU turn.
