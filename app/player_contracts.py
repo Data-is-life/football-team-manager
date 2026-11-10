@@ -494,14 +494,15 @@ def cpu_contract_priorities(players, context, year):
     return priorities
 
 
-def smart_cpu_roster_cuts(players, context, year):
+def smart_cpu_roster_cuts(players, context, year, *, priorities=None):
     """Cut surplus non-guaranteed depth before creating guaranteed dead cap."""
     from collections import Counter
     from .career import arrange_depth
     from .simulation import roster_limit, roster_minimum, roster_rules, validate_roster
     remaining = list(players)
     minimums = {position: minimum for position, (_, minimum) in roster_rules(context).items()}
-    priorities = cpu_contract_priorities(remaining, context, year)
+    if priorities is None:
+        priorities = cpu_contract_priorities(remaining, context, year)
     while len(remaining) > roster_limit(context):
         counts = Counter(p.position for p in remaining)
         eligible = [p for p in remaining if counts[p.position] > minimums[p.position]]
@@ -523,7 +524,7 @@ def smart_cpu_offseason(players, owner, season, seed, context):
     year = season+1
     original = tuple(players)
     priorities = cpu_contract_priorities(original,context,year)
-    remaining = smart_cpu_roster_cuts(players,context,year)
+    remaining = smart_cpu_roster_cuts(players,context,year,priorities=priorities)
     retained_ids = {player.id for player in remaining}
     excluded = [player.id for player in original if player.id not in retained_ids]
     for player in original:

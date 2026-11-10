@@ -1,8 +1,10 @@
 """Versioned CPU decisions value participating depth and preserve cap guarantees."""
 from dataclasses import replace
 from unittest import TestCase
+from unittest.mock import patch
 from app.lineups import lineup_context
-from app.player_contracts import cpu_contract_priorities, cap_ready
+from app.player_contracts import (cpu_contract_priorities, cap_ready,
+                                  smart_cpu_offseason, smart_cpu_roster_cuts)
 from app.career import replay_career, offseason
 import test_re_signing as fixtures
 
@@ -47,3 +49,29 @@ class CpuContractStrategyTests(TestCase):
                 self.assertTrue(cap_ready(players,context,owner=owner))
         _,again = offseason('seattle',2,1234,self.choices,(),(),current,6,())
         self.assertEqual(context,again)
+
+    def test_reused_priorities_preserve_full_offseason_and_score_once(self):
+        # Exercise oversized rosters and expired renewals, including cap relief.
+        # The comparison deliberately restores the old second scoring pass.
+        def recomputing_cuts(players, context, year, *, priorities=None):
+            return smart_cpu_roster_cuts(players, context, year)
+
+        for seed in (1234, 5678):
+            context = lineup_context((), seed, 28, rebuild_team='seattle')
+            for owner in ('seattle', 'chicago'):
+                with self.subTest(seed=seed, owner=owner):
+                    players = [replace(p, contract=replace(p.contract, years=1))
+                               for p in dict(context)[owner]]
+                    players.extend(replace(p, id=f'{p.id}-surplus')
+                                   for p in players[:6])
+                    before = tuple(players)
+                    with patch('app.player_contracts.cpu_contract_priorities',
+                               wraps=cpu_contract_priorities) as score:
+                        actual = smart_cpu_offseason(players, owner, 1, seed, context)
+                    self.assertEqual(score.call_count, 1)
+                    with patch('app.player_contracts.smart_cpu_roster_cuts',
+                               side_effect=recomputing_cuts):
+                        expected = smart_cpu_offseason(players, owner, 1, seed, context)
+                    self.assertEqual(actual, expected)
+                    self.assertEqual(tuple(players), before)
+                    self.assertTrue(cap_ready(actual[0], actual[1], 2, owner))
