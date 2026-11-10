@@ -32,9 +32,14 @@ def wave_percent(wave):
 def asking_contract(player, context, wave, development_states=None):
     normal = veteran_contract(player, context.season, context.lineup_rules,
                              contract_potential(player, context, development_states))
+    return wave_contract(normal,context.season,context.lineup_rules,wave)
+
+
+def wave_contract(normal, season, rules, wave):
+    """Apply the original rounding and floor to an already computed demand."""
     amount = Decimal(normal.annual_salary) * wave_percent(wave) / 100
     rounded = int((amount / 10_000).quantize(Decimal('1'), rounding=ROUND_HALF_UP))*10_000
-    return replace(normal, annual_salary=max(minimum_salary(context.season,context.lineup_rules),rounded),
+    return replace(normal, annual_salary=max(minimum_salary(season,rules),rounded),
                    category='free_agent')
 
 
@@ -59,24 +64,47 @@ def free_agency(team_id, season, request_seed, context, order, actions=()):
     cap = salary_cap(context.season, context.lineup_rules)
     states = dict(context.development)
 
-    def reserve(players):
-        counts = Counter(p.position for p in players)
-        missing = sum(max(0, floor-counts[pos]) for pos,(_,floor) in roster_rules(context).items())
-        return minimum * max(missing, roster_minimum(context)-len(players), 0)
+    rules = roster_rules(context)
+    minimum_total, maximum_total = roster_minimum(context), roster_limit(context)
+    counts = {owner:Counter(p.position for p in players) for owner,players in rosters.items()}
+    missing = {owner:sum(max(0,floor-counts[owner][pos]) for pos,(_,floor) in rules.items())
+               for owner in rosters}
+    budgets = {owner:cap_payroll(players,context,context.season,owner) for owner,players in rosters.items()}
+    potentials, normal_contracts, wave_contracts = {}, {}, {}
+
+    def potential_for(player):
+        if player.id not in potentials:
+            potentials[player.id] = contract_potential(player,context,states)
+        return potentials[player.id]
+
+    def demand(player):
+        key = (player.id,wave)
+        if key not in wave_contracts:
+            if player.id not in normal_contracts:
+                normal_contracts[player.id] = veteran_contract(player,context.season,context.lineup_rules,potential_for(player))
+            wave_contracts[key] = wave_contract(normal_contracts[player.id],context.season,context.lineup_rules,wave)
+        return wave_contracts[key]
+
+    def reserved(owner, player=None):
+        added = int(player is not None)
+        filled = int(player is not None and counts[owner][player.position] < rules[player.position][1])
+        return minimum * max(missing[owner]-filled, minimum_total-len(rosters[owner])-added, 0)
 
     def can_sign(owner, player, deal):
-        players = rosters[owner]
-        return (len(players) < roster_limit(context)
-                and cap_payroll(players,context,context.season,owner)
-                    + deal.annual_salary + reserve(players+[player]) <= cap)
+        return (len(rosters[owner]) < maximum_total
+                and budgets[owner] + deal.annual_salary + reserved(owner,player) <= cap)
 
     def sign(owner, identity):
         player = pool.get(identity)
         if player is None:
             raise ValueError('That free agent is no longer available')
-        deal = asking_contract(player, context, wave, states)
+        deal = demand(player)
         if not can_sign(owner,player,deal):
             raise ValueError('Signing must fit roster space, salary cap and required roster minimums')
+        if counts[owner][player.position] < rules[player.position][1]:
+            missing[owner] -= 1
+        counts[owner][player.position] += 1
+        budgets[owner] += deal.annual_salary
         rosters[owner].append(replace(player,contract=deal,rookie_offer=None))
         del pool[identity]
         transactions.append({'wave':wave,'team':asdict(TEAM_BY_ID[owner]),
@@ -87,18 +115,21 @@ def free_agency(team_id, season, request_seed, context, order, actions=()):
             players = rosters[owner]
             if len(players) >= roster_limit(context):
                 continue
+            weakest = {}
+            for player in players:
+                weakest[player.position] = min(weakest.get(player.position,player.rating),player.rating)
             candidates = []
             for player in pool.values():
-                group = [p for p in players if p.position == player.position]
-                target, floor = roster_rules(context)[player.position]
-                shortage = len(group) < floor
-                baseline = min((p.rating for p in group),default=40)
-                if not shortage and len(group) >= target and player.rating <= baseline+3:
+                target, floor = rules[player.position]
+                count = counts[owner][player.position]
+                shortage = count < floor
+                baseline = weakest.get(player.position,40)
+                if not shortage and count >= target and player.rating <= baseline+3:
                     continue
-                deal = asking_contract(player,context,wave,states)
+                deal = demand(player)
                 if not can_sign(owner,player,deal):
                     continue
-                benefit = (100 if shortage else max(0,player.rating-baseline)) + .1*max(0,contract_potential(player,context,states)-player.rating)
+                benefit = (100 if shortage else max(0,player.rating-baseline)) + .1*max(0,potential_for(player)-player.rating)
                 score = CPU_GROUP_IMPORTANCE[player.position]*benefit/max(1,deal.annual_salary/1_000_000)**.3
                 candidates.append((score,player.rating,player.id))
             if candidates:
@@ -108,7 +139,7 @@ def free_agency(team_id, season, request_seed, context, order, actions=()):
     for owner, players in rosters.items():
         if len(players) > roster_limit(context) or pending_renewals(players,context):
             raise ValueError('Finalize roster cuts and expired contracts before free agency')
-        if cap_payroll(players,context,context.season,owner)+reserve(players)>cap:
+        if budgets[owner]+reserved(owner)>cap:
             raise ValueError('Clear cap space for required roster minimums before free agency')
     for kind,identity in actions:
         if complete:
@@ -142,7 +173,7 @@ def free_agency(team_id, season, request_seed, context, order, actions=()):
     available = []
     if not complete:
         for player in pool.values():
-            deal = asking_contract(player,context,wave,states)
+            deal = demand(player)
             available.append({'id':player.id,'name':player.name,'position':player.position,'age':player.age,
                 **rating_payload(player,context,states), 'annual_salary':deal.annual_salary,'years':deal.years,
                 'affordable':can_sign(team_id,player,deal)})

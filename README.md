@@ -888,3 +888,41 @@ real-world estimates. Prospect generation, potential, salaries and draft order
 are unchanged. Historical drafts and drafts already underway retain their
 recorded CPU policy. New careers and eligible saves with no draft underway use
 rules 30; saves are written as version 40.
+
+### Performance checks
+
+Run `python scripts/benchmark_performance.py` for the existing legacy HTTP/DOM
+checks plus current-rules draft, free-agency and saved-career HTTP cases. Use
+`--modern-only --seasons 3` to focus on those paths; `--seasons` accepts 1–10.
+The benchmark starts an isolated localhost server, repeats identical requests
+and checks that their JSON results match. It reports first-call and warm
+median/p95 timings separately. First calls can reuse preparation from earlier
+requests and should not be interpreted as a completely cold server. jsdom
+measurements cover DOM construction, not browser painting.
+
+Draft metadata is computed once per prospect per request. Free agency reuses
+player potential and normal demands, per-wave prices, team budgets and position
+counts, updating team state after every signing. Unchanged market preparation is
+held in a bounded 32-entry cache keyed by the complete immutable input context
+and decisions. Only immutable context is cached; response dictionaries are new
+on every call. Market actions still replay deterministically. Rules and save
+versions are unchanged.
+
+One local before/after run against commit
+`57aabab116a87cfba71c4a612193467f1c690b0b` produced these warm HTTP medians
+(three repeats per case, Python 3.12, seed 1234):
+
+| Case | Before | After |
+| --- | ---: | ---: |
+| First offseason: complete draft | 147.22 ms | 37.83 ms |
+| First offseason: wave 7 | 131.77 ms | 26.25 ms |
+| First offseason: finish market | 141.44 ms | 30.92 ms |
+| Third offseason: wave 7 (456 available players initially) | 607.52 ms | 63.98 ms |
+| Third offseason: finish market | 830.68 ms | 99.45 ms |
+
+These are local samples, not production latency promises or CI thresholds.
+Tests retain 32 full-output SHA-256 baselines captured before optimization across
+two seeds, legacy/current draft rules, partial/full drafts and market actions.
+They also check reduced computation counts, cache invalidation and response
+mutation isolation. To intentionally change gameplay or payloads later, review
+those baselines against the documented source commit before updating them.

@@ -19,7 +19,7 @@ from .player_contracts import public_player_fields, payroll_payload, cap_ready, 
 from .lineups import lineup_context, replace_lineup_rosters
 from .simulation import ranked_players
 from .draft import build_draft
-from .career import offseason, replay_career
+from .career import offseason, replay_career, prepare_free_agency
 from .starter_choices import StarterPlan, with_starters, selected_roster, current_starters
 
 
@@ -308,7 +308,7 @@ def career_action(team_id: str, request: CareerRequest) -> dict:
                 raise ValueError('Free agency requires completed training camp')
             from .free_agency import free_agency_order
             order = free_agency_order(request.season,request.run_seed,prior,context)
-            board, market_context = offseason(team_id, request.season, request.run_seed,
+            market_context = prepare_free_agency(team_id, request.season, request.run_seed,
                 tuple(request.manual_picks), tuple(request.dropped), prior, context,
                 request.draft_rounds, tuple((a.kind,a.player_id) for a in request.roster_actions))
             players = dict(market_context)[team_id]

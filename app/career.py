@@ -6,7 +6,7 @@ from .draft import build_draft, player_payload
 from .simulation import ROSTER_RULES, validate_roster, ranked_players, roster_limit, roster_minimum
 from .lineups import lineup_context, replace_lineup_rosters
 from .starter_choices import with_starters
-from .player_contracts import cap_ready, cap_release, cpu_cap_cuts, salary_cap, payroll, pending_renewals, contract_expired, renew_player, record_release, cap_payroll, guaranteed_cpu_offseason
+from .player_contracts import cap_ready, cap_release, cpu_cap_cuts, salary_cap, pending_renewals, contract_expired, renew_player, record_release, cap_payroll, guaranteed_cpu_offseason
 
 ROSTER_MAX = 38
 
@@ -143,6 +143,14 @@ def offseason(team_id, season, run_seed, choices, dropped, prior=(), roster_cont
         from .development import capture_rotation
         context = capture_rotation(context)
     return draft, context
+
+
+@lru_cache(maxsize=32)
+def prepare_free_agency(team_id, season, run_seed, choices, dropped, prior=(),
+                        roster_context=(), draft_rounds=4, roster_actions=()):
+    """Cache immutable preparation only; never share a mutable board/response."""
+    return offseason(team_id,season,run_seed,choices,dropped,prior,
+                     roster_context,draft_rounds,roster_actions)[1]
 
 
 @lru_cache(maxsize=32)
