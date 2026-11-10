@@ -1,6 +1,7 @@
 """Seeded position-specific careers. Longevity is independent of talent and never exposed."""
 from dataclasses import dataclass, replace
 import hashlib
+from itertools import chain
 
 from .simulation import roster_for, ranked_players
 from .league import TEAMS
@@ -54,6 +55,7 @@ class DevelopmentContext:
     lineup_rules: int = 3
     rebuild_team: str | None = None
     dead_cap: tuple = ()
+    free_agents: tuple = ()
 
     def __iter__(self):
         return iter(self.rosters)
@@ -71,8 +73,8 @@ def initial_state(player, seed, kicker_potential=False):
 
 def with_rosters(context, rosters):
     old = dict(context.development)
-    values = {p.id: old.get(p.id) or initial_state(p, context.run_seed, context.lineup_rules >= 9) for _, players in rosters for p in players}
-    return DevelopmentContext(tuple(rosters), context.season, context.run_seed, tuple(sorted(values.items())), context.lineup_rules, context.rebuild_team, context.dead_cap)
+    values = {p.id: old.get(p.id) or initial_state(p, context.run_seed, context.lineup_rules >= 9) for p in chain((p for _, players in rosters for p in players), context.free_agents)}
+    return DevelopmentContext(tuple(rosters), context.season, context.run_seed, tuple(sorted(values.items())), context.lineup_rules, context.rebuild_team, context.dead_cap, context.free_agents)
 
 
 def rating_view(player, context, development_states=None):
@@ -193,7 +195,7 @@ def advance_context(context, run_seed, season, development_start=1, lineup_rules
     if rebuild_team is None and current_rules >= 3:
         rebuild_team = context.rebuild_team
     lineup_rules = lineup_rules if lineup_rules is not None else max(3, current_rules)
-    if lineup_rules not in (3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28) or current_rules > lineup_rules:
+    if lineup_rules not in (3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29) or current_rules > lineup_rules:
         raise ValueError('Invalid development rules')
     if not 1 <= development_start <= season <= 999:
         raise ValueError('Invalid development season')
@@ -254,7 +256,17 @@ def advance_context(context, run_seed, season, development_start=1, lineup_rules
                 updated.append(player)
                 updated_states.append((player.id,state))
             rosters.append((owner,ranked_players(updated)))
-        context = DevelopmentContext(tuple(rosters),year,run_seed,tuple(sorted(updated_states)),lineup_rules,rebuild_team,tuple(c for c in context.dead_cap if c.end_season>=year))
+        agents = []
+        if lineup_rules >= 29:
+            from .retirement import retiring
+            for player in context.free_agents:
+                if retiring(player, context):
+                    continue
+                player, state = next_player(player, states[player.id], run_seed, year,
+                    False, True, True, True)
+                agents.append(player)
+                updated_states.append((player.id, state))
+        context = DevelopmentContext(tuple(rosters),year,run_seed,tuple(sorted(updated_states)),lineup_rules,rebuild_team,tuple(c for c in context.dead_cap if c.end_season>=year),tuple(agents))
         if lineup_rules >= 5:
             context = capture_rotation(context)
             rotation_growth = True
@@ -277,5 +289,5 @@ def advance_context(context, run_seed, season, development_start=1, lineup_rules
 def capture_rotation(context):
     from .rotation import season_roles
     shares = {identity:share for _,players in context for identity,share in season_roles(players).items()}
-    return replace(context, development=tuple((identity,replace(state,rotation_share=shares[identity]))
+    return replace(context, development=tuple((identity,replace(state,rotation_share=shares.get(identity, 0)))
                                               for identity,state in context.development))

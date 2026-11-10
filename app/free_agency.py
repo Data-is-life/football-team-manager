@@ -1,0 +1,153 @@
+"""Rules 29: deterministic user-first free agency, replayed from saved turns."""
+from collections import Counter
+from dataclasses import asdict, replace
+from decimal import Decimal, ROUND_HALF_UP
+
+from .development import capture_rotation
+from .league import TEAM_BY_ID
+from .lineups import replace_lineup_rosters
+from .player_contracts import (CPU_GROUP_IMPORTANCE, cap_payroll, contract_potential,
+    minimum_salary, pending_renewals, salary_cap, veteran_contract)
+from .ratings import rating_payload
+from .retirement import fill_roster
+from .simulation import ranked_players, roster_limit, roster_minimum, roster_rules, validate_roster
+
+MAX_WAVES = 24
+
+
+def free_agency_order(season, seed, prior, context):
+    from .standings import standings_through_week
+    tables = standings_through_week(season,17,seed,prior,context)
+    rows = [row for group in tables['groups'] for row in group['teams']]
+    return tuple(row['team']['id'] for row in sorted(rows,key=lambda r:(
+        r['wins']*2+r['ties'],r['point_differential'],r['points_for'],r['team']['id'])))
+
+
+def wave_percent(wave):
+    if not 1 <= wave <= MAX_WAVES:
+        raise ValueError('Invalid free agency wave')
+    return (120, 110, 105)[wave-1] if wave <= 3 else max(0, 100-5*(wave-4))
+
+
+def asking_contract(player, context, wave, development_states=None):
+    normal = veteran_contract(player, context.season, context.lineup_rules,
+                             contract_potential(player, context, development_states))
+    amount = Decimal(normal.annual_salary) * wave_percent(wave) / 100
+    rounded = int((amount / 10_000).quantize(Decimal('1'), rounding=ROUND_HALF_UP))*10_000
+    return replace(normal, annual_salary=max(minimum_salary(context.season,context.lineup_rules),rounded),
+                   category='free_agent')
+
+
+def free_agency(team_id, season, request_seed, context, order, actions=()):
+    if context.lineup_rules < 29 or context.season != season+1 or context.run_seed != request_seed:
+        raise ValueError('Invalid free agency context')
+    if set(order) != set(TEAM_BY_ID) or len(order) != len(TEAM_BY_ID):
+        raise ValueError('Free agency requires all 30 teams')
+    order = (team_id,) + tuple(owner for owner in order if owner != team_id)
+    # These emergency placeholders were created during draft/cut validation.
+    # Real free agents get the vacancies before final emergency filling.
+    prefix = f'replacement-{request_seed}-{season+1}-'
+    rosters = {owner:[p for p in players if not p.id.startswith(prefix)] for owner,players in context}
+    pool = {p.id:p for p in context.free_agents}
+    occupied = {p.id for players in rosters.values() for p in players}
+    if occupied & pool.keys():
+        raise ValueError('A free agent is already on a roster')
+    transactions = []
+    complete = False
+    wave = 1
+    minimum = minimum_salary(context.season, context.lineup_rules)
+    cap = salary_cap(context.season, context.lineup_rules)
+    states = dict(context.development)
+
+    def reserve(players):
+        counts = Counter(p.position for p in players)
+        missing = sum(max(0, floor-counts[pos]) for pos,(_,floor) in roster_rules(context).items())
+        return minimum * max(missing, roster_minimum(context)-len(players), 0)
+
+    def can_sign(owner, player, deal):
+        players = rosters[owner]
+        return (len(players) < roster_limit(context)
+                and cap_payroll(players,context,context.season,owner)
+                    + deal.annual_salary + reserve(players+[player]) <= cap)
+
+    def sign(owner, identity):
+        player = pool.get(identity)
+        if player is None:
+            raise ValueError('That free agent is no longer available')
+        deal = asking_contract(player, context, wave, states)
+        if not can_sign(owner,player,deal):
+            raise ValueError('Signing must fit roster space, salary cap and required roster minimums')
+        rosters[owner].append(replace(player,contract=deal,rookie_offer=None))
+        del pool[identity]
+        transactions.append({'wave':wave,'team':asdict(TEAM_BY_ID[owner]),
+                             'player_id':identity,'name':player.name,'annual_salary':deal.annual_salary})
+
+    def cpu_turns():
+        for owner in order[1:]:
+            players = rosters[owner]
+            if len(players) >= roster_limit(context):
+                continue
+            candidates = []
+            for player in pool.values():
+                group = [p for p in players if p.position == player.position]
+                target, floor = roster_rules(context)[player.position]
+                shortage = len(group) < floor
+                baseline = min((p.rating for p in group),default=40)
+                if not shortage and len(group) >= target and player.rating <= baseline+3:
+                    continue
+                deal = asking_contract(player,context,wave,states)
+                if not can_sign(owner,player,deal):
+                    continue
+                benefit = (100 if shortage else max(0,player.rating-baseline)) + .1*max(0,contract_potential(player,context,states)-player.rating)
+                score = CPU_GROUP_IMPORTANCE[player.position]*benefit/max(1,deal.annual_salary/1_000_000)**.3
+                candidates.append((score,player.rating,player.id))
+            if candidates:
+                _,_,identity = max(candidates)
+                sign(owner,identity)
+
+    for owner, players in rosters.items():
+        if len(players) > roster_limit(context) or pending_renewals(players,context):
+            raise ValueError('Finalize roster cuts and expired contracts before free agency')
+        if cap_payroll(players,context,context.season,owner)+reserve(players)>cap:
+            raise ValueError('Clear cap space for required roster minimums before free agency')
+    for kind,identity in actions:
+        if complete:
+            raise ValueError('Free agency has already finished')
+        if kind == 'sign':
+            sign(team_id,identity)
+        elif kind not in ('pass','finish') or identity:
+            raise ValueError('Invalid free agency action')
+        cpu_turns()
+        if kind == 'finish':
+            # Resolve the league without returning control to the user.
+            for remaining_wave in range(wave+1,MAX_WAVES+1):
+                wave = remaining_wave
+                cpu_turns()
+            complete = True
+        elif wave == MAX_WAVES:
+            complete = True
+        else:
+            wave += 1
+    if complete:
+        excluded = set(pool) | {p.id for players in rosters.values() for p in players}
+        rosters = {owner:fill_roster(players,owner,season,request_seed,excluded,context=context,
+                                   identity_suffix='-free-agency') for owner,players in rosters.items()}
+        for owner,players in rosters.items():
+            validate_roster(players,minimum_total=roster_minimum(context),maximum_total=roster_limit(context))
+            if cap_payroll(players,context,context.season,owner)>cap:
+                raise ValueError('Final roster exceeds the salary cap')
+    context = replace(context, free_agents=tuple(pool[k] for k in sorted(pool)))
+    context = replace_lineup_rosters(context,tuple((owner,ranked_players(players)) for owner,players in sorted(rosters.items())))
+    context = capture_rotation(context)
+    available = []
+    if not complete:
+        for player in pool.values():
+            deal = asking_contract(player,context,wave,states)
+            available.append({'id':player.id,'name':player.name,'position':player.position,'age':player.age,
+                **rating_payload(player,context,states), 'annual_salary':deal.annual_salary,'years':deal.years,
+                'affordable':can_sign(team_id,player,deal)})
+    return {'wave':wave,'percent':wave_percent(wave),'complete':complete,
+            'actions':[{'kind':kind,'player_id':identity} for kind,identity in actions],
+            'order':[asdict(TEAM_BY_ID[owner]) for owner in order],
+            'available':sorted(available,key=lambda p:(-p['current_rating'],p['id'])),
+            'transactions':transactions}, context

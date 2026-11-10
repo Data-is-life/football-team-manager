@@ -49,7 +49,7 @@ def request_lineups(seed, rules, season, start, rebuild_team=None):
 
 @app.get("/api/team/{team_id}")
 def team_profile(team_id: str, run_seed: Annotated[int, Query(ge=0, le=4294967295)] = 0,
-                 lineup_rules: Annotated[int, Query(ge=1, le=28)] = 1,
+                 lineup_rules: Annotated[int, Query(ge=1, le=29)] = 1,
                  season: Annotated[int, Query(ge=1, le=1099)] = 1,
                  development_start: Annotated[int, Query(ge=1, le=1099)] = 1,
                  rebuild_team: Annotated[str | None, Query(max_length=40)] = None) -> dict[str, object]:
@@ -120,7 +120,7 @@ def team_schedule(
     team_id: str,
     season: int = Query(default=1, ge=1, le=1099),
     prior_standings: Annotated[str | None, Query(max_length=2000)] = None,
-    lineup_rules: Annotated[int, Query(ge=1, le=28)] = 1,
+    lineup_rules: Annotated[int, Query(ge=1, le=29)] = 1,
     development_start: Annotated[int, Query(ge=1, le=1099)] = 1,
     rebuild_team: Annotated[str | None, Query(max_length=40)] = None,
 ) -> dict[str, object]:
@@ -144,7 +144,7 @@ def simulate_week(
     season: int = Query(default=1, ge=1, le=1099),
     run_seed: Annotated[int, Query(ge=0, le=4294967295)] = 0,
     prior_standings: Annotated[str | None, Query(max_length=2000)] = None,
-    lineup_rules: Annotated[int, Query(ge=1, le=28)] = 1,
+    lineup_rules: Annotated[int, Query(ge=1, le=29)] = 1,
     development_start: Annotated[int, Query(ge=1, le=1099)] = 1,
     rebuild_team: Annotated[str | None, Query(max_length=40)] = None,
 ) -> dict[str, object]:
@@ -164,7 +164,7 @@ def playoff_round(
     season: int = Query(default=1, ge=1, le=1099),
     run_seed: Annotated[int, Query(ge=0, le=4294967295)] = 0,
     prior_standings: Annotated[str | None, Query(max_length=2000)] = None,
-    lineup_rules: Annotated[int, Query(ge=1, le=28)] = 1,
+    lineup_rules: Annotated[int, Query(ge=1, le=29)] = 1,
     development_start: Annotated[int, Query(ge=1, le=1099)] = 1,
     rebuild_team: Annotated[str | None, Query(max_length=40)] = None,
 ) -> dict[str, object]:
@@ -180,7 +180,7 @@ class DraftRequest(BaseModel):
     draft_rounds: Literal[4, 6] = 4
     season: int = Field(default=1, ge=1, le=1098)
     run_seed: int = Field(default=0, ge=0, le=4294967295)
-    lineup_rules: Literal[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28] = 1
+    lineup_rules: Literal[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29] = 1
     development_start: int = Field(default=1, ge=1, le=1099)
     rebuild_team: str | None = Field(default=None, max_length=40)
     prior_standings: dict[str, StrictInt] | None = None
@@ -214,11 +214,23 @@ class RosterAction(BaseModel):
     player_id: str = Field(min_length=1,max_length=100)
 
 
+class FreeAgencyAction(BaseModel):
+    kind: Literal['sign', 'pass', 'finish']
+    player_id: str = Field(default='', max_length=100)
+
+    @model_validator(mode='after')
+    def valid_target(self):
+        if (self.kind == 'sign') != bool(self.player_id):
+            raise ValueError('Only a signing requires a player ID')
+        return self
+
+
 class CareerStep(BaseModel):
+    free_agency: list[FreeAgencyAction] = Field(default_factory=list, max_length=24)
     roster_actions: list[RosterAction] = Field(default_factory=list,max_length=132)
     draft_rounds: Literal[4, 6] = 4
     lineup_changes: list[LineupChange] = Field(default_factory=list, max_length=21)
-    lineup_rules: Literal[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28] = 1
+    lineup_rules: Literal[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29] = 1
     season: int = Field(ge=1, le=1098)
     prior_standings: dict[str, StrictInt] | None = None
     manual_picks: list[str] = Field(min_length=4, max_length=6)
@@ -228,6 +240,8 @@ class CareerStep(BaseModel):
     def complete_draft(self):
         if len(self.manual_picks) != self.draft_rounds:
             raise ValueError('Past offseason must contain one pick per draft round')
+        if self.free_agency and self.lineup_rules < 29:
+            raise ValueError('Legacy offseasons cannot contain free agency decisions')
         if self.roster_actions and self.lineup_rules < 20:
             raise ValueError('Legacy offseasons cannot contain re-signing decisions')
         if self.lineup_rules >= 20 and [a.player_id for a in self.roster_actions if a.kind=='drop'] != self.dropped:
@@ -236,14 +250,15 @@ class CareerStep(BaseModel):
 
 
 class CareerRequest(BaseModel):
+    free_agency: list[FreeAgencyAction] = Field(default_factory=list, max_length=24)
     roster_actions: list[RosterAction] = Field(default_factory=list,max_length=132)
     draft_rounds: Literal[4, 6] = 4
     lineup_changes: list[LineupChange] = Field(default_factory=list, max_length=21)
-    action: Literal['profile', 'week', 'playoffs', 'draft', 'camp', 'cuts', 'resign', 'leaders']
+    action: Literal['profile', 'week', 'playoffs', 'draft', 'camp', 'cuts', 'resign', 'leaders', 'free_agency']
     training_camp: StrictBool = False
     season: int = Field(default=1, ge=1, le=1099)
     run_seed: int = Field(default=0, ge=0, le=4294967295)
-    lineup_rules: Literal[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28] = 1
+    lineup_rules: Literal[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29] = 1
     development_start: int = Field(default=1, ge=1, le=1099)
     rebuild_team: str | None = Field(default=None, max_length=40)
     prior_standings: dict[str, StrictInt] | None = None
@@ -279,13 +294,33 @@ def career_action(team_id: str, request: CareerRequest) -> dict:
             raise ValueError('Auto-draft is only available for an unfinished draft before roster cuts')
         if any(step.season >= request.season for step in request.career):
             raise ValueError('Past offseasons must precede the current season')
-        steps = tuple((step.season, ranks_context(step.prior_standings), tuple(step.manual_picks), tuple(step.dropped), step.lineup_rules, tuple((change.week, tuple(change.starters)) for change in step.lineup_changes), step.draft_rounds, tuple((action.kind,action.player_id) for action in step.roster_actions))
+        steps = tuple((step.season, ranks_context(step.prior_standings), tuple(step.manual_picks), tuple(step.dropped), step.lineup_rules, tuple((change.week, tuple(change.starters)) for change in step.lineup_changes), step.draft_rounds, tuple((action.kind,action.player_id) for action in step.roster_actions), tuple((a.kind,a.player_id) for a in step.free_agency))
                       for step in request.career)
         context = replay_career(team_id, request.run_seed, steps, request.lineup_rules,request.season,request.development_start,request.rebuild_team)
         changes = tuple((change.week, tuple(change.starters)) for change in request.lineup_changes)
         context = with_starters(context, team_id, request.run_seed, changes)
         prior = ranks_context(request.prior_standings)
         viewed = request.view_team or team_id
+        if request.free_agency and (request.lineup_rules < 29 or request.action != 'free_agency'):
+            raise ValueError('Free agency decisions require the free agency stage')
+        if request.action == 'free_agency':
+            if request.lineup_rules < 29 or not request.training_camp:
+                raise ValueError('Free agency requires completed training camp')
+            from .free_agency import free_agency_order
+            order = free_agency_order(request.season,request.run_seed,prior,context)
+            board, market_context = offseason(team_id, request.season, request.run_seed,
+                tuple(request.manual_picks), tuple(request.dropped), prior, context,
+                request.draft_rounds, tuple((a.kind,a.player_id) for a in request.roster_actions))
+            players = dict(market_context)[team_id]
+            if pending_renewals(players,market_context) or len(players)>roster_limit(market_context) or not cap_ready(players,market_context,request.season+1,team_id):
+                raise ValueError('Finalize roster cuts and expired contracts before free agency')
+            from .free_agency import free_agency
+            market, market_context = free_agency(team_id, request.season, request.run_seed,
+                market_context, order,
+                tuple((a.kind,a.player_id) for a in request.free_agency))
+            return {**market, 'team':asdict(TEAM_BY_ID[team_id]), 'season':request.season,
+                    'run_seed':request.run_seed,
+                    'profile':profile_payload(viewed,dict(market_context)[viewed],request.run_seed,market_context,payroll_season=request.season+1)}
         if request.action == 'leaders':
             return league_leaders(team_id, request.season, request.week, request.run_seed, prior, context)
         if request.action == 'week':

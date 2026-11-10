@@ -56,6 +56,10 @@ def fill_roster(players, owner, season, seed, excluded=(), context=(), identity_
                 if getattr(context,'lineup_rules',1) >= 15:
                     from dataclasses import replace
                     from .player_contracts import starting_contract
-                    player = replace(player,contract=starting_contract(player,season+1,getattr(context,"lineup_rules",1)))
+                    terms = starting_contract(player,season+1,getattr(context,"lineup_rules",1))
+                    # Rules 29 reserve emergency pay until the real market ends;
+                    # only retained placeholders become guaranteed contracts.
+                    player = (replace(player,rookie_offer=terms) if getattr(context,'lineup_rules',1)>=29
+                              else replace(player,contract=terms))
                 remaining.append(player);ids.add(identity);counts[position] += 1
     return ranked_players(remaining)
