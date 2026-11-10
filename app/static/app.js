@@ -24,7 +24,7 @@ let activeTeamId = null;
 let activeRunSeed = 0;
 let activeSeason = 1;
 let activeCareerStartWeek = 1;
-let activeLineupRules = 29;
+let activeLineupRules = 30;
 let activeDevelopmentStart = 1;
 let activeRebuildTeam = null;
 let activePriorStandings = {};
@@ -107,7 +107,7 @@ function rebuildOrigin(context) {
 
 function saveProgress() {
   if (!activeTeamId || restoring) return;
-  const save = { version: 39, welcomeDismissed, ownerUpdateDismissed, draftRounds: activeDraftRounds, careerStartWeek: activeCareerStartWeek, lineupChanges: activeLineupChanges, contracts: activeContracts, teamId: activeTeamId, runSeed: activeRunSeed,
+  const save = { version: 40, welcomeDismissed, ownerUpdateDismissed, draftRounds: activeDraftRounds, careerStartWeek: activeCareerStartWeek, lineupChanges: activeLineupChanges, contracts: activeContracts, teamId: activeTeamId, runSeed: activeRunSeed,
     season: activeSeason, week: currentWeek, lineupRules: activeLineupRules, developmentStart: activeDevelopmentStart, rebuildTeam: activeRebuildTeam,
     priorStandings: activePriorStandings, history: careerHistory,
     draftChoices: activeDraftChoices,
@@ -115,6 +115,7 @@ function saveProgress() {
     ...(activeTrainingCamp ? { trainingCamp: true } : {}),
     dropped: activeDropped, career: activeCareer,
     ...(activeRosterActions.length ? { rosterActions: activeRosterActions } : {}),
+    ...(activeDraftChoices !== null && document.querySelector("#draft-sort").value !== (activeLineupRules >= 30 ? "value" : "current") ? {draftSort:document.querySelector("#draft-sort").value} : {}),
     ...(document.querySelector("#draft-position").value ? { draftPosition: document.querySelector("#draft-position").value } : {}),
     playoffRound: playoffState ? completedPlayoffRound : null };
   try {
@@ -131,7 +132,7 @@ function readSave() {
   if (!raw) return null;
   const save = JSON.parse(raw);
   const integer = (value, min, max) => Number.isInteger(value) && value >= min && value <= max;
-  if (!save || ![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39].includes(save.version) || typeof save.teamId !== "string"
+  if (!save || ![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40].includes(save.version) || typeof save.teamId !== "string"
       || ![...select.options].some(option => option.value && option.value === save.teamId)
       || !integer(save.runSeed, 0, 4294967295) || !integer(save.season, 1, 999)
       || !integer(save.week, 0, 17)
@@ -171,9 +172,10 @@ function readSave() {
   const validMarket = actions => Array.isArray(actions) && actions.length <= 24 && actions.every((a,i) => a && ['sign','pass','finish'].includes(a.kind) && typeof a.player_id === 'string' && a.player_id.length <= 100 && (a.kind === 'sign') === Boolean(a.player_id) && (a.kind !== 'finish' || i === actions.length-1));
   if (save.freeAgency !== undefined && (save.lineupRules < 29 || !save.trainingCamp || !validMarket(save.freeAgency))) throw new Error("Invalid free agency save");
   if (!save.career.every(step => step.free_agency === undefined || ((step.lineup_rules ?? 1) >= 29 && validMarket(step.free_agency)))) throw new Error("Invalid free agency history");
+  if (save.draftSort !== undefined && !['value','current','potential'].includes(save.draftSort)) throw new Error("Invalid draft sort");
   if (save.draftPosition !== undefined && ![...document.querySelector("#draft-position").options].some(option => option.value === save.draftPosition)) throw new Error("Invalid draft filter");
   if (save.version < 5) save.lineupRules = 1;
-  if (![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29].includes(save.lineupRules)) throw new Error("Invalid lineup rules");
+  if (![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30].includes(save.lineupRules)) throw new Error("Invalid lineup rules");
   if (save.trainingCamp !== undefined && typeof save.trainingCamp !== "boolean") throw new Error("Invalid camp save");
   if (save.trainingCamp && (save.lineupRules < 18 || save.draftChoices?.length !== save.draftRounds || save.week !== 17 || save.playoffRound !== 4)) throw new Error("Invalid camp checkpoint");
   if ([15, 16, 17, 18].includes(save.lineupRules) && save.draftChoices === null) save.lineupRules = 20;
@@ -195,13 +197,14 @@ function readSave() {
   if (save.lineupRules === 26 && !(save.rosterActions ?? []).some(a => a?.kind === "resign")) save.lineupRules = 27;
   // CPU contract strategy changes only at the next untouched season. Preserve
   // the replay of any offseason that is already in progress.
-  if (save.lineupRules === 27 && save.draftChoices === null) save.lineupRules = 29;
+  if (save.lineupRules === 27 && save.draftChoices === null) save.lineupRules = 30;
   const validActions = (actions, dropped, rules) => Array.isArray(actions) && actions.length <= 132
     && (!actions.length || rules >= 20) && actions.every(a => a && ["drop", "resign"].includes(a.kind) && typeof a.player_id === "string" && a.player_id.length > 0 && a.player_id.length <= 100)
     && (rules < 20 || JSON.stringify(actions.filter(a => a.kind === "drop").map(a => a.player_id)) === JSON.stringify(dropped));
   // A market that has not started can adopt free agency without changing games.
   // Accepted drafts/camp decisions keep their original offseason rules.
-  if (save.version < 39 && save.lineupRules === 28 && save.draftChoices === null) save.lineupRules = 29;
+  if (save.version < 39 && save.lineupRules === 28 && save.draftChoices === null) save.lineupRules = 30;
+  if (save.version < 40 && save.lineupRules === 29 && save.draftChoices === null) save.lineupRules = 30;
   save.rosterActions ??= [];
   if (!validActions(save.rosterActions,save.dropped,save.lineupRules) || (save.rosterActions.length && !save.trainingCamp)
       || !save.career.every(step => validActions(step.roster_actions ?? [],step.dropped,step.lineup_rules ?? 1))) throw new Error("Invalid roster decisions");
@@ -517,7 +520,7 @@ async function resumeProgress() {
     setDevelopmentRecap(profile, save.season);
     if (regular) renderResult(regular);
     if (postseason) { renderPostseason(postseason); activateView("playoffs"); }
-    if (savedDraft) { document.querySelector("#draft-position").value = save.draftPosition ?? ""; applyDraft(savedDraft); }
+    if (savedDraft) { document.querySelector("#draft-sort").value = save.draftSort ?? (save.lineupRules >= 30 ? "value" : "current"); document.querySelector("#draft-position").value = save.draftPosition ?? ""; applyDraft(savedDraft); }
     if (savedMarket) applyFreeAgency(savedMarket);
     select.value = save.teamId;
     saveStatus.textContent = "Saved progress restored. Autosave is on in this browser.";
@@ -1158,7 +1161,7 @@ function createRunSeed() {
   return candidate === activeRunSeed ? (candidate % 4294967295) + 1 : candidate;
 }
 
-function renderSchedule(data, runSeed, { priorStandings = {}, history = [], career = [], lineupRules = 29, developmentStart = 1, rebuildTeam = null, contracts = true, lineupChanges = [], careerStartWeek = 1, draftRounds = 6 } = {}) {
+function renderSchedule(data, runSeed, { priorStandings = {}, history = [], career = [], lineupRules = 30, developmentStart = 1, rebuildTeam = null, contracts = true, lineupChanges = [], careerStartWeek = 1, draftRounds = 6 } = {}) {
   closeSeasonConfirmation(false);
   simulationMore.open = false;
   clearLeaders();
@@ -1218,6 +1221,7 @@ function renderSchedule(data, runSeed, { priorStandings = {}, history = [], care
   document.querySelector("#draft-title").textContent = "Rookie draft";
   document.querySelector("#draft-status").textContent = "";
   document.querySelector("#draft-position").value = "";
+  document.querySelector("#draft-sort").value = lineupRules >= 30 ? "value" : "current";
   draftScrollPending = false;
   nextSeasonButton.hidden = true;
   renderSeasonHistory();
@@ -1518,8 +1522,8 @@ form.addEventListener("submit", async (event) => {
     const runSeed = createRunSeed();
     const [scheduleResponse, profileResponse, regularResponse] = await Promise.all([
       fetch(`/api/schedule/${teamId}?season=1`),
-      fetch(`/api/team/${teamId}?run_seed=${runSeed}&lineup_rules=29&season=1&development_start=1${rebuildQuery(teamId)}`),
-      fetch(`/api/season/${teamId}/week/16?run_seed=${runSeed}&lineup_rules=29&season=1&development_start=1${rebuildQuery(teamId)}`),
+      fetch(`/api/team/${teamId}?run_seed=${runSeed}&lineup_rules=30&season=1&development_start=1${rebuildQuery(teamId)}`),
+      fetch(`/api/season/${teamId}/week/16?run_seed=${runSeed}&lineup_rules=30&season=1&development_start=1${rebuildQuery(teamId)}`),
     ]);
     if (!scheduleResponse.ok || !profileResponse.ok || !regularResponse.ok) {
       throw new Error("Your team could not be loaded. Please try again.");
@@ -1527,7 +1531,7 @@ form.addEventListener("submit", async (event) => {
     const [schedule, profile, regular] = await Promise.all([
       scheduleResponse.json(), profileResponse.json(), regularResponse.json(),
     ]);
-    if (profile.run_seed !== runSeed || profile.team.id !== teamId || profile.lineup_rules !== 29 || profile.rebuild_team !== teamId
+    if (profile.run_seed !== runSeed || profile.team.id !== teamId || profile.lineup_rules !== 30 || profile.rebuild_team !== teamId
         || schedule.team?.id !== teamId || schedule.season !== 1 || regular.team?.id !== teamId
         || regular.season !== 1 || regular.week !== 16 || regular.run_seed !== runSeed) {
       throw new Error("Your team could not be loaded. Please try again.");
@@ -2048,6 +2052,7 @@ function renderDraft() {
   autoDraftButton.hidden = !AUTO_DRAFT_ENABLED;
   autoDraftButton.disabled = !AUTO_DRAFT_ENABLED || draftBusy || draftState.complete;
   document.querySelector("#draft-position").disabled = draftBusy;
+  document.querySelector("#draft-sort").disabled = draftBusy;
   draftPanel.setAttribute("aria-busy", String(draftBusy));
   document.querySelector("#draft-title").textContent = `Season ${draftState.draft_season} rookie draft`;
   document.querySelector("#draft-status").textContent = draftState.complete
@@ -2057,7 +2062,11 @@ function renderDraft() {
   if (draftState.next_contract) document.querySelector("#draft-status").textContent += ` · ${salaryLabel(draftState.next_contract)}`;
   const filter = document.querySelector("#draft-position").value;
   const rows = [];
-  draftState.available.forEach((player, index) => {
+  const sort = document.querySelector("#draft-sort").value;
+  const average = player => (player.current_rating+player.potential_rating)/2;
+  const primary = player => sort === "potential" ? player.potential_rating : sort === "current" ? player.current_rating : player.draft_value ?? player.current_rating;
+  const ordered = [...draftState.available].sort((a,b) => primary(b)-primary(a) || (sort === "potential" ? b.current_rating-a.current_rating : average(b)-average(a)) || a.id.localeCompare(b.id));
+  ordered.forEach((player, index) => {
     if (filter && player.position !== filter) return;
     const row = document.createElement("tr");
     row.dataset.prospectId = player.id;
@@ -2162,6 +2171,11 @@ draftButton.addEventListener("click", () => {
 document.querySelector("#draft-close").addEventListener("click", () => activateView("schedule", { focus: true }));
 document.querySelector("#draft-roster").addEventListener("click", () => activateView("roster", { focus: true }));
 document.querySelector("#roster-draft-return").addEventListener("click", () => activateView("draft", { focus: true }));
+document.querySelector("#draft-sort").addEventListener("change", () => {
+  renderDraft();
+  document.querySelector("#draft-prospect-list").scrollTop = 0;
+  if (draftState && !draftBusy) saveProgress();
+});
 document.querySelector("#draft-position").addEventListener("change", () => {
   renderDraft();
   document.querySelector("#draft-prospect-list").scrollTop = 0;
@@ -2432,7 +2446,7 @@ nextSeasonButton.addEventListener("click", async () => {
       : !playoffState.qualified ? "Missed playoffs" : `Lost in ${lastOwnRound.name}` };
   try {
     const developmentStart = activeDevelopmentStart ?? nextSeason;
-    const lineupRules = activeLineupRules >= 28 ? 29 : activeLineupRules >= 11 ? 28 : 10;
+    const lineupRules = activeLineupRules >= 28 ? 30 : activeLineupRules >= 11 ? 28 : 10;
     // Re-rank the new roster after development and draft/cuts. Prior-season
     // overrides remain only in career history, where completed games need them.
     const lineupChanges = [];

@@ -867,3 +867,24 @@ at wave 24, when every remaining player asks for minimum salary. Unsigned player
 remain in the market across seasons, age/develop and retire. Signing preserves
 player identity and development; it never offsets the old team's guaranteed dead
 cap. Saved action logs deterministically reconstruct every signing and CPU turn.
+
+### Draft value and roster needs (rules 30)
+
+The prospect board offers **Draft value**, **Current rating**, and **Potential
+rating** sorting, alongside the position filter. Sorting is read-only and a
+non-default choice survives reload. Current-rating ties use the current/potential
+average; potential-rating ties use current ability. Draft value ranks current
+ability plus a positional bonus, then that average. The initial game-design
+bonuses are QB +8; S/RB/WR/CB +6; TE/DL/LB +2; OL 0; K −12. Thus a 75-current,
+90-potential QB ranks above an 80-current, 95-potential OL, while a sufficiently
+stronger lineman can still rank higher.
+
+CPU teams use this positional value with the strength of the actual starting
+slots, immediate starter improvement, and the existing repeat-position penalty.
+A poor QB2 does not make a strong QB1 an early-round need. Needs update after
+each selection; missing starting slots take precedence. Kicker improvement has a
+smaller weight. These are explicit initial game-design weights, not calibrated
+real-world estimates. Prospect generation, potential, salaries and draft order
+are unchanged. Historical drafts and drafts already underway retain their
+recorded CPU policy. New careers and eligible saves with no draft underway use
+rules 30; saves are written as version 40.
