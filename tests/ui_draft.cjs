@@ -99,7 +99,8 @@ async function checks(){
   filter.value='';filter.dispatchEvent(new p.w.Event('change'));
   const buttons=[...p.d.querySelectorAll('[data-draft-id]')];assert.ok(buttons.length>0);
   const id=buttons[0].dataset.draftId;
-  const prospect=p.state.last.available[0],cells=q(p,'#draft-prospects tr').children;
+  const prospect=[...p.state.last.available].sort((a,b)=>b.current_rating-a.current_rating || (b.current_rating+b.potential_rating-a.current_rating-a.potential_rating)/2 || a.id.localeCompare(b.id))[0],cells=q(p,'#draft-prospects tr').children;
+  assert.equal(id,prospect.id);
   assert.equal(cells.length,7);assert.equal(cells[4].textContent,String(prospect.current_rating));assert.equal(cells[5].textContent,String(prospect.potential_rating));
   assert.equal(q(p,'#draft-prospects tr').querySelectorAll('details').length,0);
   if(turn===1){
@@ -216,7 +217,7 @@ async function checks(){
   q(p,'#draft-button').click();assert.match(q(p,'#draft-format').textContent,/4 rounds/);
   if(count<4){
    for(let turn=count+1;turn<=4;turn++){q(p,`[data-draft-id="${oldDraft.manual_picks[turn-1]}"]`).click();await until(()=>save(p).draftChoices.length===turn);}
-   assert.equal(save(p).version,39);assert.equal(save(p).draftRounds,4);
+   assert.equal(save(p).version,40);assert.equal(save(p).draftRounds,4);
    assert.deepEqual(p.state.last.picks,oldDraft.picks);checkRecap(p,oldDraft.picks);
    const frozen=raw(p);p.dom.window.close();p=await restore(frozen);assert.equal(p.state.last.rounds,4);assert.deepEqual(p.state.last.picks,oldDraft.picks);checkRecap(p,oldDraft.picks);
   }

@@ -65,8 +65,47 @@ def draft_order(season: int, run_seed: int, prior_standings: tuple = (), roster_
             for group in groups for team_id in group]
 
 
-def cpu_pick(available, current, additions, retirement_rules=False):
+# Game-design preferences, not an estimate of real-world positional value.
+DRAFT_POSITION_BONUS = {'QB':8, 'S':6, 'RB':6, 'WR':6, 'CB':6,
+                        'TE':2, 'DL':2, 'LB':2, 'OL':0, 'K':-12}
+
+
+def draft_value(player):
+    """Current ability adjusted by position; average breaks equal-value ties."""
+    return player.rating + DRAFT_POSITION_BONUS[player.position]
+
+
+def need_aware_pick(available, current, additions, context):
+    from .simulation import roster_rules
+    groups = {position:[] for position in ROSTER_RULES}
+    for player in current:
+        groups[player.position].append(player.rating)
+    strength = {}
+    for position, ratings in groups.items():
+        starters = roster_rules(context)[position][1]
+        top = sorted(ratings,reverse=True)[:starters]
+        strength[position] = (sum(top)/starters, min(top) if len(top)==starters else 0, starters)
+    available = tuple(available)
+    shortages = [p for p in available if len(groups[p.position]) < strength[p.position][2]]
+    if shortages:
+        available = shortages
+    states = dict(context.development)
+    def key(player):
+        quality, weakest, slots = strength[player.position]
+        gain = max(0, player.rating-weakest)/slots
+        potential = rating_payload(player,context,states)['potential_rating']
+        # Measure starters rather than the full room: a weak QB2 does not
+        # turn an excellent QB1 into an early-round need. Recompute after picks.
+        gain_weight = .25 if player.position == 'K' else 1.5
+        score = draft_value(player) - .6*quality + gain_weight*gain - 12*additions.get(player.position,0)
+        return score, (player.rating+potential)/2, player.rating, player.id
+    return max(available,key=key)
+
+
+def cpu_pick(available, current, additions, retirement_rules=False, *, context=None):
     """Shared quality/need/repeat-position policy for CPU and user auto-picks."""
+    if context is not None and context.lineup_rules >= 30:
+        return need_aware_pick(available,current,additions,context)
     counts = dict.fromkeys(ROSTER_RULES, 0)
     totals = dict.fromkeys(ROSTER_RULES, 0)
     for player in current:
@@ -130,7 +169,10 @@ def build_draft(team_id: str, season: int, run_seed: int, choices: tuple[str, ..
         else:
             if owner == team_id and not auto_pick:
                 break
-            prospect = cpu_pick(available.values(), rosters[owner], additions[owner], retirement_rules)
+            if getattr(roster_context,'lineup_rules',1) >= 30:
+                prospect = cpu_pick(available.values(),rosters[owner],additions[owner],retirement_rules,context=roster_context)
+            else:
+                prospect = cpu_pick(available.values(),rosters[owner],additions[owner],retirement_rules)
             if owner == team_id:
                 resolved_choices.append(prospect.id)
         del available[prospect.id]
@@ -157,7 +199,7 @@ def build_draft(team_id: str, season: int, run_seed: int, choices: tuple[str, ..
     return ({'season': season, 'draft_season': season + 1, 'run_seed': run_seed,
              'team': asdict(TEAM_BY_ID[team_id]), 'rounds': draft_rounds, 'total_picks': draft_rounds * len(order),
              'class_size': CLASS_SIZE, 'order': order, 'picks': picks,
-             'available': [player_payload(player,roster_context) for player in prospects if player.id in available],
+             'available': [{**player_payload(player,roster_context), 'draft_value':draft_value(player)} for player in prospects if player.id in available],
              'manual_picks': resolved_choices, 'complete': complete,
              **contract_preview,
              'next_pick': None if complete else len(picks) + 1,
