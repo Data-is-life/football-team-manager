@@ -67,10 +67,14 @@ def draft_order(season: int, run_seed: int, prior_standings: tuple = (), roster_
 
 def cpu_pick(available, current, additions, retirement_rules=False):
     """Shared quality/need/repeat-position policy for CPU and user auto-picks."""
-    position_quality = {position: sum(p.rating for p in current if p.position == position)
-                        / max(1,sum(p.position == position for p in current)) for position in ROSTER_RULES}
+    counts = dict.fromkeys(ROSTER_RULES, 0)
+    totals = dict.fromkeys(ROSTER_RULES, 0)
+    for player in current:
+        counts[player.position] += 1
+        totals[player.position] += player.rating
+    position_quality = {position: totals[position] / max(1, counts[position])
+                        for position in ROSTER_RULES}
     if retirement_rules:
-        counts = {position:sum(p.position == position for p in current) for position in ROSTER_RULES}
         shortages = [p for p in available if counts[p.position] < ROSTER_RULES[p.position][1]]
         if shortages: available = shortages
     return max(available, key=lambda p: (
@@ -103,8 +107,14 @@ def build_draft(team_id: str, season: int, run_seed: int, choices: tuple[str, ..
     if retirement_rules:
         from .retirement import retiring, retirement_payload
         for owner,players in rosters.items():
-            retired[owner] = [retirement_payload(p) for p in players if retiring(p,roster_context)]
-            rosters[owner] = [p for p in players if not retiring(p,roster_context)]
+            retired[owner] = []
+            retained = []
+            for player in players:
+                if retiring(player, roster_context):
+                    retired[owner].append(retirement_payload(player))
+                else:
+                    retained.append(player)
+            rosters[owner] = retained
     additions = {team.id: {} for team in TEAMS}
     picks = []
     resolved_choices = list(choices)
