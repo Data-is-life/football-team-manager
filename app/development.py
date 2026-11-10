@@ -75,8 +75,11 @@ def with_rosters(context, rosters):
     return DevelopmentContext(tuple(rosters), context.season, context.run_seed, tuple(sorted(values.items())), context.lineup_rules, context.rebuild_team, context.dead_cap)
 
 
-def rating_view(player, context):
-    state = dict(context.development).get(player.id) or initial_state(player, context.run_seed, context.lineup_rules >= 9)
+def rating_view(player, context, development_states=None):
+    """Read one state; callers rendering a roster may reuse a single lookup."""
+    if development_states is None:
+        development_states = dict(context.development)
+    state = development_states.get(player.id) or initial_state(player, context.run_seed, context.lineup_rules >= 9)
     result = {'current_rating': player.rating, 'potential_rating': state.potential, 'rating_change': state.change}
     if context.lineup_rules >= 7:
         result['potential_change'] = state.potential_change

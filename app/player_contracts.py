@@ -144,11 +144,11 @@ def salary_demand_rating(player, potential):
     return Decimal(player.rating+potential)/2
 
 
-def contract_potential(player, context):
+def contract_potential(player, context, development_states=None):
     if context is None:
         raise ValueError('Salary demands require the player development context')
     from .development import rating_view
-    return rating_view(player,context)['potential_rating']
+    return rating_view(player,context,development_states)['potential_rating']
 
 
 def veteran_contract(player, season, rules=15, potential=None):
@@ -242,7 +242,7 @@ def contract_payload(contract, season, rules=15):
             'status':'upcoming' if season<contract.signed_season else 'active' if season<=end else 'expired' if rules>=20 else 'renewal_due'}
 
 
-def public_player_fields(player, context=()):
+def public_player_fields(player, context=(), *, development_states=None, renewal_payroll=None, renewal_owner=None):
     result = asdict(player)
     result.pop('contract')
     result.pop('rookie_offer')
@@ -251,7 +251,7 @@ def public_player_fields(player, context=()):
     if getattr(context,'lineup_rules',1) >= 19 and player.rookie_offer is not None:
         result['contract_offer'] = rookie_offer_payload(player.rookie_offer)
     if getattr(context,'lineup_rules',1) >= 20 and contract_expired(player,context.season):
-        potential=contract_potential(player,context) if context.lineup_rules>=26 else None
+        potential=contract_potential(player,context,development_states) if context.lineup_rules>=26 else None
         offer = veteran_contract(player,context.season,context.lineup_rules,potential)
         result['renewal_offer'] = {'annual_salary':offer.annual_salary,'years':offer.years,
             'starts_season':offer.signed_season,'category':offer.category,
@@ -259,8 +259,9 @@ def public_player_fields(player, context=()):
         if context.lineup_rules>=26:
             result['renewal_offer']['demand_rating']=float(salary_demand_rating(player,potential))
         if context.lineup_rules>=23:
-            owner=payroll_owner([player],context)
-            amount=cap_payroll(dict(context)[owner],context,owner=owner)
+            owner=renewal_owner if renewal_owner is not None else payroll_owner([player],context)
+            amount=(renewal_payroll if renewal_payroll is not None
+                    else cap_payroll(dict(context)[owner],context,owner=owner))
             result['renewal_offer']['affordable']=amount+offer.annual_salary-player.contract.annual_salary<=salary_cap(context.season,context.lineup_rules)
     return result
 
@@ -469,6 +470,7 @@ CPU_GROUP_IMPORTANCE = {
 
 def cpu_contract_priorities(players, context, year):
     """Deterministic marginal roster value per salary for CPU retention."""
+    development_states = dict(context.development)
     by_position = {}
     for p in players:
         by_position.setdefault(p.position, []).append(p)
@@ -478,7 +480,7 @@ def cpu_contract_priorities(players, context, year):
         weights = CPU_SLOT_WEIGHTS[position]
         for index, player in enumerate(group):
             slot = weights[index] if index < len(weights) else 0.01
-            potential = contract_potential(player, context)
+            potential = contract_potential(player, context, development_states)
             upside = max(0, potential-player.rating)
             ability = max(0, player.rating-50) + .20*upside
             if contract_expired(player,year):

@@ -15,7 +15,7 @@ from .leaders import league_leaders
 from .simulation import roster_for, simulate_through_week, team_ratings, roster_rules, roster_limit, roster_minimum
 from .attributes import ATTRIBUTE_INFO, attribute_keys
 from .ratings import rating_payload
-from .player_contracts import public_player_fields, payroll_payload, cap_ready, pending_renewals, release_preview, payroll_breakdown
+from .player_contracts import public_player_fields, payroll_payload, cap_ready, pending_renewals, release_preview, payroll_breakdown, cap_payroll, contract_expired
 from .lineups import lineup_context, replace_lineup_rosters
 from .simulation import ranked_players
 from .draft import build_draft
@@ -66,15 +66,23 @@ def profile_payload(team_id, players, run_seed, roster_context=(), preferred=(),
         rosters = dict(roster_context)
         rosters[team_id] = players
         roster_context = replace_lineup_rosters(roster_context,tuple(rosters.items()))
+    development_states = (dict(roster_context.development)
+                          if getattr(roster_context, 'lineup_rules', 1) >= 3 else None)
+    renewal_payroll = (cap_payroll(players, roster_context, owner=team_id)
+                       if getattr(roster_context, 'lineup_rules', 1) >= 23
+                       and any(contract_expired(player, roster_context.season) for player in players)
+                       else None)
     return {
         "team": asdict(TEAM_BY_ID[team_id]),
         "ratings": asdict(team_ratings(team_id, run_seed, roster_context)),
         "run_seed": run_seed,
         "lineup_rules": getattr(roster_context, "lineup_rules", 1),
         **({"rebuild_team": roster_context.rebuild_team} if getattr(roster_context, "rebuild_team", None) else {}),
-        "roster": [{**public_player_fields(player,roster_context),
+        "roster": [{**public_player_fields(player,roster_context,
+            development_states=development_states, renewal_payroll=renewal_payroll,
+            renewal_owner=team_id),
             **({"release_preview": release_preview(players,player,team_id,payroll_season,run_seed,roster_context)}
-               if release_previews and getattr(roster_context,"lineup_rules",1)>=16 else {}), **rating_payload(player,roster_context), "attributes": {
+               if release_previews and getattr(roster_context,"lineup_rules",1)>=16 else {}), **rating_payload(player,roster_context,development_states), "attributes": {
             key: getattr(player.attributes, key) for key in attribute_keys(player.position)
         }} for player in players],
         "roster_stats": aggregate_player_stats(players, []),
