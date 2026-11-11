@@ -24,7 +24,9 @@ let activeTeamId = null;
 let activeRunSeed = 0;
 let activeSeason = 1;
 let activeCareerStartWeek = 1;
-let activeLineupRules = 30;
+let activeLineupRules = 31;
+const legacySalaryGuide=document.querySelector("#salary-growth-guide").textContent;
+const legacyCampGuide=document.querySelector("#training-camp-guide").textContent;
 let activeDevelopmentStart = 1;
 let activeRebuildTeam = null;
 let activePriorStandings = {};
@@ -36,6 +38,8 @@ let regularSnapshot = null;
 let activeDraftChoices = null;
 let activeDraftRounds = 6;
 let draftState = null;
+let activePreCampActions = [];
+let activeCampActions = [];
 let activeFreeAgency = null;
 let freeAgencyState = null;
 let freeAgencyBusy = false;
@@ -107,10 +111,12 @@ function rebuildOrigin(context) {
 
 function saveProgress() {
   if (!activeTeamId || restoring) return;
-  const save = { version: 40, welcomeDismissed, ownerUpdateDismissed, draftRounds: activeDraftRounds, careerStartWeek: activeCareerStartWeek, lineupChanges: activeLineupChanges, contracts: activeContracts, teamId: activeTeamId, runSeed: activeRunSeed,
+  const save = { version: 41, welcomeDismissed, ownerUpdateDismissed, draftRounds: activeDraftRounds, careerStartWeek: activeCareerStartWeek, lineupChanges: activeLineupChanges, contracts: activeContracts, teamId: activeTeamId, runSeed: activeRunSeed,
     season: activeSeason, week: currentWeek, lineupRules: activeLineupRules, developmentStart: activeDevelopmentStart, rebuildTeam: activeRebuildTeam,
     priorStandings: activePriorStandings, history: careerHistory,
     draftChoices: activeDraftChoices,
+    ...(activePreCampActions.length ? {preCampActions:activePreCampActions} : {}),
+    ...(activeCampActions.length ? {campActions:activeCampActions} : {}),
     ...(activeFreeAgency !== null ? { freeAgency: activeFreeAgency } : {}),
     ...(activeTrainingCamp ? { trainingCamp: true } : {}),
     dropped: activeDropped, career: activeCareer,
@@ -132,7 +138,7 @@ function readSave() {
   if (!raw) return null;
   const save = JSON.parse(raw);
   const integer = (value, min, max) => Number.isInteger(value) && value >= min && value <= max;
-  if (!save || ![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40].includes(save.version) || typeof save.teamId !== "string"
+  if (!save || ![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41].includes(save.version) || typeof save.teamId !== "string"
       || ![...select.options].some(option => option.value && option.value === save.teamId)
       || !integer(save.runSeed, 0, 4294967295) || !integer(save.season, 1, 999)
       || !integer(save.week, 0, 17)
@@ -169,13 +175,16 @@ function readSave() {
         && (!index || step.season > save.career[index - 1].season)
         && ids(step.manual_picks) && [4, 6].includes(step.draft_rounds) && step.manual_picks.length === step.draft_rounds && ids(step.dropped)
         && validPriorStandings(step.prior_standings ?? {}, step.season))) throw new Error("Invalid roster save");
-  const validMarket = actions => Array.isArray(actions) && actions.length <= 24 && actions.every((a,i) => a && ['sign','pass','finish'].includes(a.kind) && typeof a.player_id === 'string' && a.player_id.length <= 100 && (a.kind === 'sign') === Boolean(a.player_id) && (a.kind !== 'finish' || i === actions.length-1));
-  if (save.freeAgency !== undefined && (save.lineupRules < 29 || !save.trainingCamp || !validMarket(save.freeAgency))) throw new Error("Invalid free agency save");
-  if (!save.career.every(step => step.free_agency === undefined || ((step.lineup_rules ?? 1) >= 29 && validMarket(step.free_agency)))) throw new Error("Invalid free agency history");
+  const validMarket = (actions,rules) => Array.isArray(actions) && actions.length <= (rules>=31 ? 256 : 24) && actions.every((a,i) => a && (rules>=31 ? ['sign','pass','finish','drop','resign'] : ['sign','pass','finish']).includes(a.kind) && typeof a.player_id === 'string' && a.player_id.length <= 100 && ['sign','drop','resign'].includes(a.kind) === Boolean(a.player_id) && (a.kind !== 'finish' || i === actions.length-1));
+  const phaseActions = (actions,final=false) => Array.isArray(actions) && actions.length<=128 && actions.every(a=>a && (final ? ['drop'] : ['drop','raise']).includes(a.kind) && typeof a.player_id==='string' && a.player_id.length>0 && a.player_id.length<=100);
+  if (save.freeAgency !== undefined && (save.lineupRules < 29 || (save.lineupRules<31 && !save.trainingCamp) || !validMarket(save.freeAgency,save.lineupRules))) throw new Error("Invalid free agency save");
+  save.preCampActions ??= []; save.campActions ??= [];
+  if (!phaseActions(save.preCampActions) || !phaseActions(save.campActions,true) || ((save.preCampActions.length||save.campActions.length) && (save.lineupRules<31 || !Array.isArray(save.freeAgency))) || (save.campActions.length&&!save.trainingCamp)) throw new Error("Invalid camp decisions");
+  if (!save.career.every(step => (step.free_agency === undefined || ((step.lineup_rules ?? 1)>=29 && validMarket(step.free_agency,step.lineup_rules))) && phaseActions(step.pre_camp_actions??[]) && phaseActions(step.camp_actions??[],true) && ((step.lineup_rules??1)>=31 || (!(step.pre_camp_actions??[]).length && !(step.camp_actions??[]).length)))) throw new Error("Invalid free agency history");
   if (save.draftSort !== undefined && !['value','current','potential'].includes(save.draftSort)) throw new Error("Invalid draft sort");
   if (save.draftPosition !== undefined && ![...document.querySelector("#draft-position").options].some(option => option.value === save.draftPosition)) throw new Error("Invalid draft filter");
   if (save.version < 5) save.lineupRules = 1;
-  if (![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30].includes(save.lineupRules)) throw new Error("Invalid lineup rules");
+  if (![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31].includes(save.lineupRules)) throw new Error("Invalid lineup rules");
   if (save.trainingCamp !== undefined && typeof save.trainingCamp !== "boolean") throw new Error("Invalid camp save");
   if (save.trainingCamp && (save.lineupRules < 18 || save.draftChoices?.length !== save.draftRounds || save.week !== 17 || save.playoffRound !== 4)) throw new Error("Invalid camp checkpoint");
   if ([15, 16, 17, 18].includes(save.lineupRules) && save.draftChoices === null) save.lineupRules = 20;
@@ -197,14 +206,15 @@ function readSave() {
   if (save.lineupRules === 26 && !(save.rosterActions ?? []).some(a => a?.kind === "resign")) save.lineupRules = 27;
   // CPU contract strategy changes only at the next untouched season. Preserve
   // the replay of any offseason that is already in progress.
-  if (save.lineupRules === 27 && save.draftChoices === null) save.lineupRules = 30;
+  if (save.lineupRules === 27 && save.draftChoices === null) save.lineupRules = 31;
   const validActions = (actions, dropped, rules) => Array.isArray(actions) && actions.length <= 132
     && (!actions.length || rules >= 20) && actions.every(a => a && ["drop", "resign"].includes(a.kind) && typeof a.player_id === "string" && a.player_id.length > 0 && a.player_id.length <= 100)
     && (rules < 20 || JSON.stringify(actions.filter(a => a.kind === "drop").map(a => a.player_id)) === JSON.stringify(dropped));
   // A market that has not started can adopt free agency without changing games.
   // Accepted drafts/camp decisions keep their original offseason rules.
-  if (save.version < 39 && save.lineupRules === 28 && save.draftChoices === null) save.lineupRules = 30;
-  if (save.version < 40 && save.lineupRules === 29 && save.draftChoices === null) save.lineupRules = 30;
+  if (save.version < 39 && save.lineupRules === 28 && save.draftChoices === null) save.lineupRules = 31;
+  if (save.version < 40 && save.lineupRules === 29 && save.draftChoices === null) save.lineupRules = 31;
+  if (save.version < 41 && save.lineupRules === 30 && save.draftChoices === null) save.lineupRules = 31;
   save.rosterActions ??= [];
   if (!validActions(save.rosterActions,save.dropped,save.lineupRules) || (save.rosterActions.length && !save.trainingCamp)
       || !save.career.every(step => validActions(step.roster_actions ?? [],step.dropped,step.lineup_rules ?? 1))) throw new Error("Invalid roster decisions");
@@ -504,7 +514,7 @@ async function resumeProgress() {
     }));
     // Fetch/replay a saved draft before committing any restored UI state.
     const savedDraft = save.draftChoices === null ? null : await fetchDraft(save.draftChoices, save);
-    const savedMarket = save.freeAgency === undefined ? null : await careerRequest("free_agency", {manual_picks:save.draftChoices, dropped:save.dropped, free_agency:save.freeAgency}, save);
+    const savedMarket = save.lineupRules>=31 || save.freeAgency === undefined ? null : await careerRequest("free_agency", {manual_picks:save.draftChoices, dropped:save.dropped, free_agency:save.freeAgency}, save);
     const [schedule, profile, regular, postseason] = payloads;
     if (profile.team.id !== save.teamId || profile.run_seed !== save.runSeed
         || schedule.team.id !== save.teamId || schedule.season !== save.season
@@ -701,6 +711,8 @@ document.querySelector("#welcome-help").addEventListener("click", () => activate
 function renderHelp() {
   document.querySelector("#player-salary-guide").hidden = activeLineupRules < 15;
   document.querySelector("#salary-growth-guide").hidden = activeLineupRules < 17;
+  document.querySelector("#salary-growth-guide").textContent=activeLineupRules>=31 ? "The payroll minimum is exactly 60% of the salary cap. Both limits are hard and must be resolved before training camp. Signed salaries plus retained rookie commitments count toward the minimum; dead cap only counts against the maximum. New free agents must fit remaining cap space even while the roster is above 38. Signed salaries and voluntary increases are guaranteed." : legacySalaryGuide;
+  document.querySelector("#training-camp-guide").textContent=activeLineupRules>=31 ? "After the championship, draft first, then sign free agents and renew or release current players before development. Finish the market, resolve initial cuts and the hard 60% payroll minimum and salary cap, then start training camp. Development happens once; final cuts must preserve both financial limits before the season." : legacyCampGuide;
   document.querySelector("#training-camp-guide").hidden = activeLineupRules < 18;
   document.querySelector("#rookie-contract-guide").hidden = activeLineupRules < 19;
   document.querySelector("#re-signing-guide").hidden = activeLineupRules < 20;
@@ -1154,6 +1166,17 @@ function updatePhaseActions() {
   nextSeasonButton.hidden = (activeFreeAgency !== null && !freeAgencyState?.complete) || !offseason || !drafted || campRequired || !rosterReady();
   document.querySelector("#training-camp-status").hidden = !activeTrainingCamp || activeFreeAgency !== null;
   document.querySelector("#training-camp-status").textContent = activeTrainingCamp ? `Training camp · Season ${activeSeason + 1} development complete. Finalize your roster before continuing.` : "";
+  if (activeLineupRules>=31) {
+    const closed=Boolean(freeAgencyState?.complete);
+    campButton.hidden=!offseason||!drafted||!closed||activeTrainingCamp;
+    campButton.disabled=campBusy||cutBusy||draftBusy||freeAgencyBusy||advancingSeason||!rosterReady();
+    manageRoster.hidden=!offseason||!drafted||activeFreeAgency===null;
+    nextSeasonButton.hidden=!offseason||!drafted||(activeFreeAgency!==null&&!activeTrainingCamp);
+    document.querySelector("#training-camp-status").hidden=!closed;
+    document.querySelector("#training-camp-status").textContent=activeTrainingCamp ? "Development is complete. Make any final cuts while preserving roster and payroll limits." : "Free agency is complete. Resolve initial cuts and both payroll limits, then start training camp.";
+    renderFloorControls();
+  }
+
 }
 
 function createRunSeed() {
@@ -1161,7 +1184,7 @@ function createRunSeed() {
   return candidate === activeRunSeed ? (candidate % 4294967295) + 1 : candidate;
 }
 
-function renderSchedule(data, runSeed, { priorStandings = {}, history = [], career = [], lineupRules = 30, developmentStart = 1, rebuildTeam = null, contracts = true, lineupChanges = [], careerStartWeek = 1, draftRounds = 6 } = {}) {
+function renderSchedule(data, runSeed, { priorStandings = {}, history = [], career = [], lineupRules = 31, developmentStart = 1, rebuildTeam = null, contracts = true, lineupChanges = [], careerStartWeek = 1, draftRounds = 6 } = {}) {
   closeSeasonConfirmation(false);
   simulationMore.open = false;
   clearLeaders();
@@ -1192,9 +1215,12 @@ function renderSchedule(data, runSeed, { priorStandings = {}, history = [], care
   activeDraftChoices = null;
   draftState = null;
   activeTrainingCamp = false;
+  activePreCampActions = []; activeCampActions = [];
   activeFreeAgency = null;
   freeAgencyState = null;
   document.querySelector("#free-agency").hidden = true;
+  document.querySelector("#floor-confirmation").hidden=true;
+  document.querySelector("#meet-payroll-floor").hidden=true;
   activeDropped = [];
   activeRosterActions = [];
   activeCareer = career;
@@ -1522,8 +1548,8 @@ form.addEventListener("submit", async (event) => {
     const runSeed = createRunSeed();
     const [scheduleResponse, profileResponse, regularResponse] = await Promise.all([
       fetch(`/api/schedule/${teamId}?season=1`),
-      fetch(`/api/team/${teamId}?run_seed=${runSeed}&lineup_rules=30&season=1&development_start=1${rebuildQuery(teamId)}`),
-      fetch(`/api/season/${teamId}/week/16?run_seed=${runSeed}&lineup_rules=30&season=1&development_start=1${rebuildQuery(teamId)}`),
+      fetch(`/api/team/${teamId}?run_seed=${runSeed}&lineup_rules=31&season=1&development_start=1${rebuildQuery(teamId)}`),
+      fetch(`/api/season/${teamId}/week/16?run_seed=${runSeed}&lineup_rules=31&season=1&development_start=1${rebuildQuery(teamId)}`),
     ]);
     if (!scheduleResponse.ok || !profileResponse.ok || !regularResponse.ok) {
       throw new Error("Your team could not be loaded. Please try again.");
@@ -1531,7 +1557,7 @@ form.addEventListener("submit", async (event) => {
     const [schedule, profile, regular] = await Promise.all([
       scheduleResponse.json(), profileResponse.json(), regularResponse.json(),
     ]);
-    if (profile.run_seed !== runSeed || profile.team.id !== teamId || profile.lineup_rules !== 30 || profile.rebuild_team !== teamId
+    if (profile.run_seed !== runSeed || profile.team.id !== teamId || profile.lineup_rules !== 31 || profile.rebuild_team !== teamId
         || schedule.team?.id !== teamId || schedule.season !== 1 || regular.team?.id !== teamId
         || regular.season !== 1 || regular.week !== 16 || regular.run_seed !== runSeed) {
       throw new Error("Your team could not be loaded. Please try again.");
@@ -1738,7 +1764,7 @@ function renderPayroll() {
   renderPayrollBreakdown();
   if (!pay) { status.textContent = ""; return; }
   const money = amount => `$${(amount / 1000000).toFixed(2)}M`;
-  status.textContent = `${pay.season ? `Season ${pay.season} payroll` : "Payroll"} ${money(pay.total)} / ${money(pay.cap)} cap${pay.rookie_holds || pay.expired_holds ? ` (${money(pay.committed)} signed${pay.rookie_holds ? ` + ${money(pay.rookie_holds)} rookie holds` : ""}${pay.expired_holds ? ` + ${money(pay.expired_holds)} expired holds` : ""})` : ""}${pay.dead_cap ? ` · ${money(pay.dead_cap)} dead cap` : ""} · ${pay.over_cap ? `${money(pay.over_cap)} over cap; clear space before next season` : `${money(pay.cap_space)} available`}${pay.below_floor ? ` · ${money(pay.below_floor)} below payroll floor (warning only)` : ""}`;
+  status.textContent = `${pay.season ? `Season ${pay.season} payroll` : "Payroll"} ${money(pay.total)} / ${money(pay.cap)} cap${pay.rookie_holds || pay.expired_holds ? ` (${money(pay.committed)} signed${pay.rookie_holds ? ` + ${money(pay.rookie_holds)} rookie holds` : ""}${pay.expired_holds ? ` + ${money(pay.expired_holds)} expired holds` : ""})` : ""}${pay.dead_cap ? ` · ${money(pay.dead_cap)} dead cap` : ""} · ${pay.over_cap ? `${money(pay.over_cap)} over cap; clear space before next season` : `${money(pay.cap_space)} available`}${pay.below_floor ? ` · ${money(pay.below_floor)} below payroll floor (${pay.floor_enforced ? "hard minimum" : "warning only"})` : ""}`;
 }
 
 function renderPayrollBreakdown() {
@@ -1758,13 +1784,13 @@ function renderPayrollBreakdown() {
   const budget = document.createElement("dl"); budget.className = "payroll-budget";
   for (const [label, amount] of [["Salary cap",pay.cap],["Total cap usage",pay.total],
     [pay.cap_space < 0 ? "Over cap" : "Cap space available",Math.abs(pay.cap_space)],
-    ["Payroll floor",pay.floor],["Floor-eligible payroll",detail.floor_payroll]]) {
+    ["Payroll floor",pay.floor],[activeLineupRules>=31 && !activeTrainingCamp ? "Projected signed payroll" : "Floor-eligible payroll",detail.floor_payroll]]) {
     const pair = document.createElement("div"); const term = document.createElement("dt"), value = document.createElement("dd");
     term.textContent = label; value.textContent = money(amount); pair.append(term,value); budget.append(pair);
   }
   content.append(budget);
   const note = document.createElement("p"); note.className = "roster-note";
-  note.textContent = pay.below_floor ? `${money(pay.below_floor)} below the floor · warning only.` : "Payroll floor met.";
+  note.textContent = pay.below_floor ? `${money(pay.below_floor)} below the floor${pay.floor_enforced ? " · must be resolved before training camp." : " · warning only."}` : "Payroll floor met.";
   content.append(note);
   const labels = {signed:"Signed salaries",rookie_holds:activeLineupRules >= 29 ? "Unsigned player holds" : "Unsigned rookie holds",expired_holds:"Expired-contract holds",dead_cap:"Dead cap"};
   for (const category of detail.categories) {
@@ -1801,7 +1827,7 @@ function pendingRenewals() {
 
 function rosterReady() {
   const count = rosterProfile?.roster.length ?? 0;
-  return count >= rosterMinimum() && count <= rosterLimit() && !capOverage() && !pendingRenewals();
+  return count >= rosterMinimum() && count <= rosterLimit() && !capOverage() && !pendingRenewals() && !(rosterProfile?.payroll?.floor_enforced && rosterProfile.payroll.below_floor);
 }
 
 function rosterLimitText() {
@@ -1809,7 +1835,10 @@ function rosterLimitText() {
 }
 
 function rosterCutStatus(count) {
-  if (activeLineupRules >= 18 && !activeTrainingCamp) return "Start training camp before final cuts and next season.";
+  if (activeLineupRules>=31 && !freeAgencyState?.complete) return "Complete free agency and renew or release expired players before training camp.";
+  if (activeLineupRules>=31 && rosterProfile?.payroll?.below_floor) return `Add ${faMoney(rosterProfile.payroll.below_floor)} to meet the hard payroll minimum.`;
+  if (activeLineupRules>=31 && !activeTrainingCamp && rosterReady()) return "Roster and payroll ready for training camp.";
+  if (activeLineupRules >= 18 && activeLineupRules<31 && !activeTrainingCamp) return "Start training camp before final cuts and next season.";
   if (count < rosterMinimum()) return `Need ${rosterMinimum() - count} more players to continue.`;
   const remaining = Math.max(0, count - rosterLimit());
   if (pendingRenewals()) return `${remaining ? `Drop ${remaining} more players. ` : ""}${capOverage() ? `Clear $${(capOverage()/1000000).toFixed(2)}M in cap space. ` : ""}Re-sign or release ${pendingRenewals()} ${pendingRenewals() === 1 ? "player" : "players"} with expired contracts.`;
@@ -1821,9 +1850,14 @@ function rosterCutStatus(count) {
 function updateOffseasonActions() {
   const finished = !careerEnded() && Boolean(playoffState?.postseason_complete) && activeSeason < 999;
   const drafted = Boolean(draftState?.complete) && activeDraftChoices?.length === activeDraftRounds;
-  const invalidRoster = !rosterReady() || (activeLineupRules >= 18 && !activeTrainingCamp);
+  const invalidRoster = !rosterReady() || (activeLineupRules >= 18 && activeLineupRules<31 && !activeTrainingCamp);
   updatePhaseActions();
   nextSeasonButton.disabled = freeAgencyBusy || !finished || !drafted || invalidRoster || draftBusy || cutBusy || campBusy || advancingSeason;
+  if (activeLineupRules>=31) {
+    nextSeasonButton.disabled=freeAgencyBusy||campBusy||cutBusy||draftBusy||advancingSeason||!finished||!drafted||(activeTrainingCamp&&!rosterReady());
+    nextSeasonButton.textContent=activeTrainingCamp?`Continue to Season ${activeSeason+1}`:"Open free agency";
+    return;
+  }
   nextSeasonButton.textContent = activeLineupRules >= 29 && drafted && !invalidRoster && !freeAgencyState?.complete ? "Open free agency" : !drafted ? "Finish rookie draft" : invalidRoster ? rosterCutStatus(rosterProfile.roster.length) : `Continue to Season ${activeSeason + 1}`;
 }
 
@@ -1928,7 +1962,8 @@ async function careerRequest(action, extra = {}, context = null) {
   const ranks = context?.priorStandings ?? activePriorStandings;
   const response = await fetch(`/api/career/${teamId}`, {
     method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ action, roster_actions: context?.rosterActions ?? activeRosterActions, training_camp: context?.trainingCamp ?? activeTrainingCamp, draft_rounds: context?.draftRounds ?? activeDraftRounds, season: context?.season ?? activeSeason,
+    body: JSON.stringify({ action,
+      ...((context?.lineupRules??activeLineupRules)>=31 && ['free_agency','camp','cuts','resign'].includes(action) ? {free_agency:context?.freeAgency??activeFreeAgency??[],pre_camp_actions:context?.preCampActions??activePreCampActions,camp_actions:context?.campActions??activeCampActions} : {}), roster_actions: context?.rosterActions ?? activeRosterActions, training_camp: context?.trainingCamp ?? activeTrainingCamp, draft_rounds: context?.draftRounds ?? activeDraftRounds, season: context?.season ?? activeSeason,
       run_seed: context?.runSeed ?? activeRunSeed,
       prior_standings: Object.keys(ranks).length ? ranks : null,
       career: context?.career ?? activeCareer, lineup_changes: context?.lineupChanges ?? activeLineupChanges, lineup_rules: context?.lineupRules ?? activeLineupRules, development_start: context?.developmentStart ?? activeDevelopmentStart ?? 1, rebuild_team: rebuildOrigin(context), ...extra }),
@@ -1955,6 +1990,12 @@ async function fetchDraft(choices, context = null, autoDraft = false) {
   const ranks = context?.priorStandings ?? activePriorStandings;
   const dropped = context?.dropped ?? activeDropped;
   const camp = context?.trainingCamp ?? activeTrainingCamp;
+  const market = context ? context.freeAgency : activeFreeAgency;
+  if ((context?.lineupRules??activeLineupRules)>=31 && market !== undefined && market !== null) {
+    const data = await careerRequest(camp ? "camp" : "cuts", {manual_picks:choices,dropped:[]},context);
+    if (data.team.id!==teamId || data.run_seed!==seed || data.season!==season) throw new Error("Offseason could not be restored.");
+    return data;
+  }
   if (camp) {
     const data = await careerRequest("camp", { manual_picks: choices, dropped }, context);
     if (data.team.id !== teamId || data.season !== season || data.run_seed !== seed || !data.training_camp || !draftChoicesMatch(data, choices, false, context?.draftRounds ?? activeDraftRounds)) throw new Error("Training camp could not be restored.");
@@ -1982,6 +2023,12 @@ async function fetchDraft(choices, context = null, autoDraft = false) {
 
 function applyDraft(data) {
   draftState = data;
+  if (activeLineupRules>=31 && data.free_agency) {
+    activeFreeAgency=data.free_agency.actions;
+    freeAgencyState={...data.free_agency,profile:data.profile};
+    activePreCampActions=data.pre_camp_actions??[];
+    activeCampActions=data.camp_actions??[];
+  }
   activeTrainingCamp = data.training_camp === true;
   activeDraftChoices = data.manual_picks;
   activeDropped = data.dropped ?? [];
@@ -2016,6 +2063,7 @@ function applyDraft(data) {
   renderDraft();
   renderCuts();
   renderRetirements();
+  if (activeLineupRules>=31) renderFreeAgency();
   if (activeTrainingCamp && data.development_roster) setDevelopmentRecap({ lineup_rules: activeLineupRules, roster: data.development_roster }, data.development_season);
 
 }
@@ -2226,10 +2274,11 @@ function restoreCutPlace(place) {
 }
 
 function renderCuts() {
+  if (activeLineupRules>=31) renderFreeAgency();
   // Park the same controls before removing/rebuilding their surrounding row.
   rosterManagement.append(cutConfirmation);
   for (const row of document.querySelectorAll("#roster-groups .cut-confirmation-row")) row.remove();
-  const available = activeFreeAgency === null && !careerEnded() && Boolean(draftState?.complete) && (activeLineupRules < 18 || activeTrainingCamp);
+  const available = !careerEnded() && Boolean(draftState?.complete) && (activeLineupRules>=31 ? activeFreeAgency!==null : activeFreeAgency===null && (activeLineupRules<18 || activeTrainingCamp));
   rosterManagement.hidden = !available;
   // Reuse the rating rows so ages, trends, rookies, and starters stay together.
   for (const cell of document.querySelectorAll("#roster-groups .roster-cut-action")) cell.remove();
@@ -2286,7 +2335,7 @@ function renderCuts() {
   }
 }
 function openCuts() {
-  if (activeFreeAgency !== null || careerEnded() || !draftState?.complete || cutBusy || advancingSeason || (activeLineupRules >= 18 && !activeTrainingCamp)) return;
+  if ((activeLineupRules<31 && activeFreeAgency !== null) || careerEnded() || !draftState?.complete || cutBusy || advancingSeason || (activeLineupRules >= 18 && activeLineupRules<31 && !activeTrainingCamp)) return;
   draftScrollPending = false;
   activateView("roster", { focus: true });
   rosterMode = "ratings";
@@ -2346,7 +2395,7 @@ function cancelCut() {
 document.querySelector("#cut-cancel").addEventListener("click", cancelCut);
 document.querySelector("#roster-groups").addEventListener("click", event => {
   const button = event.target.closest("[data-drop-id], [data-resign-id]");
-  if (activeFreeAgency !== null || careerEnded() || !button || button.disabled || cutBusy || advancingSeason || !draftState?.complete || (activeLineupRules >= 18 && !activeTrainingCamp) || (!button.dataset.resignId && rosterProfile.roster.length <= rosterMinimum() && !capOverage() && activeLineupRules < 23)) return;
+  if ((activeLineupRules<31 && activeFreeAgency !== null) || careerEnded() || !button || button.disabled || cutBusy || advancingSeason || !draftState?.complete || (activeLineupRules >= 18 && activeLineupRules<31 && !activeTrainingCamp) || (!button.dataset.resignId && rosterProfile.roster.length <= rosterMinimum() && !capOverage() && activeLineupRules < 23)) return;
   pendingRosterKind = button.dataset.resignId ? "resign" : "drop";
   pendingCut = button.dataset.resignId ?? button.dataset.dropId;
   const player = rosterProfile.roster.find(p => p.id === pendingCut);
@@ -2364,7 +2413,7 @@ document.querySelector("#roster-groups").addEventListener("click", event => {
     top: window.scrollY + bottom - window.innerHeight + 16, behavior: "instant" });
 });
 document.querySelector("#cut-confirm").addEventListener("click", async () => {
-  if (activeFreeAgency !== null || releaseBlocked() || careerEnded() || !pendingCut || cutBusy || advancingSeason || !draftState?.complete || (activeLineupRules >= 18 && !activeTrainingCamp) || (pendingRosterKind === "drop" && rosterProfile.roster.length <= rosterMinimum() && !capOverage() && activeLineupRules < 23)) return;
+  if ((activeLineupRules<31 && activeFreeAgency !== null) || releaseBlocked() || careerEnded() || !pendingCut || cutBusy || advancingSeason || !draftState?.complete || (activeLineupRules >= 18 && activeLineupRules<31 && !activeTrainingCamp) || (pendingRosterKind === "drop" && rosterProfile.roster.length <= rosterMinimum() && !capOverage() && activeLineupRules < 23)) return;
   cutBusy = true;
   document.querySelector("#cut-confirm").disabled = true;
   document.querySelector("#cut-cancel").disabled = true;
@@ -2375,11 +2424,23 @@ document.querySelector("#cut-confirm").addEventListener("click", async () => {
   let place;
   try {
     const kind = pendingRosterKind;
-    const data = await careerRequest(kind === "resign" ? "resign" : "cuts", {
-      manual_picks: activeDraftChoices,
-      dropped: kind === "drop" ? [...activeDropped, pendingCut] : activeDropped,
-      ...(activeLineupRules >= 20 ? { roster_actions: [...activeRosterActions, {kind,player_id:pendingCut}] } : {}),
-    });
+    let data;
+    if (activeLineupRules>=31) {
+      if (!freeAgencyState?.complete) {
+        data=await careerRequest("free_agency",{manual_picks:activeDraftChoices,free_agency:[...(activeFreeAgency??[]),{kind,player_id:pendingCut}]});
+      } else {
+        if (kind!=="drop") throw new Error("Contract renewals must be completed before training camp.");
+        const key=activeTrainingCamp?"camp_actions":"pre_camp_actions";
+        const old=activeTrainingCamp?activeCampActions:activePreCampActions;
+        data=await careerRequest("cuts",{manual_picks:activeDraftChoices,[key]:[...old,{kind,player_id:pendingCut}]});
+      }
+    } else {
+      data = await careerRequest(kind === "resign" ? "resign" : "cuts", {
+        manual_picks: activeDraftChoices,
+        dropped: kind === "drop" ? [...activeDropped, pendingCut] : activeDropped,
+        ...(activeLineupRules >= 20 ? { roster_actions: [...activeRosterActions, {kind,player_id:pendingCut}] } : {}),
+      });
+    }
     place = captureCutPlace(pendingCut, kind === "drop");
     pendingCut = null;
     cutConfirmation.hidden = true;
@@ -2423,8 +2484,9 @@ campButton.addEventListener("click", async () => {
 });
 
 nextSeasonButton.addEventListener("click", async () => {
-  if (careerEnded() || advancingSeason || nextSeasonButton.disabled || (activeDraftChoices?.length !== activeDraftRounds || !draftState?.complete || !rosterReady() || (activeLineupRules >= 18 && !activeTrainingCamp)) || cutBusy || draftBusy || campBusy || !playoffState?.postseason_complete || !regularSnapshot || activeSeason >= 999) return;
+  if (careerEnded() || advancingSeason || nextSeasonButton.disabled || (activeDraftChoices?.length !== activeDraftRounds || !draftState?.complete || (activeLineupRules<31 && !rosterReady()) || (activeLineupRules >= 18 && activeLineupRules<31 && !activeTrainingCamp)) || cutBusy || draftBusy || campBusy || !playoffState?.postseason_complete || !regularSnapshot || activeSeason >= 999) return;
   if (activeLineupRules >= 29 && !freeAgencyState?.complete) { await loadFreeAgency(); return; }
+  if (activeLineupRules>=31 && (!activeTrainingCamp || !rosterReady())) return;
   advancingSeason = true;
   nextSeasonButton.disabled = true;
   manageRoster.disabled = true;
@@ -2446,7 +2508,7 @@ nextSeasonButton.addEventListener("click", async () => {
       : !playoffState.qualified ? "Missed playoffs" : `Lost in ${lastOwnRound.name}` };
   try {
     const developmentStart = activeDevelopmentStart ?? nextSeason;
-    const lineupRules = activeLineupRules >= 28 ? 30 : activeLineupRules >= 11 ? 28 : 10;
+    const lineupRules = activeLineupRules >= 28 ? 31 : activeLineupRules >= 11 ? 28 : 10;
     // Re-rank the new roster after development and draft/cuts. Prior-season
     // overrides remain only in career history, where completed games need them.
     const lineupChanges = [];
@@ -2455,6 +2517,7 @@ nextSeasonButton.addEventListener("click", async () => {
       manual_picks: activeDraftChoices, draft_rounds: activeDraftRounds, dropped: activeDropped, lineup_rules: activeLineupRules,
       ...(activeRosterActions.length ? { roster_actions: activeRosterActions } : {}),
       ...(activeLineupRules >= 29 ? {free_agency:activeFreeAgency ?? []} : {}),
+      ...(activeLineupRules>=31 ? {pre_camp_actions:activePreCampActions,camp_actions:activeCampActions} : {}),
       ...(activeLineupChanges.length ? { lineup_changes: activeLineupChanges } : {}),
     }];
     const response = await fetch(`/api/schedule/${activeTeamId}?season=${nextSeason}${priorStandingsQuery(ranks)}`);
@@ -2487,6 +2550,28 @@ nextSeasonButton.addEventListener("click", async () => {
   }
 });
 
+function renderFloorControls() {
+  const plan=draftState?.payroll_floor_adjustment;
+  const button=document.querySelector("#meet-payroll-floor");
+  button.hidden=activeLineupRules<31 || !freeAgencyState?.complete || activeTrainingCamp || !plan;
+  button.disabled=cutBusy||campBusy||freeAgencyBusy||!plan?.allowed;
+}
+document.querySelector("#fa-review-own").addEventListener("click",()=>activateView("roster",{focus:true}));
+document.querySelector("#meet-payroll-floor").addEventListener("click",()=>{
+  const plan=draftState?.payroll_floor_adjustment;if (!plan || !plan.allowed) return;
+  document.querySelector("#floor-confirm-text").textContent=`Increase ${plan.name}'s salary by ${faMoney(plan.added_salary)} to ${faMoney(plan.annual_salary)}/year for ${plan.years} remaining years to meet the payroll minimum? The increased salary is fully guaranteed.`;
+  document.querySelector("#floor-confirmation").hidden=false;
+});
+document.querySelector("#floor-cancel").addEventListener("click",()=>{document.querySelector("#floor-confirmation").hidden=true;});
+document.querySelector("#floor-confirm").addEventListener("click",async()=>{
+  const plan=draftState?.payroll_floor_adjustment;if (!plan || !plan.allowed || cutBusy || activeTrainingCamp) return;
+  cutBusy=true;document.querySelector("#floor-confirm").disabled=true;
+  try {
+    const data=await careerRequest("cuts",{manual_picks:activeDraftChoices,pre_camp_actions:[...activePreCampActions,{kind:"raise",player_id:plan.player_id}]});
+    applyDraft(data);saveProgress();document.querySelector("#floor-confirmation").hidden=true;
+  } catch(error){showError(error.message);}
+  finally{cutBusy=false;document.querySelector("#floor-confirm").disabled=false;updateOffseasonActions();}
+});
 function faMoney(value) { return `$${(value/1e6).toFixed(2)}M`; }
 function applyFreeAgency(data) {
   if (data.team?.id !== activeTeamId || data.season !== activeSeason || data.run_seed !== activeRunSeed || !Array.isArray(data.actions)) throw new Error("Free agency could not be loaded.");
@@ -2498,6 +2583,8 @@ function applyFreeAgency(data) {
 }
 function renderFreeAgency() {
   const data = freeAgencyState;
+  document.querySelector("#fa-review-own").hidden=activeLineupRules<31;
+  document.querySelector("#fa-flow-guide").textContent=activeLineupRules>=31 ? "Your team picks first each wave. You can sign above 38 players. Review your own players to renew or release expired contracts. Finish advances to roster and payroll review, before training camp and development." : "You pick first each wave. Sign one player or pass, then the other 29 teams act. Waiting lowers prices but risks losing your target. Finish resolves the remaining CPU turns and advances to next season.";
   const panel = document.querySelector("#free-agency");
   panel.hidden = !data || data.complete;
   if (!data || data.complete) return;
@@ -2511,27 +2598,32 @@ function renderFreeAgency() {
       const cell = document.createElement("td"); cell.textContent = value; row.append(cell);
     }
     const cell = document.createElement("td"); const button = document.createElement("button");
-    button.textContent = "Sign"; button.dataset.faId = p.id; button.disabled = freeAgencyBusy || !p.affordable;
+    button.textContent = "Sign"; button.dataset.faId = p.id; button.disabled = freeAgencyBusy || cutBusy || campBusy || !p.affordable;
     if (!p.affordable) button.title = "Requires cap space and an open roster spot, with room for required minimums";
     cell.append(button); row.append(cell); return row;
   });
   document.querySelector("#fa-players").replaceChildren(...rows);
   document.querySelector("#fa-empty").hidden = rows.length > 0;
-  document.querySelector("#fa-pass").disabled = freeAgencyBusy;
-  document.querySelector("#fa-finish").disabled = freeAgencyBusy;
+  document.querySelector("#fa-pass").disabled = freeAgencyBusy || cutBusy || campBusy;
+  document.querySelector("#fa-finish").disabled = freeAgencyBusy || cutBusy || campBusy;
   document.querySelector("#fa-order").textContent = `Turn order: ${data.order.map(t => t.city).join(' → ')}`;
   document.querySelector("#fa-log").textContent = data.transactions.slice(-30).map(t => `Wave ${t.wave}: ${t.team.city} signed ${t.name} for ${faMoney(t.annual_salary)}/year`).join(' · ') || "No signings yet.";
 }
 async function loadFreeAgency(kind=null, player_id='') {
-  if (freeAgencyBusy || careerEnded() || activeLineupRules < 29 || !activeTrainingCamp || freeAgencyState?.complete) return;
+  if (freeAgencyBusy || cutBusy || campBusy || careerEnded() || activeLineupRules < 29 || (activeLineupRules<31 && !activeTrainingCamp) || freeAgencyState?.complete) return;
   const actions = [...(activeFreeAgency ?? []), ...(kind ? [{kind,player_id}] : [])];
   freeAgencyBusy = true; renderFreeAgency(); updateOffseasonActions();
   document.querySelector("#fa-error").hidden = true;
   try {
     const data = await careerRequest("free_agency", {manual_picks:activeDraftChoices,dropped:activeDropped,free_agency:actions});
-    applyFreeAgency(data); saveProgress();
-    if (data.complete) { freeAgencyBusy = false; updateOffseasonActions(); nextSeasonButton.click(); }
-    else document.querySelector("#fa-title").focus({preventScroll:true});
+    if (activeLineupRules>=31) {
+      if (data.team?.id!==activeTeamId || data.run_seed!==activeRunSeed || data.season!==activeSeason || !data.free_agency) throw new Error("Free agency could not be loaded.");
+      applyDraft(data); saveProgress();
+      if (data.free_agency.complete) activateView("roster",{focus:true});
+      else document.querySelector("#fa-title").focus({preventScroll:true});
+    } else { applyFreeAgency(data); saveProgress(); }
+    if (activeLineupRules<31 && data.complete) { freeAgencyBusy = false; updateOffseasonActions(); nextSeasonButton.click(); }
+    else if (activeLineupRules<31) document.querySelector("#fa-title").focus({preventScroll:true});
   } catch (error) {
     document.querySelector("#fa-error").textContent = error.message;
     document.querySelector("#fa-error").hidden = false;

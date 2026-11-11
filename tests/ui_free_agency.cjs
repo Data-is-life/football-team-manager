@@ -34,10 +34,10 @@ async function checks(){
  assert.match(q(p,'#fa-status').textContent,/Wave 2/);assert.ok(q(p,`#roster-groups [data-player-id="${id}"]`));
  q(p,'#fa-pass').click();await until(()=>save(p).freeAgency.length===2);assert.match(q(p,'#fa-status').textContent,/Wave 3.*105%/);
  q(p,'#fa-finish').click();await until(()=>save(p).season===2);
- assert.equal(q(p,'#free-agency').hidden,true);assert.equal(save(p).lineupRules,30);assert.equal(save(p).career[0].free_agency.at(-1).kind,'finish');
+ assert.equal(q(p,'#free-agency').hidden,true);assert.equal(save(p).lineupRules,31);assert.equal(save(p).career[0].free_agency.at(-1).kind,'finish');
  const finished=save(p);p.dom.window.close();p=await page(finished);assert.equal(save(p).season,2);assert.ok(q(p,`#roster-groups [data-player-id="${id}"]`));p.dom.window.close();
  const beforeDraft={...checkpoint,version:38,lineupRules:28,week:16,playoffRound:null,draftChoices:null,dropped:[],rosterActions:[],trainingCamp:false};
- p=await page(beforeDraft);q(p,'#simulate-button').click();await until(()=>save(p).week===17);assert.equal(save(p).lineupRules,30);p.dom.window.close();
+ p=await page(beforeDraft);q(p,'#simulate-button').click();await until(()=>save(p).week===17);assert.equal(save(p).lineupRules,31);p.dom.window.close();
  const acceptedCamp={...checkpoint,version:38,lineupRules:28};p=await page(acceptedCamp);assert.equal(q(p,'#next-season').textContent,'Continue to Season 2');assert.equal(q(p,'#free-agency').hidden,true);p.dom.window.close();
  const corrupt={...signed,freeAgency:[{kind:'finish',player_id:''},{kind:'pass',player_id:''}]};
  // Frontend rejects malformed checkpoints without replacing the user's save.

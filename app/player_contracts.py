@@ -69,7 +69,7 @@ def record_release(context, owner, player, season):
     if end<start:return context
     charge=DeadCapCharge(owner,player.id,player.name,contract.annual_salary,start,end,contract.signed_season)
     existing=context.dead_cap
-    if charge in existing:return context
+    if charge in existing and context.lineup_rules < 31:return context
     return replace(context,dead_cap=existing+(charge,))
 
 
@@ -122,6 +122,7 @@ def salary_cap(season, rules=16):
 
 
 def payroll_floor(season, rules=16):
+    if rules >= 31: return salary_cap(season,rules)*60//100
     if rules < 17: return PAYROLL_FLOOR
     return ((salary_cap(season,rules)*80 + 50_000_000)//100_000_000)*1_000_000
 
@@ -180,7 +181,7 @@ def signed_rosters(rosters, season, rules=15):
 
 
 
-def inherited_payroll(rosters, owner, seed, season):
+def inherited_payroll(rosters, owner, seed, season, rules=25):
     """Career creation only: distribute an actual floor-to-cap signed payroll."""
     from .simulation import ROSTER_RULES, _run_number
     from .retirement import retirement_age
@@ -190,7 +191,7 @@ def inherited_payroll(rosters, owner, seed, season):
     if any(p.contract.category=='inherited_bad' for p in players):
         return rosters
     def draw(purpose):return _run_number(f'inherited-payroll:{owner}:{purpose}',seed)
-    low,high=payroll_floor(season,25),salary_cap(season,25)
+    low,high=payroll_floor(season,rules),salary_cap(season,rules)
     target=low+draw('total')%((high-low)//1_000_000+1)*1_000_000
     weak=[p for p in players if p.rating<70 and p.depth>ROSTER_RULES[p.position][1]]
     groups=([p for p in weak if p.position=='QB'],
@@ -318,10 +319,10 @@ def payroll_payload(players, context, season=None, owner=None):
                     and (rules < 20 or not contract_expired(p,season)))
     rookie_holds = sum(p.rookie_offer.annual_salary for p in players if p.rookie_offer is not None)
     expired_holds = roster_total-committed-rookie_holds if rules >= 20 else 0
-    floor_payroll = committed if rules >= 19 else total
+    floor_payroll = committed+rookie_holds if rules >= 31 else committed if rules >= 19 else total
     return {'payroll': {'total':total,'cap':cap,'floor':floor,
             'cap_space':cap-total,'over_cap':max(0,total-cap),
-            'below_floor':max(0,floor-floor_payroll),'floor_enforced':False,
+            'below_floor':max(0,floor-floor_payroll),'floor_enforced':rules>=31,
             **({'committed':committed,'rookie_holds':rookie_holds} if rules>=19 else {}),
             **({'expired_holds':expired_holds} if rules>=20 else {}),
             **({'dead_cap':dead} if rules>=23 else {}),
@@ -350,7 +351,7 @@ def payroll_breakdown(players, context, season=None, owner=None):
     groups = [{'kind':key,'total':sum(p['amount'] for p in rows),
                'players':sorted(rows,key=lambda p:(-p['amount'],p['name'],p['player_id']))}
               for key,rows in categories.items()]
-    floor_payroll = groups[0]['total'] if context.lineup_rules>=19 else sum(g['total'] for g in groups)
+    floor_payroll = groups[0]['total']+groups[1]['total'] if context.lineup_rules>=31 else groups[0]['total'] if context.lineup_rules>=19 else sum(g['total'] for g in groups)
     return {'payroll_breakdown':{'season':year,'floor_payroll':floor_payroll,'categories':groups}}
 
 

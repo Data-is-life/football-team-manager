@@ -31,8 +31,8 @@ def summary(values):
             "p95_ms": round(ordered[math.ceil(len(values) * .95) - 1], 2)}
 
 
-def modern_benchmark(seasons):
-    """Current rules, POST endpoints and progressively longer saved careers."""
+def modern_benchmark(seasons, rules=31):
+    """Versioned POST endpoints and progressively longer saved careers."""
     history, results = [], []
     def measure(body):
         data, first = request('/api/career/seattle',body)
@@ -44,29 +44,47 @@ def modern_benchmark(seasons):
             warm.append(elapsed)
         return data, {'first_call_ms':round(first,2),'warm':summary(warm)}
     for season in range(1,seasons+1):
-        base = dict(season=season,run_seed=1234,lineup_rules=30,development_start=1,
+        base = dict(season=season,run_seed=1234,lineup_rules=rules,development_start=1,
                     rebuild_team='seattle',draft_rounds=6,career=list(history))
         draft, draft_time = measure({**base,'action':'draft','auto_draft':True})
-        camp_body = {**base,'action':'camp','training_camp':True,'manual_picks':draft['manual_picks']}
-        camp,_ = request('/api/career/seattle',camp_body)
-        drops = [p['id'] for p in camp['profile']['roster'] if p.get('contract_offer') or p.get('renewal_offer')]
-        actions = [dict(kind='drop',player_id=identity) for identity in drops]
-        market_body = {**camp_body,'action':'free_agency','dropped':drops,'roster_actions':actions}
-        opened, open_time = measure({**market_body,'free_agency':[]})
-        _, wave_time = measure({**market_body,'free_agency':[dict(kind='pass') for _ in range(6)]})
-        finish_actions = [dict(kind='finish')]
-        finished, finish_time = measure({**market_body,'free_agency':finish_actions})
-        if not finished['complete']:
-            raise AssertionError('Benchmark offseason did not finish')
-        history.append(dict(season=season,lineup_rules=30,draft_rounds=6,
-            manual_picks=draft['manual_picks'],dropped=drops,roster_actions=actions,
-            free_agency=finish_actions))
-        _, replay_time = measure({**base,'action':'profile','season':season+1,'career':list(history)})
-        results.append({'completed_seasons':season,'pool_size':len(opened['available']),
-            'draft':draft_time,'market_open':open_time,'market_wave7':wave_time,
-            'market_finish':finish_time,'next_season_profile':replay_time})
-    return {'rules':30,'seed':1234,'timing_scope':'Local HTTP including JSON; first calls may reuse earlier preparation caches; warm calls repeat identical requests.',
-            'seasons':results}
+        choices=draft['manual_picks']
+        if rules>=31:
+            market_body={**base,'action':'free_agency','manual_picks':choices}
+            opened,open_time=measure({**market_body,'free_agency':[]})
+            decisions=[dict(kind='drop',player_id=p['id']) for p in opened['profile']['roster'] if p.get('renewal_offer')]
+            _,wave_time=measure({**market_body,'free_agency':decisions+[dict(kind='pass') for _ in range(6)]})
+            finish_actions=decisions+[dict(kind='finish')]
+            finished,finish_time=measure({**market_body,'free_agency':finish_actions})
+            if not finished['free_agency']['complete']:raise AssertionError('Market did not finish')
+            pre=[dict(kind='drop',player_id=p['id']) for p in finished['profile']['roster'] if p.get('contract_offer')]
+            review_body={**market_body,'action':'cuts','free_agency':finish_actions,'pre_camp_actions':pre}
+            review,_=request('/api/career/seattle',review_body)
+            plan=review['payroll_floor_adjustment']
+            if plan:pre=pre+[dict(kind='raise',player_id=plan['player_id'])]
+            camp,camp_time=measure({**review_body,'action':'camp','pre_camp_actions':pre})
+            if not camp['can_continue']:raise AssertionError('Camp financial/roster check failed')
+            history.append(dict(season=season,lineup_rules=rules,draft_rounds=6,manual_picks=choices,
+                free_agency=finish_actions,pre_camp_actions=pre,camp_actions=[]))
+            pool_size=len(opened['free_agency']['available'])
+        else:
+            camp_body={**base,'action':'camp','training_camp':True,'manual_picks':choices}
+            camp,_=request('/api/career/seattle',camp_body)
+            drops=[p['id'] for p in camp['profile']['roster'] if p.get('contract_offer') or p.get('renewal_offer')]
+            actions=[dict(kind='drop',player_id=identity) for identity in drops]
+            market_body={**camp_body,'action':'free_agency','dropped':drops,'roster_actions':actions}
+            opened,open_time=measure({**market_body,'free_agency':[]})
+            _,wave_time=measure({**market_body,'free_agency':[dict(kind='pass') for _ in range(6)]})
+            finish_actions=[dict(kind='finish')]
+            finished,finish_time=measure({**market_body,'free_agency':finish_actions})
+            if not finished['complete']:raise AssertionError('Market did not finish')
+            history.append(dict(season=season,lineup_rules=rules,draft_rounds=6,
+                manual_picks=choices,dropped=drops,roster_actions=actions,free_agency=finish_actions))
+            pool_size=len(opened['available']);camp_time=None
+        _,replay_time=measure({**base,'action':'profile','season':season+1,'career':list(history)})
+        results.append({'completed_seasons':season,'pool_size':pool_size,'draft':draft_time,
+            'market_open':open_time,'market_wave7':wave_time,'market_finish':finish_time,
+            'training_camp':camp_time,'next_season_profile':replay_time})
+    return {'rules':rules,'seed':1234,'timing_scope':'Local HTTP including JSON; first calls may reuse earlier preparation caches; warm calls repeat identical requests.','seasons':results}
 
 
 def legacy_benchmark(teams, startup):
@@ -101,6 +119,7 @@ def main():
     parser.add_argument('root',nargs='?',type=Path,default=ROOT)
     parser.add_argument('--seasons',type=int,choices=range(1,11),default=3)
     parser.add_argument('--modern-only',action='store_true')
+    parser.add_argument('--rules',type=int,choices=(30,31),default=31)
     args = parser.parse_args(); ROOT = args.root.resolve()
     try:
         connection = socket.create_connection(('127.0.0.1',8768),timeout=.2)
@@ -120,7 +139,7 @@ def main():
         else: raise RuntimeError('Benchmark server did not become ready')
         startup = (time.perf_counter()-started)*1000
         report = {} if args.modern_only else legacy_benchmark(teams,startup)
-        report['modern'] = modern_benchmark(args.seasons)
+        report['modern'] = modern_benchmark(args.seasons,args.rules)
         print(json.dumps(report,indent=2))
     finally:
         server.terminate(); server.wait(timeout=10)
