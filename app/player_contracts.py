@@ -181,6 +181,25 @@ def signed_rosters(rosters, season, rules=15):
 
 
 
+def stagger_starting_expiries(rosters, seed, season):
+    """New careers inherit a mix of remaining terms, not only fresh deals."""
+    from .simulation import _run_number
+    from .retirement import retirement_age
+    updated = []
+    for owner, players in rosters:
+        eligible = [p for p in players if p.contract is not None
+                    and p.contract.category != 'inherited_bad']
+        # Favor players who will still be around for the first renewal window.
+        ordered = sorted(eligible, key=lambda p: (
+            retirement_age(p, seed) <= p.age,
+            _run_number(f'starting-expiry:{owner}:{p.id}', seed), p.id))
+        expiring = {p.id for p in ordered[:max(1, len(players)//4)]}
+        updated.append((owner, tuple(replace(p, contract=replace(p.contract, years=1))
+            if p.id in expiring and p.contract.signed_season == season else p
+            for p in players)))
+    return tuple(updated)
+
+
 def inherited_payroll(rosters, owner, seed, season, rules=25):
     """Career creation only: distribute an actual floor-to-cap signed payroll."""
     from .simulation import ROSTER_RULES, _run_number

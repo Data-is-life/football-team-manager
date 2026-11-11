@@ -969,3 +969,14 @@ The HTTP benchmark now defaults to `--rules 31`, covering the new sequence over
 three offseasons, including financial review, camp and saved-career replay.
 Use `--rules 30` to reproduce the earlier performance comparison. Existing
 legacy baselines are retained unchanged.
+
+### Starting contract expiries (rules 32)
+
+New careers begin with roughly one quarter of each team's inherited roster on
+contracts expiring after the first season (eight of 35 players). Selection is
+seeded and favors players who will survive to the first renewal window. Other
+contract terms, annual salaries, payroll, player ratings and inherited bad deals
+remain unchanged. The first pre-camp market requires renewing or releasing those
+expired players; CPU teams handle the same decisions. Existing careers retain
+their original contract book and rules. New rules-32 careers keep their rule
+version through subsequent seasons and saved replay.
