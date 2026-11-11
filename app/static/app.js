@@ -38,6 +38,9 @@ let regularSnapshot = null;
 let activeDraftChoices = null;
 let activeDraftRounds = 6;
 let draftState = null;
+let draftSort = "value";
+let draftSortDirection = "desc";
+const draftSortDefault = key => ["name", "position", "age"].includes(key) ? "asc" : "desc";
 let activePreCampActions = [];
 let activeCampActions = [];
 let activeFreeAgency = null;
@@ -121,7 +124,8 @@ function saveProgress() {
     ...(activeTrainingCamp ? { trainingCamp: true } : {}),
     dropped: activeDropped, career: activeCareer,
     ...(activeRosterActions.length ? { rosterActions: activeRosterActions } : {}),
-    ...(activeDraftChoices !== null && document.querySelector("#draft-sort").value !== (activeLineupRules >= 30 ? "value" : "current") ? {draftSort:document.querySelector("#draft-sort").value} : {}),
+    ...(activeDraftChoices !== null && draftSort !== (activeLineupRules >= 30 ? "value" : "current") ? {draftSort} : {}),
+    ...(activeDraftChoices !== null && draftSortDirection !== draftSortDefault(draftSort) ? {draftSortDirection} : {}),
     ...(document.querySelector("#draft-position").value ? { draftPosition: document.querySelector("#draft-position").value } : {}),
     playoffRound: playoffState ? completedPlayoffRound : null };
   try {
@@ -181,7 +185,8 @@ function readSave() {
   save.preCampActions ??= []; save.campActions ??= [];
   if (!phaseActions(save.preCampActions) || !phaseActions(save.campActions,true) || ((save.preCampActions.length||save.campActions.length) && (save.lineupRules<31 || !Array.isArray(save.freeAgency))) || (save.campActions.length&&!save.trainingCamp)) throw new Error("Invalid camp decisions");
   if (!save.career.every(step => (step.free_agency === undefined || ((step.lineup_rules ?? 1)>=29 && validMarket(step.free_agency,step.lineup_rules))) && phaseActions(step.pre_camp_actions??[]) && phaseActions(step.camp_actions??[],true) && ((step.lineup_rules??1)>=31 || (!(step.pre_camp_actions??[]).length && !(step.camp_actions??[]).length)))) throw new Error("Invalid free agency history");
-  if (save.draftSort !== undefined && !['value','current','potential'].includes(save.draftSort)) throw new Error("Invalid draft sort");
+  if (save.draftSort !== undefined && !['value','current','potential','name','position','age'].includes(save.draftSort)) throw new Error("Invalid draft sort");
+  if (save.draftSortDirection !== undefined && !["asc","desc"].includes(save.draftSortDirection)) throw new Error("Invalid draft sort direction");
   if (save.draftPosition !== undefined && ![...document.querySelector("#draft-position").options].some(option => option.value === save.draftPosition)) throw new Error("Invalid draft filter");
   if (save.version < 5) save.lineupRules = 1;
   if (![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31].includes(save.lineupRules)) throw new Error("Invalid lineup rules");
@@ -530,7 +535,7 @@ async function resumeProgress() {
     setDevelopmentRecap(profile, save.season);
     if (regular) renderResult(regular);
     if (postseason) { renderPostseason(postseason); activateView("playoffs"); }
-    if (savedDraft) { document.querySelector("#draft-sort").value = save.draftSort ?? (save.lineupRules >= 30 ? "value" : "current"); document.querySelector("#draft-position").value = save.draftPosition ?? ""; applyDraft(savedDraft); }
+    if (savedDraft) { draftSort = save.draftSort ?? (save.lineupRules >= 30 ? "value" : "current"); draftSortDirection = save.draftSortDirection ?? draftSortDefault(draftSort); document.querySelector("#draft-position").value = save.draftPosition ?? ""; applyDraft(savedDraft); }
     if (savedMarket) applyFreeAgency(savedMarket);
     select.value = save.teamId;
     saveStatus.textContent = "Saved progress restored. Autosave is on in this browser.";
@@ -1247,7 +1252,8 @@ function renderSchedule(data, runSeed, { priorStandings = {}, history = [], care
   document.querySelector("#draft-title").textContent = "Rookie draft";
   document.querySelector("#draft-status").textContent = "";
   document.querySelector("#draft-position").value = "";
-  document.querySelector("#draft-sort").value = lineupRules >= 30 ? "value" : "current";
+  draftSort = lineupRules >= 30 ? "value" : "current";
+  draftSortDirection = draftSortDefault(draftSort);
   draftScrollPending = false;
   nextSeasonButton.hidden = true;
   renderSeasonHistory();
@@ -2100,7 +2106,13 @@ function renderDraft() {
   autoDraftButton.hidden = !AUTO_DRAFT_ENABLED;
   autoDraftButton.disabled = !AUTO_DRAFT_ENABLED || draftBusy || draftState.complete;
   document.querySelector("#draft-position").disabled = draftBusy;
-  document.querySelector("#draft-sort").disabled = draftBusy;
+  for (const button of document.querySelectorAll("[data-draft-sort]")) {
+    button.disabled = draftBusy;
+    const selected = button.dataset.draftSort === draftSort;
+    const ascending = button.dataset.draftSort === "value" ? draftSortDirection === "desc" : draftSortDirection === "asc";
+    button.closest("th").setAttribute("aria-sort", selected ? (ascending ? "ascending" : "descending") : "none");
+    button.querySelector(".draft-sort-indicator").textContent = selected ? (ascending ? " ↑" : " ↓") : " ↕";
+  }
   draftPanel.setAttribute("aria-busy", String(draftBusy));
   document.querySelector("#draft-title").textContent = `Season ${draftState.draft_season} rookie draft`;
   document.querySelector("#draft-status").textContent = draftState.complete
@@ -2110,17 +2122,21 @@ function renderDraft() {
   if (draftState.next_contract) document.querySelector("#draft-status").textContent += ` · ${salaryLabel(draftState.next_contract)}`;
   const filter = document.querySelector("#draft-position").value;
   const rows = [];
-  const sort = document.querySelector("#draft-sort").value;
+  const sort = draftSort;
   const average = player => (player.current_rating+player.potential_rating)/2;
   const primary = player => sort === "potential" ? player.potential_rating : sort === "current" ? player.current_rating : player.draft_value ?? player.current_rating;
-  const ordered = [...draftState.available].sort((a,b) => primary(b)-primary(a) || (sort === "potential" ? b.current_rating-a.current_rating : average(b)-average(a)) || a.id.localeCompare(b.id));
-  ordered.forEach((player, index) => {
+  const ranks = new Map([...draftState.available].sort((a,b) => (b.draft_value ?? b.current_rating)-(a.draft_value ?? a.current_rating) || average(b)-average(a) || a.id.localeCompare(b.id)).map((player,index) => [player.id,index+1]));
+  const ordered = [...draftState.available].sort((a,b) => {
+    const difference = sort === "value" ? ranks.get(b.id)-ranks.get(a.id) : sort === "name" || sort === "position" ? a[sort].localeCompare(b[sort]) : sort === "age" ? a.age-b.age : primary(a)-primary(b);
+    return (draftSortDirection === "asc" ? difference : -difference) || (sort === "potential" ? b.current_rating-a.current_rating : average(b)-average(a)) || a.id.localeCompare(b.id);
+  });
+  ordered.forEach(player => {
     if (filter && player.position !== filter) return;
     const row = document.createElement("tr");
     row.dataset.prospectId = player.id;
     row.setAttribute("role", "row");
     const labels = ["Rank", "Player", "Position", "Age", "Current", "Potential"];
-    [index + 1, player.name, player.position, player.age, player.current_rating, player.potential_rating].forEach((value, column) => {
+    [ranks.get(player.id), player.name, player.position, player.age, player.current_rating, player.potential_rating].forEach((value, column) => {
       const cell = document.createElement("td"); cell.textContent = value;
       cell.dataset.label = labels[column]; cell.setAttribute("role", "cell"); row.append(cell);
     });
@@ -2219,10 +2235,14 @@ draftButton.addEventListener("click", () => {
 document.querySelector("#draft-close").addEventListener("click", () => activateView("schedule", { focus: true }));
 document.querySelector("#draft-roster").addEventListener("click", () => activateView("roster", { focus: true }));
 document.querySelector("#roster-draft-return").addEventListener("click", () => activateView("draft", { focus: true }));
-document.querySelector("#draft-sort").addEventListener("change", () => {
+for (const button of document.querySelectorAll("[data-draft-sort]")) button.addEventListener("click", () => {
+  if (!draftState || draftBusy) return;
+  const key = button.dataset.draftSort;
+  draftSortDirection = key === draftSort ? (draftSortDirection === "desc" ? "asc" : "desc") : draftSortDefault(key);
+  draftSort = key;
   renderDraft();
   document.querySelector("#draft-prospect-list").scrollTop = 0;
-  if (draftState && !draftBusy) saveProgress();
+  saveProgress();
 });
 document.querySelector("#draft-position").addEventListener("change", () => {
   renderDraft();

@@ -171,7 +171,10 @@ async function checks(){
  const filtered=raw(p);p.dom.window.close();p=await restore(filtered);assert.equal(q(p,'#draft-position').value,'WR');assert.equal(raw(p),filtered);
  q(p,'#draft-button').click();p.state.defer=true;q(p,'#draft-prospect-list').scrollTop=400;
  q(p,'#draft-prospects [data-draft-id]').click();await until(()=>p.state.release!==null);
- assert.equal(q(p,'#draft-position').disabled,true);q(p,'#draft-roster').click();
+ assert.equal(q(p,'#draft-position').disabled,true);
+ assert.ok([...p.d.querySelectorAll('[data-draft-sort]')].every(button=>button.disabled));
+ const busySave=raw(p);q(p,'[data-draft-sort=potential]').disabled=false;q(p,'[data-draft-sort=potential]').click();assert.equal(raw(p),busySave,'Forced sort during a pending pick cannot change the checkpoint');
+ q(p,'#draft-roster').click();
  const scrollCount=p.state.scrolls.filter(id=>id==='draft-prospect-list').length;
  p.state.defer=false;p.state.release();await until(()=>save(p).draftChoices.length===2);
  assert.equal(q(p,'#panel-roster').hidden,false);assert.equal(p.state.scrolls.filter(id=>id==='draft-prospect-list').length,scrollCount);
