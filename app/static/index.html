@@ -140,18 +140,18 @@
             <p id="draft-error" class="error" role="alert" hidden></p>
             <button id="draft-retry" class="secondary-button" type="button" hidden>Retry</button>
             <section id="draft-board" hidden>
-              <div class="draft-controls"><div class="draft-filter"><label for="draft-sort">Sort by</label>
-              <select id="draft-sort"><option value="value">Draft value</option><option value="current">Current rating</option><option value="potential">Potential rating</option></select></div><div class="draft-filter"><label for="draft-position">Position</label>
+              <div class="draft-controls"><div class="draft-filter"><label for="draft-position">Position</label>
               <select id="draft-position"><option value="">All positions</option>
                 <option>QB</option><option>WR</option><option>TE</option><option>RB</option><option>OL</option>
                 <option>K</option><option>DL</option><option>LB</option><option>CB</option><option>S</option></select></div>
               <button id="auto-draft" class="secondary-button" type="button" hidden disabled>Auto-draft remaining picks</button>
               </div>
               <p class="roster-note">Draft value favors QB, S, RB, WR and CB; kickers receive the lowest positional priority. Current ability comes first, then the current/potential average. CPU teams also weigh starting-lineup needs.</p>
-              <p id="draft-available" class="roster-note"></p>
+              <p id="draft-sort-help" class="roster-note">Click a column header to sort; click again to reverse. Rank uses draft value. Scroll sideways on smaller screens.</p>
+              <p id="draft-available" class="roster-note" role="status" aria-atomic="true"></p>
               <p id="draft-no-matches" class="roster-note" hidden>No prospects at this position. Choose another position.</p>
-              <div id="draft-prospect-list" class="table-wrap draft-prospect-scroll" tabindex="0" role="region" aria-labelledby="draft-available"><table class="roster-table" role="table" aria-label="Available draft prospects">
-                <thead role="rowgroup"><tr role="row"><th scope="col">Available rank</th><th scope="col">Player</th><th scope="col">Position</th><th scope="col">Age</th><th scope="col">Current</th><th scope="col">Potential</th><th scope="col">Pick</th></tr></thead>
+              <div id="draft-prospect-list" class="table-wrap draft-prospect-scroll" tabindex="0" role="region" aria-labelledby="draft-available"><table class="roster-table" role="table" aria-label="Available draft prospects" aria-describedby="draft-sort-help">
+                <thead role="rowgroup"><tr role="row"><th scope="col"><button type="button" data-draft-sort="value">Rank<span class="draft-sort-indicator" aria-hidden="true"></span></button></th><th scope="col"><button type="button" data-draft-sort="name">Player<span class="draft-sort-indicator" aria-hidden="true"></span></button></th><th scope="col"><button type="button" data-draft-sort="position">Position<span class="draft-sort-indicator" aria-hidden="true"></span></button></th><th scope="col"><button type="button" data-draft-sort="age">Age<span class="draft-sort-indicator" aria-hidden="true"></span></button></th><th scope="col"><button type="button" data-draft-sort="current">Current<span class="draft-sort-indicator" aria-hidden="true"></span></button></th><th scope="col"><button type="button" data-draft-sort="potential">Potential<span class="draft-sort-indicator" aria-hidden="true"></span></button></th><th scope="col">Pick</th></tr></thead>
                 <tbody id="draft-prospects" role="rowgroup"></tbody>
               </table></div>
             </section>
