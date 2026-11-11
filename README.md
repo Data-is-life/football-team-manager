@@ -926,3 +926,46 @@ two seeds, legacy/current draft rules, partial/full drafts and market actions.
 They also check reduced computation counts, cache invalidation and response
 mutation isolation. To intentionally change gameplay or payloads later, review
 those baselines against the documented source commit before updating them.
+
+### Pre-camp market and hard payroll limits (rules 31 / save 41)
+
+The current flow is championship → draft → free agency and current-player
+renewals → initial roster/payroll review → training camp and development → final
+cuts → next season. Offers use end-of-season ability and potential estimates.
+Aging, rookie outcomes and development happen once at camp, after contracts are
+agreed; they never retroactively reprice those contracts.
+
+Free agency can open with an oversized roster or unresolved expired holds.
+Current players can be re-signed or released from roster review during the
+market without consuming a free-agent wave. Expired contracts must be resolved
+before Finish. Signings may take the roster above 38, but must fit the salary
+cap including existing guarantees, dead cap, holds and required minimum-roster
+costs. Guaranteed obligations already above the cap block new signings. Finish
+is final and moves to initial roster review, not directly to the season.
+
+Before camp, all teams must have 31–38 players, meet position minimums, and fit
+both hard financial limits. The payroll minimum is exactly 60% of the maximum
+cap (not rounded to a whole million). Active signed salaries count toward the
+minimum; dead cap counts only against the maximum. Retained rookie/emergency
+holds are projected as signed payroll during review and are committed before
+camp validates actual payroll. Required replacements remain unsigned until
+retained. Initial inherited payroll uses the new floor for new careers.
+
+If roster review leaves payroll below the minimum, **Meet payroll minimum**
+shows a proposed increase for a current player's remaining contract term. It
+requires confirmation, is fully guaranteed, and cannot exceed the salary cap.
+CPU teams perform the same floor adjustment automatically. Releases that make
+both hard limits impossible to meet are rejected. After camp, additional cuts
+must preserve the minimum, maximum and roster requirements; signed guarantees
+remain dead cap. New contracts are unavailable after the market closes.
+
+Market actions, initial-review decisions and post-camp cuts are separate saved
+logs, so restores and later seasons reproduce the correct prices and exactly
+one development pass. Cached preparation stores an immutable board string and
+immutable context. Accepted older drafts/camps keep their recorded sequence;
+eligible checkpoints with no draft underway can adopt rules 31.
+
+The HTTP benchmark now defaults to `--rules 31`, covering the new sequence over
+three offseasons, including financial review, camp and saved-career replay.
+Use `--rules 30` to reproduce the earlier performance comparison. Existing
+legacy baselines are retained unchanged.

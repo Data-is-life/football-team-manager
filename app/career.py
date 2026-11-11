@@ -170,6 +170,19 @@ def replay_career(team_id: str, run_seed: int, steps: tuple, lineup_rules: int =
         context = with_starters(context, team_id, run_seed, step[5] if len(step) > 5 else ())
         if season <= previous:
             raise ValueError('Career offseason years must be in increasing order')
+        if rules >= 31:
+            if dropped or (len(step)>7 and step[7]):
+                raise ValueError('New offseasons require ordered market and camp logs')
+            from .preseason import run
+            data, context = run(team_id,season,run_seed,choices,prior,context,
+                step[6] if len(step)>6 else 6,step[8] if len(step)>8 else (),
+                step[9] if len(step)>9 else (),True,step[10] if len(step)>10 else ())
+            if not data['can_continue']:
+                raise ValueError('Complete training camp and resolve final roster and payroll before next season')
+            from .player_contracts import sign_retained_rookies
+            context=sign_retained_rookies(context,season+1)
+            previous=season
+            continue
         if rules >= 29:
             from .free_agency import free_agency_order
             market_order = free_agency_order(season,run_seed,prior,context)

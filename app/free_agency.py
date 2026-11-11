@@ -44,6 +44,7 @@ def wave_contract(normal, season, rules, wave):
 
 
 def free_agency(team_id, season, request_seed, context, order, actions=()):
+    pre_camp = context.lineup_rules >= 31
     if context.lineup_rules < 29 or context.season != season+1 or context.run_seed != request_seed:
         raise ValueError('Invalid free agency context')
     if set(order) != set(TEAM_BY_ID) or len(order) != len(TEAM_BY_ID):
@@ -91,7 +92,7 @@ def free_agency(team_id, season, request_seed, context, order, actions=()):
         return minimum * max(missing[owner]-filled, minimum_total-len(rosters[owner])-added, 0)
 
     def can_sign(owner, player, deal):
-        return (len(rosters[owner]) < maximum_total
+        return ((pre_camp or len(rosters[owner]) < maximum_total)
                 and budgets[owner] + deal.annual_salary + reserved(owner,player) <= cap)
 
     def sign(owner, identity):
@@ -113,7 +114,7 @@ def free_agency(team_id, season, request_seed, context, order, actions=()):
     def cpu_turns():
         for owner in order[1:]:
             players = rosters[owner]
-            if len(players) >= roster_limit(context):
+            if len(players) >= (roster_limit(context)+6 if pre_camp else roster_limit(context)):
                 continue
             weakest = {}
             for player in players:
@@ -137,13 +138,33 @@ def free_agency(team_id, season, request_seed, context, order, actions=()):
                 sign(owner,identity)
 
     for owner, players in rosters.items():
-        if len(players) > roster_limit(context) or pending_renewals(players,context):
+        if not pre_camp and (len(players) > roster_limit(context) or pending_renewals(players,context)):
             raise ValueError('Finalize roster cuts and expired contracts before free agency')
-        if budgets[owner]+reserved(owner)>cap:
+        if not pre_camp and budgets[owner]+reserved(owner)>cap:
             raise ValueError('Clear cap space for required roster minimums before free agency')
     for kind,identity in actions:
         if complete:
             raise ValueError('Free agency has already finished')
+        if pre_camp and kind in ('resign','drop'):
+            if not identity: raise ValueError('Roster decisions require a player ID')
+            if kind == 'resign':
+                from .player_contracts import renew_player
+                rosters[team_id]=renew_player(rosters[team_id],identity,context.season,context.lineup_rules,context,team_id)
+                budgets[team_id]=cap_payroll(rosters[team_id],context,context.season,team_id)
+            else:
+                from .preseason import release_player
+                latest=replace(context,free_agents=tuple(pool.values()))
+                latest=replace_lineup_rosters(latest,tuple((o,tuple(ps)) for o,ps in rosters.items()))
+                context=release_player(latest,team_id,identity)
+                rosters={o:list(ps) for o,ps in context}
+                pool={p.id:p for p in context.free_agents}
+                counts[team_id]=Counter(p.position for p in rosters[team_id])
+                missing[team_id]=sum(max(0,floor-counts[team_id][pos]) for pos,(_,floor) in rules.items())
+                budgets[team_id]=cap_payroll(rosters[team_id],context,context.season,team_id)
+                states=dict(context.development)
+            continue
+        if kind == 'finish' and pre_camp and pending_renewals(rosters[team_id],context):
+            raise ValueError('Re-sign or release your expired players before finishing free agency')
         if kind == 'sign':
             sign(team_id,identity)
         elif kind not in ('pass','finish') or identity:
@@ -156,6 +177,8 @@ def free_agency(team_id, season, request_seed, context, order, actions=()):
                 cpu_turns()
             complete = True
         elif wave == MAX_WAVES:
+            if pre_camp and pending_renewals(rosters[team_id],context):
+                raise ValueError('Resolve your expired contracts before the final wave ends')
             complete = True
         else:
             wave += 1
@@ -164,12 +187,12 @@ def free_agency(team_id, season, request_seed, context, order, actions=()):
         rosters = {owner:fill_roster(players,owner,season,request_seed,excluded,context=context,
                                    identity_suffix='-free-agency') for owner,players in rosters.items()}
         for owner,players in rosters.items():
-            validate_roster(players,minimum_total=roster_minimum(context),maximum_total=roster_limit(context))
-            if cap_payroll(players,context,context.season,owner)>cap:
+            validate_roster(players,minimum_total=roster_minimum(context),maximum_total=None if pre_camp else roster_limit(context))
+            if not pre_camp and cap_payroll(players,context,context.season,owner)>cap:
                 raise ValueError('Final roster exceeds the salary cap')
     context = replace(context, free_agents=tuple(pool[k] for k in sorted(pool)))
     context = replace_lineup_rosters(context,tuple((owner,ranked_players(players)) for owner,players in sorted(rosters.items())))
-    context = capture_rotation(context)
+    if not pre_camp: context = capture_rotation(context)
     available = []
     if not complete:
         for player in pool.values():

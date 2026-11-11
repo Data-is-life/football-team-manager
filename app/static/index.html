@@ -46,7 +46,7 @@
         <section id="free-agency" class="selector-card" aria-labelledby="fa-title" hidden>
           <h2 id="fa-title" tabindex="-1">Free agency</h2>
           <p id="fa-status" role="status"></p>
-          <p>You pick first each wave. Sign one player or pass, then the other 29 teams act. Waiting lowers prices but risks losing your target. Finish resolves the remaining CPU turns and advances to next season.</p>
+          <p id="fa-flow-guide">You pick first each wave. Sign one player or pass, then the other 29 teams act. Waiting lowers prices but risks losing your target. Finish resolves the remaining CPU turns and advances to next season.</p>
           <p>Demands: 120%, 110%, 105%, 100%, then 5 percentage points less each wave, down to minimum salary. Contracts are fully guaranteed.</p>
           <label for="fa-sort">Sort by</label>
           <select id="fa-sort"><option value="current_rating">Current rating</option><option value="potential_rating">Potential rating</option></select>
@@ -57,6 +57,7 @@
             <thead><tr><th>Name</th><th>Position</th><th>Age</th><th>Current</th><th>Potential</th><th>Salary/year</th><th>Term</th><th>Action</th></tr></thead>
             <tbody id="fa-players"></tbody></table></div>
           <p id="fa-empty" hidden>No available players match this position.</p>
+          <button id="fa-review-own" type="button" hidden>Review own players</button>
           <button id="fa-pass" type="button">Pass to next wave</button>
           <button id="fa-finish" type="button">Finish free agency</button>
           <p id="fa-error" role="alert" hidden></p>
@@ -97,6 +98,8 @@
               <button id="playoff-simulate" type="button" hidden></button>
               <button id="draft-button" type="button" hidden>Start rookie draft</button>
               <button id="training-camp-button" type="button" hidden>Start training camp</button>
+              <button id="meet-payroll-floor" type="button" hidden>Meet payroll minimum</button>
+              <section id="floor-confirmation" role="group" aria-label="Confirm payroll minimum adjustment" hidden><p id="floor-confirm-text"></p><button id="floor-confirm" type="button">Confirm salary increase</button><button id="floor-cancel" class="secondary-button" type="button">Cancel</button></section>
               <button id="next-season" type="button" hidden></button>
             </div>
           </div>
