@@ -1,4 +1,4 @@
-"""Rules 29: deterministic user-first free agency, replayed from saved turns."""
+"""Versioned, deterministic user-first free agency, replayed from saved turns."""
 from collections import Counter
 from dataclasses import asdict, replace
 from decimal import Decimal, ROUND_HALF_UP
@@ -29,26 +29,55 @@ def wave_percent(wave):
     return (120, 110, 105)[wave-1] if wave <= 3 else max(0, 100-5*(wave-4))
 
 
-def asking_contract(player, context, wave, development_states=None):
+def market_premium(offense, defense, wins, losses, ties):
+    """Basis points: up to 10% each for weak ability and a losing record."""
+    overall = (Decimal(offense) + Decimal(defense)) / 2
+    strength = max(Decimal(0), min(Decimal(1000), (75 - overall) * 100))
+    games = wins + losses + ties
+    record = max(Decimal(0), Decimal(1000) * (losses - wins) / games) if games else Decimal(0)
+    return (int(strength.quantize(Decimal('1'), rounding=ROUND_HALF_UP)),
+            int(record.quantize(Decimal('1'), rounding=ROUND_HALF_UP)))
+
+
+def team_market_premiums(season, seed, prior, context):
+    """Snapshot the concluded season, before drafting, cuts or market signings."""
+    from .standings import standings_through_week
+    tables = standings_through_week(season, 17, seed, prior, context)
+    return {row['team']['id']: market_premium(row['ratings']['offense'], row['ratings']['defense'],
+                row['wins'], row['losses'], row['ties'])
+            for group in tables['groups'] for row in group['teams']}
+
+
+def asking_contract(player, context, wave, development_states=None, *, premium_basis_points=0):
     normal = veteran_contract(player, context.season, context.lineup_rules,
                              contract_potential(player, context, development_states))
-    return wave_contract(normal,context.season,context.lineup_rules,wave)
+    return wave_contract(normal,context.season,context.lineup_rules,wave,premium_basis_points=premium_basis_points)
 
 
-def wave_contract(normal, season, rules, wave):
-    """Apply the original rounding and floor to an already computed demand."""
-    amount = Decimal(normal.annual_salary) * wave_percent(wave) / 100
+def wave_contract(normal, season, rules, wave, *, premium_basis_points=0):
+    """Apply wave and destination multipliers, then round once and enforce the floor."""
+    premium = premium_basis_points if rules >= 34 else 0
+    if not 0 <= premium <= 2000:
+        raise ValueError('Invalid destination premium')
+    amount = Decimal(normal.annual_salary) * wave_percent(wave) / 100 * (10_000 + premium) / 10_000
     rounded = int((amount / 10_000).quantize(Decimal('1'), rounding=ROUND_HALF_UP))*10_000
     return replace(normal, annual_salary=max(minimum_salary(season,rules),rounded),
                    category='free_agent')
 
 
-def free_agency(team_id, season, request_seed, context, order, actions=()):
+def free_agency(team_id, season, request_seed, context, order, actions=(), *, premiums=None):
     pre_camp = context.lineup_rules >= 31
     if context.lineup_rules < 29 or context.season != season+1 or context.run_seed != request_seed:
         raise ValueError('Invalid free agency context')
     if set(order) != set(TEAM_BY_ID) or len(order) != len(TEAM_BY_ID):
         raise ValueError('Free agency requires all 30 teams')
+    if context.lineup_rules >= 34:
+        if premiums is None or set(premiums) != set(TEAM_BY_ID) or any(
+                len(parts) != 2 or any(type(part) is not int or not 0 <= part <= 1000 for part in parts)
+                for parts in premiums.values()):
+            raise ValueError('Free agency requires concluded-season premiums for all 30 teams')
+    else:
+        premiums = {owner: (0, 0) for owner in TEAM_BY_ID}
     order = (team_id,) + tuple(owner for owner in order if owner != team_id)
     # These emergency placeholders were created during draft/cut validation.
     # Real free agents get the vacancies before final emergency filling.
@@ -78,12 +107,14 @@ def free_agency(team_id, season, request_seed, context, order, actions=()):
             potentials[player.id] = contract_potential(player,context,states)
         return potentials[player.id]
 
-    def demand(player):
-        key = (player.id,wave)
+    def demand(owner, player):
+        premium = sum(premiums[owner])
+        key = (player.id,wave,premium)
         if key not in wave_contracts:
             if player.id not in normal_contracts:
                 normal_contracts[player.id] = veteran_contract(player,context.season,context.lineup_rules,potential_for(player))
-            wave_contracts[key] = wave_contract(normal_contracts[player.id],context.season,context.lineup_rules,wave)
+            wave_contracts[key] = wave_contract(normal_contracts[player.id],context.season,context.lineup_rules,wave,
+                premium_basis_points=premium)
         return wave_contracts[key]
 
     def reserved(owner, player=None):
@@ -99,7 +130,7 @@ def free_agency(team_id, season, request_seed, context, order, actions=()):
         player = pool.get(identity)
         if player is None:
             raise ValueError('That free agent is no longer available')
-        deal = demand(player)
+        deal = demand(owner, player)
         if not can_sign(owner,player,deal):
             raise ValueError('Signing must fit roster space, salary cap and required roster minimums')
         if counts[owner][player.position] < rules[player.position][1]:
@@ -127,7 +158,7 @@ def free_agency(team_id, season, request_seed, context, order, actions=()):
                 baseline = weakest.get(player.position,40)
                 if not shortage and count >= target and player.rating <= baseline+3:
                     continue
-                deal = demand(player)
+                deal = demand(owner, player)
                 if not can_sign(owner,player,deal):
                     continue
                 benefit = (100 if shortage else max(0,player.rating-baseline)) + .1*max(0,potential_for(player)-player.rating)
@@ -196,11 +227,14 @@ def free_agency(team_id, season, request_seed, context, order, actions=()):
     available = []
     if not complete:
         for player in pool.values():
-            deal = demand(player)
+            deal = demand(team_id, player)
             available.append({'id':player.id,'name':player.name,'position':player.position,'age':player.age,
                 **rating_payload(player,context,states), 'annual_salary':deal.annual_salary,'years':deal.years,
                 'affordable':can_sign(team_id,player,deal)})
-    return {'wave':wave,'percent':wave_percent(wave),'complete':complete,
+    premium_payload = {'destination_premium': {
+        'strength_basis_points': premiums[team_id][0], 'record_basis_points': premiums[team_id][1],
+        'basis_points': sum(premiums[team_id])}} if context.lineup_rules >= 34 else {}
+    return {**premium_payload, 'wave':wave,'percent':wave_percent(wave),'complete':complete,
             'actions':[{'kind':kind,'player_id':identity} for kind,identity in actions],
             'order':[asdict(TEAM_BY_ID[owner]) for owner in order],
             'available':sorted(available,key=lambda p:(-p['current_rating'],p['id'])),

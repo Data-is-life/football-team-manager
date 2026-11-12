@@ -992,3 +992,28 @@ Scoring uses sensitivity 0.48 instead of 0.36 for the offense-versus-defense
 rating gap. The scoring base, home advantage, scoring noise and shutout rescue
 remain unchanged. Rules 33 persist through rollover and save/replay. Existing
 careers keep their earlier rules and results; the API's legacy default remains 1.
+
+### Destination premiums for free agents (rules 34)
+
+New careers apply a team-specific premium to unsigned players' normal salary
+requests, on top of the existing wave multiplier. It is the same for user and
+CPU teams and is capped at 20%:
+
+- Roster component: +1% per point that the average of offense and defense falls
+  below 75, capped at +10% at 65 or lower.
+- Record component: +10% × max(0, (losses − wins) / games), with ties counting
+  as half a win. A .500 or winning team pays no record premium.
+
+For example, a team rated 70 that finished 3–14 pays +11.47%. A normal $5M demand
+in wave 1 is $5M × 1.20 × 1.1147 = $6.69M after rounding to $10,000.
+Salary floors apply after the multipliers; there is no destination discount.
+
+Ratings and record come from the concluded regular season, before the draft
+and market changes, and stay fixed for that offseason. They are recalculated
+from the next season's results in the following market. The free-agency screen
+shows the roster and record components, and all displayed demands, CPU choices,
+signings and cap checks use the destination-adjusted amount. Renewals of players
+already on a team's roster retain their existing pricing.
+
+Rules 34 persist through rollover and saved action replay. Earlier careers keep
+their original salary rules and results; saved markets are never repriced.

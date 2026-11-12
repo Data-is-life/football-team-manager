@@ -42,6 +42,24 @@ async function checks(){
  const corrupt={...signed,freeAgency:[{kind:'finish',player_id:''},{kind:'pass',player_id:''}]};
  // Frontend rejects malformed checkpoints without replacing the user's save.
  const dom=new JSDOM(html,{url:base,runScripts:'outside-only'});dom.window.localStorage.setItem(key,JSON.stringify(corrupt));dom.window.fetch=(url,init)=>fetch(new URL(url,base),init);dom.window.eval(script);await new Promise(r=>setTimeout(r,200));assert.equal(dom.window.localStorage.getItem(key),JSON.stringify(corrupt));dom.window.close();
+ // New rules show destination pricing and retain the signed quote after reload.
+ const modernRequest={...request,lineup_rules:34};
+ const modernDraft=await api({...modernRequest,action:'draft',auto_draft:true});
+ const modern=await api({...modernRequest,action:'free_agency',manual_picks:modernDraft.manual_picks});
+ const premium=modern.free_agency.destination_premium;
+ assert.ok(premium.basis_points>0&&premium.basis_points<=2000);
+ p=await page({...checkpoint,version:41,lineupRules:34,trainingCamp:false,draftChoices:modernDraft.manual_picks,dropped:[],rosterActions:[],freeAgency:[]});
+ assert.ok(q(p,'#fa-status').textContent.includes(`Team premium +${(premium.basis_points/100).toFixed(2)}%`));
+ assert.match(q(p,'#fa-flow-guide').textContent,/weaker rosters or losing records/);
+ const modernTarget=modern.free_agency.available.find(p=>p.affordable);
+ const quotedRow=q(p,`[data-fa-id="${modernTarget.id}"]`).closest('tr');
+ assert.equal(quotedRow.children[5].textContent,`$${(modernTarget.annual_salary/1e6).toFixed(2)}M`);
+ q(p,`[data-fa-id="${modernTarget.id}"]`).click();await until(()=>save(p).freeAgency.length===1);
+ const modernSave=save(p);p.dom.window.close();p=await page(modernSave);
+ assert.equal(save(p).lineupRules,34);assert.match(q(p,'#fa-status').textContent,/Wave 2.*Team premium/);
+ const after=await api({...modernRequest,action:'free_agency',manual_picks:modernDraft.manual_picks,free_agency:modernSave.freeAgency});
+ assert.equal(after.profile.roster.find(p=>p.id===modernTarget.id).contract.annual_salary,modernTarget.annual_salary);
+ assert.deepEqual(after.free_agency.destination_premium,premium);p.dom.window.close();
  console.log('Free agency UI passed: entry, sorting/filtering, failure retry, duplicate-click guard, user-first signing, pool removal, pass, reload, finish/advance, next-season replay and corrupt-save preservation.');
 }
 (async()=>{const server=spawn(process.env.PYTHON||'python',['-m','uvicorn','app.main:app','--host','127.0.0.1','--port','8784'],{cwd:root,stdio:['ignore','pipe','pipe']});let logs='';server.stdout.on('data',d=>logs+=d);server.stderr.on('data',d=>logs+=d);try{for(let i=0;;i++){if(server.exitCode!==null)throw new Error(logs);try{if((await fetch(base+'/api/teams')).ok)break;}catch{}if(i===100)throw new Error(logs);await new Promise(r=>setTimeout(r,100));}try{await checks();}catch(error){console.error(logs);throw error;}}finally{server.kill();}})().catch(e=>{console.error(e);process.exitCode=1;});
