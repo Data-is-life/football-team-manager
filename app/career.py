@@ -98,7 +98,7 @@ def offseason(team_id, season, run_seed, choices, dropped, prior=(), roster_cont
                 guaranteed=sum(p.contract.annual_salary for p in rosters[team_id] if p.contract is not None and not contract_expired(p,season+1))
                 guaranteed += sum(p.rookie_offer.annual_salary for p in rosters[team_id]
                                   if p.rookie_offer is not None and p.rookie_offer.category == 'replacement')
-                if guaranteed+dead_cap_total(roster_context,team_id,season+1)>salary_cap(season+1,roster_context.lineup_rules):
+                if guaranteed+dead_cap_total(roster_context,team_id,season+1)>salary_cap(season+1,roster_context.lineup_rules, run_seed=run_seed):
                     raise ValueError('This release cannot fit its guaranteed salary plus required replacement under the cap')
         rosters[team_id] = arrange_depth(rosters[team_id])
         draft['replacements'] = [player_payload(p,roster_context) for p in rosters[team_id] if p.id.startswith(f'replacement-{run_seed}-{season+1}-')]
@@ -198,7 +198,7 @@ def replay_career(team_id: str, run_seed: int, steps: tuple, lineup_rules: int =
             from .player_contracts import attach_historical_draft_contracts
             context = attach_historical_draft_contracts(context,board)
         if not cap_ready(dict(context)[team_id],context,season+1,team_id):
-            raise ValueError(f'Clear ${ (cap_payroll(dict(context)[team_id],context,season+1,team_id)-salary_cap(season+1,context.lineup_rules))/1_000_000:.2f}M in cap space before starting the next season')
+            raise ValueError(f'Clear ${ (cap_payroll(dict(context)[team_id],context,season+1,team_id)-salary_cap(season+1,context.lineup_rules, run_seed=run_seed))/1_000_000:.2f}M in cap space before starting the next season')
         if len(dict(context)[team_id]) > roster_limit(context):
             raise ValueError(f'Finalize each past roster at {roster_limit(context)} players or fewer')
         if len(dict(context)[team_id]) < roster_minimum(context):

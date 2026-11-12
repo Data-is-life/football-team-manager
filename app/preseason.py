@@ -21,12 +21,12 @@ def floor_payroll(players, context):
 
 def financial_ready(players, context, owner):
     return (not pending_renewals(players,context)
-            and cap_payroll(players,context,context.season,owner)<=salary_cap(context.season,context.lineup_rules)
-            and floor_payroll(players,context)>=payroll_floor(context.season,context.lineup_rules))
+            and cap_payroll(players,context,context.season,owner)<=salary_cap(context.season,context.lineup_rules, run_seed=getattr(context,'run_seed',0))
+            and floor_payroll(players,context)>=payroll_floor(context.season,context.lineup_rules, run_seed=getattr(context,'run_seed',0)))
 
 
 def raise_plan(players, context, owner):
-    deficit=max(0,payroll_floor(context.season,context.lineup_rules)-floor_payroll(players,context))
+    deficit=max(0,payroll_floor(context.season,context.lineup_rules, run_seed=getattr(context,'run_seed',0))-floor_payroll(players,context))
     if not deficit:
         return None
     eligible=[p for p in players if p.rookie_offer is not None or (p.contract and not contract_expired(p,context.season))]
@@ -37,7 +37,7 @@ def raise_plan(players, context, owner):
     return {'player_id':player.id,'name':player.name,'added_salary':deficit,
             'annual_salary':terms.annual_salary+deficit,
             'years':terms.signed_season+terms.years-context.season,
-            'allowed':cap_payroll(players,context,context.season,owner)+deficit<=salary_cap(context.season,context.lineup_rules)}
+            'allowed':cap_payroll(players,context,context.season,owner)+deficit<=salary_cap(context.season,context.lineup_rules, run_seed=getattr(context,'run_seed',0))}
 
 
 def raise_to_floor(context, owner, identity):
@@ -62,7 +62,7 @@ def release_player(context, owner, identity, *, final=False):
     if player is None:
         raise ValueError('Player is not on this roster')
     charged=record_release(context,owner,player,context.season)
-    if dead_cap_total(charged,owner,context.season)+payroll_floor(context.season,context.lineup_rules)>salary_cap(context.season,context.lineup_rules):
+    if dead_cap_total(charged,owner,context.season)+payroll_floor(context.season,context.lineup_rules, run_seed=getattr(context,'run_seed',0))>salary_cap(context.season,context.lineup_rules, run_seed=getattr(context,'run_seed',0)):
         raise ValueError('This release would make the hard payroll minimum and maximum impossible to meet')
     pool={p.id:p for p in charged.free_agents}
     pool[identity]=replace(player,contract=None,rookie_offer=None)
@@ -75,7 +75,7 @@ def release_player(context, owner, identity, *, final=False):
     charged=replace_lineup_rosters(charged,tuple(rosters.items()))
     guaranteed=sum(p.contract.annual_salary for p in remaining if p.contract and not contract_expired(p,charged.season))
     required=sum(p.rookie_offer.annual_salary for p in remaining if p.rookie_offer and p.rookie_offer.category=='replacement')
-    if guaranteed+required+dead_cap_total(charged,owner,charged.season)>salary_cap(charged.season,charged.lineup_rules):
+    if guaranteed+required+dead_cap_total(charged,owner,charged.season)>salary_cap(charged.season,charged.lineup_rules, run_seed=getattr(context,'run_seed',0)):
         raise ValueError('This release cannot fit its guarantee and required replacements under the cap')
     if final and not financial_ready(remaining,charged,owner):
         raise ValueError('Final cuts must preserve the hard payroll minimum and maximum')

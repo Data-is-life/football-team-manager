@@ -143,6 +143,9 @@ class InheritedPayrollTests(TestCase):
     def test_rules_34_market_camp_and_saved_rollover(self):
         self.assert_first_market_and_saved_rollover(34)
 
+    def test_rules_35_market_camp_and_saved_rollover(self):
+        self.assert_first_market_and_saved_rollover(35)
+
     def assert_first_market_and_saved_rollover(self, rules):
         from fastapi import HTTPException
         from app.preseason import run

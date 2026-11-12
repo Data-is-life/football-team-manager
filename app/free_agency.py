@@ -50,18 +50,18 @@ def team_market_premiums(season, seed, prior, context):
 
 def asking_contract(player, context, wave, development_states=None, *, premium_basis_points=0):
     normal = veteran_contract(player, context.season, context.lineup_rules,
-                             contract_potential(player, context, development_states))
-    return wave_contract(normal,context.season,context.lineup_rules,wave,premium_basis_points=premium_basis_points)
+                             contract_potential(player, context, development_states), run_seed=getattr(context,'run_seed',0))
+    return wave_contract(normal,context.season,context.lineup_rules,wave,premium_basis_points=premium_basis_points, run_seed=getattr(context,'run_seed',0))
 
 
-def wave_contract(normal, season, rules, wave, *, premium_basis_points=0):
+def wave_contract(normal, season, rules, wave, *, premium_basis_points=0, run_seed=0):
     """Apply wave and destination multipliers, then round once and enforce the floor."""
     premium = premium_basis_points if rules >= 34 else 0
     if not 0 <= premium <= 2000:
         raise ValueError('Invalid destination premium')
     amount = Decimal(normal.annual_salary) * wave_percent(wave) / 100 * (10_000 + premium) / 10_000
     rounded = int((amount / 10_000).quantize(Decimal('1'), rounding=ROUND_HALF_UP))*10_000
-    return replace(normal, annual_salary=max(minimum_salary(season,rules),rounded),
+    return replace(normal, annual_salary=max(minimum_salary(season,rules, run_seed=run_seed),rounded),
                    category='free_agent')
 
 
@@ -90,8 +90,8 @@ def free_agency(team_id, season, request_seed, context, order, actions=(), *, pr
     transactions = []
     complete = False
     wave = 1
-    minimum = minimum_salary(context.season, context.lineup_rules)
-    cap = salary_cap(context.season, context.lineup_rules)
+    minimum = minimum_salary(context.season, context.lineup_rules, run_seed=getattr(context,'run_seed',0))
+    cap = salary_cap(context.season, context.lineup_rules, run_seed=getattr(context,'run_seed',0))
     states = dict(context.development)
 
     rules = roster_rules(context)
@@ -112,9 +112,9 @@ def free_agency(team_id, season, request_seed, context, order, actions=(), *, pr
         key = (player.id,wave,premium)
         if key not in wave_contracts:
             if player.id not in normal_contracts:
-                normal_contracts[player.id] = veteran_contract(player,context.season,context.lineup_rules,potential_for(player))
+                normal_contracts[player.id] = veteran_contract(player,context.season,context.lineup_rules,potential_for(player), run_seed=getattr(context,'run_seed',0))
             wave_contracts[key] = wave_contract(normal_contracts[player.id],context.season,context.lineup_rules,wave,
-                premium_basis_points=premium)
+                premium_basis_points=premium, run_seed=getattr(context,'run_seed',0))
         return wave_contracts[key]
 
     def reserved(owner, player=None):
