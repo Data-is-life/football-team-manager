@@ -135,12 +135,18 @@ class InheritedPayrollTests(TestCase):
         self.assertEqual(len(selections),4)
 
     def test_first_market_requires_resolving_new_starting_expiries(self):
+        self.assert_first_market_and_saved_rollover(32)
+
+    def test_rules_33_market_camp_and_saved_rollover(self):
+        self.assert_first_market_and_saved_rollover(33)
+
+    def assert_first_market_and_saved_rollover(self, rules):
         from fastapi import HTTPException
         from app.preseason import run
         from app.player_contracts import contract_expired
         seed=1234
-        root=lineup_context((),seed,32,rebuild_team='seattle')
-        args=dict(run_seed=seed,lineup_rules=32,rebuild_team='seattle',draft_rounds=6)
+        root=lineup_context((),seed,rules,rebuild_team='seattle')
+        args=dict(run_seed=seed,lineup_rules=rules,rebuild_team='seattle',draft_rounds=6)
         draft=career_action('seattle',CareerRequest(action='draft',auto_draft=True,**args))
         req=dict(manual_picks=draft['manual_picks'],**args)
         market=career_action('seattle',CareerRequest(action='free_agency',**req))
@@ -167,7 +173,7 @@ class InheritedPayrollTests(TestCase):
             pre=[dict(kind='raise',player_id=review['payroll_floor_adjustment']['player_id'])]
         camp=career_action('seattle',CareerRequest(action='camp',free_agency=actions,pre_camp_actions=pre,**req))
         self.assertTrue(camp['can_continue'])
-        past=dict(season=1,lineup_rules=32,draft_rounds=6,manual_picks=draft['manual_picks'],
+        past=dict(season=1,lineup_rules=rules,draft_rounds=6,manual_picks=draft['manual_picks'],
                   free_agency=actions,pre_camp_actions=pre,camp_actions=[])
         next_req=dict(action='profile',season=2,career=[past],**args)
         next_profile=career_action('seattle',CareerRequest(**next_req))
@@ -175,4 +181,4 @@ class InheritedPayrollTests(TestCase):
         renewed=next(p for p in next_profile['roster'] if p['id']==target['id'])
         self.assertEqual(renewed['contract']['signed_season'],2)
         self.assertEqual(renewed['contract']['annual_salary'],signed['contract']['annual_salary'])
-        self.assertEqual(next_profile['lineup_rules'],32)
+        self.assertEqual(next_profile['lineup_rules'],rules)

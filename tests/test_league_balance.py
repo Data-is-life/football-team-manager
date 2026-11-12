@@ -81,3 +81,55 @@ class LeagueBalanceTests(TestCase):
                 profile=career_action('seattle',CareerRequest(action='profile',view_team=row['team']['id'],**args))
                 self.assertEqual(profile['ratings'],row['ratings'])
                 self.assertEqual(len(profile['roster']),31)
+
+    def test_rules_33_widen_seeded_targets_without_changing_legacy_worlds(self):
+        owners = tuple(sorted(t.id for t in TEAMS if t.id != 'seattle'))
+        sample = []
+        for seed in range(200):
+            targets = opponent_targets(seed, owners, 33)
+            self.assertEqual(targets, opponent_targets(seed, owners, 33))
+            self.assertEqual(mean(o for _, o, _ in targets), 75)
+            self.assertEqual(mean(d for _, _, d in targets), 75)
+            self.assertTrue(all(60 <= o <= 90 and 60 <= d <= 90 for _, o, d in targets))
+            sample.extend((o + d) / 2 for _, o, d in targets)
+            self.assertEqual(opponent_targets(seed, owners, 32), opponent_targets(seed, owners))
+        self.assertGreater(pstdev(sample), 5.5)
+        self.assertLess(pstdev(sample), 6.5)
+
+    def test_rules_33_initialization_and_rollover_do_not_reshape_existing_teams(self):
+        seed = 1234
+        old = lineup_context((), seed, 32, rebuild_team='seattle')
+        new = lineup_context((), seed, 33, rebuild_team='seattle')
+        self.assertEqual(dict(old)['seattle'], dict(new)['seattle'])
+        owners = tuple(sorted(t.id for t in TEAMS if t.id != 'seattle'))
+        for owner, offense, defense in opponent_targets(seed, owners, 33):
+            ratings = team_ratings(owner, seed, new)
+            self.assertEqual((ratings.offense, ratings.defense), (offense, defense))
+        with patch('app.league_balance.balance_opponents', side_effect=AssertionError('No repeat balancing')):
+            self.assertEqual(advance_context(new, seed, 1, lineup_rules=33), new)
+            # Relabeling an existing context never applies initial strength again.
+            upgraded = advance_context(old, seed, 1, lineup_rules=33)
+            self.assertEqual(upgraded.rosters, old.rosters)
+            second = advance_context(new, seed, 2, lineup_rules=33)
+            self.assertEqual(second.lineup_rules, 33)
+            self.assertEqual(second, advance_context(new, seed, 2, lineup_rules=33))
+        self.assertEqual(old, lineup_context((), seed, 32, rebuild_team='seattle'))
+
+    def test_scoring_sensitivity_is_versioned_independently_of_initial_rosters(self):
+        import random
+        from dataclasses import replace
+        from app.simulation import _team_box
+
+        context = lineup_context((), 1234, 32, rebuild_team='seattle')
+        team = next(t for t in TEAMS if t.id == 'seattle')
+        opponent = max((t for t in TEAMS if t.id != team.id),
+                       key=lambda t: team_ratings(t.id, 1234, context).defense)
+        gap = team_ratings(team.id, 1234, context).offense - team_ratings(opponent.id, 1234, context).defense
+        self.assertNotEqual(gap, 0)
+        for rules, sensitivity in ((32, .36), (33, .48)):
+            rng = random.Random(1234)
+            with patch.object(rng, 'gauss', wraps=rng.gauss) as draws:
+                _team_box(team, opponent, None, rng, 1234, replace(context, lineup_rules=rules))
+            self.assertAlmostEqual(draws.call_args_list[0].args[0], (22 + gap * sensitivity) / 8.2)
+            self.assertEqual(draws.call_args_list[0].args[1], 1.15)
+            self.assertEqual(draws.call_args_list[1].args, (1.65, .85))
