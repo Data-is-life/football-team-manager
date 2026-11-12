@@ -1,4 +1,4 @@
-"""Rules 12: one-time, seeded opponent balance around a 75 league mean."""
+"""Versioned, one-time opponent balance around a 75 league mean."""
 from dataclasses import replace
 from functools import lru_cache
 import random
@@ -26,11 +26,12 @@ def centered_ratings(values):
 
 
 @lru_cache(maxsize=64)
-def opponent_targets(seed, owners):
+def opponent_targets(seed, owners, lineup_rules=12):
     # Shared strength gives each team a recognizable level; a smaller skew
     # permits different offensive and defensive identities.
     rng = random.Random(_run_number('opponent-balance-v1', seed))
-    strength = [rng.gauss(0, 4) for _ in owners]
+    spread = 6 if lineup_rules >= 33 else 4
+    strength = [rng.gauss(0, spread) for _ in owners]
     skew = [rng.gauss(0, 2) for _ in owners]
     offense = centered_ratings([a + b for a, b in zip(strength, skew)])
     defense = centered_ratings([a - b for a, b in zip(strength, skew)])
@@ -70,9 +71,9 @@ def shift_unit(players, positions, target, seed):
                  if p.position in positions else p for p in result)
 
 
-def balance_opponents(rosters, seed, managed_team):
+def balance_opponents(rosters, seed, managed_team, lineup_rules=12):
     owners = tuple(sorted(owner for owner, _ in rosters if owner != managed_team))
-    targets = {owner: (offense, defense) for owner, offense, defense in opponent_targets(seed, owners)}
+    targets = {owner: (offense, defense) for owner, offense, defense in opponent_targets(seed, owners, lineup_rules)}
     balanced = []
     for owner, players in rosters:
         if owner in targets:

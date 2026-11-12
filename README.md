@@ -980,3 +980,15 @@ remain unchanged. The first pre-camp market requires renewing or releasing those
 expired players; CPU teams handle the same decisions. Existing careers retain
 their original contract book and rules. New rules-32 careers keep their rule
 version through subsequent seasons and saved replay.
+
+### Wider initial strength and scoring sensitivity (rules 33)
+
+New careers draw opponents' shared strength with standard deviation 6 instead
+of 4, keeping the offense/defense skew at 2, exact unit means of 75 and bounds
+of 60–90. The managed team's rebuilding setup stays the same. This happens only
+at career creation; subsequent seasons develop the existing rosters normally.
+
+Scoring uses sensitivity 0.48 instead of 0.36 for the offense-versus-defense
+rating gap. The scoring base, home advantage, scoring noise and shutout rescue
+remain unchanged. Rules 33 persist through rollover and save/replay. Existing
+careers keep their earlier rules and results; the API's legacy default remains 1.

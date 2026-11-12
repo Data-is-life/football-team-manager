@@ -46,7 +46,7 @@ class ScoreCacheTests(unittest.TestCase):
     def test_scores_match_full_games_across_rules_and_seeded_contexts(self):
         from app.lineups import lineup_context
         for seed in (0, 1234):
-            for rules in range(1, 7):
+            for rules in (*range(1, 7), 32, 33):
                 context = lineup_context((), seed, rules, rebuild_team='seattle' if rules >= 4 else None)
                 for week in (1, 9, 17):
                     with self.subTest(seed=seed, rules=rules, week=week):
