@@ -186,7 +186,7 @@ def build_draft(team_id: str, season: int, run_seed: int, choices: tuple[str, ..
         depth = 1 + max((p.depth for p in rosters[owner] if p.position == prospect.position),default=0)
         signed = replace(prospect, depth=depth)
         if getattr(roster_context,'lineup_rules',1) >= 15:
-            terms = rookie_contract((overall-1)//len(order)+1,overall,season+1,roster_context.lineup_rules)
+            terms = rookie_contract((overall-1)//len(order)+1,overall,season+1,roster_context.lineup_rules, run_seed=run_seed)
             signed = replace(signed,rookie_offer=terms) if roster_context.lineup_rules >= 19 else replace(signed,contract=terms)
         rosters[owner].append(signed)
         additions[owner][signed.position] = additions[owner].get(signed.position, 0) + 1
@@ -200,7 +200,7 @@ def build_draft(team_id: str, season: int, run_seed: int, choices: tuple[str, ..
     if getattr(roster_context,'lineup_rules',1) >= 15:
         offer = None
         if not complete:
-            terms = rookie_contract(len(resolved_choices)+1,len(picks)+1,season+1,roster_context.lineup_rules)
+            terms = rookie_contract(len(resolved_choices)+1,len(picks)+1,season+1,roster_context.lineup_rules, run_seed=run_seed)
             offer = rookie_offer_payload(terms) if roster_context.lineup_rules >= 19 else contract_payload(terms,season)
         contract_preview['next_contract'] = offer
     return ({'season': season, 'draft_season': season + 1, 'run_seed': run_seed,

@@ -1017,3 +1017,24 @@ already on a team's roster retain their existing pricing.
 
 Rules 34 persist through rollover and saved action replay. Earlier careers keep
 their original salary rules and results; saved markets are never repriced.
+
+### Seeded annual cap growth (rules 35)
+
+New careers retain the $200M Season 1 cap. Each subsequent season draws its own
+league-wide increase from a normal distribution centered on 6%, with standard
+deviation 2 percentage points, rejecting values outside 2–10%. Rates are rounded
+to 0.01 percentage points. Each seasonal seed is independently derived from the
+random career seed and season number; reloads and saved replay never reroll it.
+
+The cap compounds from the previous cap, rounded to $10,000 and bounded so the
+actual annual increase stays within 2–10%. The payroll floor remains exactly 60%
+of the cap. New minimum salaries and all draft-slot salaries scale from their
+Season 1 amounts by the career's cumulative cap growth, rounded to $10,000.
+New veteran/renewal demands use the same cap and minimum; destination premiums
+and wave discounts apply afterward. Existing signed salaries and dead-cap
+obligations never inflate.
+
+Upcoming draft previews and the pre-camp market use the upcoming playing year's
+cap and salary scale. Payroll displays the applicable annual growth percentage.
+Rules 35 persist through season transitions and saved replay; earlier careers
+retain their original fixed salary schedules and results.

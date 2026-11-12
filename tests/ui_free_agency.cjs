@@ -60,6 +60,33 @@ async function checks(){
  const after=await api({...modernRequest,action:'free_agency',manual_picks:modernDraft.manual_picks,free_agency:modernSave.freeAgency});
  assert.equal(after.profile.roster.find(p=>p.id===modernTarget.id).contract.annual_salary,modernTarget.annual_salary);
  assert.deepEqual(after.free_agency.destination_premium,premium);p.dom.window.close();
+ // Seeded cap: draft, market and next-season UI agree before and after reload.
+ const seededRequest={...request,lineup_rules:35};
+ const seededDraft=await api({...seededRequest,action:'draft',auto_draft:true});
+ const seededArgs={...seededRequest,manual_picks:seededDraft.manual_picks};
+ const seededMarket=await api({...seededArgs,action:'free_agency'});
+ const upcoming=seededMarket.profile.payroll;
+ assert.ok(upcoming.cap>=204000000&&upcoming.cap<=220000000);
+ assert.ok(upcoming.cap_growth_percent>=2&&upcoming.cap_growth_percent<=10);
+ p=await page({...checkpoint,version:41,lineupRules:35,trainingCamp:false,draftChoices:seededDraft.manual_picks,dropped:[],rosterActions:[],freeAgency:[]});
+ const capLabel=`$${(upcoming.cap/1e6).toFixed(2)}M cap`;
+ assert.ok(q(p,'#payroll-status').textContent.includes(capLabel));
+ assert.ok(q(p,'#payroll-status').textContent.includes(`Cap growth +${upcoming.cap_growth_percent.toFixed(2)}%`));
+ assert.match(q(p,'#salary-growth-guide').textContent,/2–10%.*6%/);
+ const seededSave=save(p);p.dom.window.close();p=await page(seededSave);
+ assert.ok(q(p,'#payroll-status').textContent.includes(capLabel));p.dom.window.close();
+ const seededActions=seededMarket.profile.roster.filter(p=>p.renewal_offer||p.contract_offer).map(p=>({kind:'drop',player_id:p.id}));
+ seededActions.push({kind:'finish',player_id:''});
+ const review=await api({...seededArgs,action:'free_agency',free_agency:seededActions});
+ const pre=review.payroll_floor_adjustment?[{kind:'raise',player_id:review.payroll_floor_adjustment.player_id}]:[];
+ const seededCamp=await api({...seededArgs,action:'camp',free_agency:seededActions,pre_camp_actions:pre});
+ assert.equal(seededCamp.can_continue,true);
+ p=await page({...seededSave,freeAgency:seededActions,preCampActions:pre,trainingCamp:true});
+ q(p,'#next-season').click();await until(()=>save(p).season===2);
+ assert.equal(save(p).lineupRules,35);assert.equal(save(p).career[0].lineup_rules,35);
+ assert.ok(q(p,'#payroll-status').textContent.includes(capLabel));
+ const seededNext=save(p);p.dom.window.close();p=await page(seededNext);
+ assert.equal(save(p).lineupRules,35);assert.ok(q(p,'#payroll-status').textContent.includes(capLabel));p.dom.window.close();
  console.log('Free agency UI passed: entry, sorting/filtering, failure retry, duplicate-click guard, user-first signing, pool removal, pass, reload, finish/advance, next-season replay and corrupt-save preservation.');
 }
 (async()=>{const server=spawn(process.env.PYTHON||'python',['-m','uvicorn','app.main:app','--host','127.0.0.1','--port','8784'],{cwd:root,stdio:['ignore','pipe','pipe']});let logs='';server.stdout.on('data',d=>logs+=d);server.stderr.on('data',d=>logs+=d);try{for(let i=0;;i++){if(server.exitCode!==null)throw new Error(logs);try{if((await fetch(base+'/api/teams')).ok)break;}catch{}if(i===100)throw new Error(logs);await new Promise(r=>setTimeout(r,100));}try{await checks();}catch(error){console.error(logs);throw error;}}finally{server.kill();}})().catch(e=>{console.error(e);process.exitCode=1;});

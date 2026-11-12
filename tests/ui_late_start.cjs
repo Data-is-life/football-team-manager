@@ -43,7 +43,7 @@ async function checks(){
  let p=page();await start(p);await checkDraftClosed(p);
  const startingContracts=[...p.d.querySelectorAll('#roster-groups .salary-cell')].map(cell=>cell.title);
  assert.equal(startingContracts.filter(title=>title.includes('1-year contract')).length,8,'New careers include eight first-season expiries');
- const newCareer=save(p);assert.equal(newCareer.lineupRules,34);assert.deepEqual(p.state.lastWeek.record,{wins:3,losses:13,ties:0});assert.deepEqual(p.state.weeks,[16]);
+ const newCareer=save(p);assert.equal(newCareer.lineupRules,35);assert.deepEqual(p.state.lastWeek.record,{wins:3,losses:13,ties:0});assert.deepEqual(p.state.weeks,[16]);
  q(p,'#simulate-button').click();await until(()=>save(p).week===17);
  assert.ok([3,4].includes(p.state.lastWeek.record.wins));assert.equal(p.state.lastWeek.record.ties,0);assert.match(q(p,'#gm-regular').textContent,/^(1–0–0|0–1–0)$/);
  p.dom.window.close();
