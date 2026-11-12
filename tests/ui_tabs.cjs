@@ -311,17 +311,19 @@ async function checkUI() {
    }
    const groupCards=d.querySelectorAll('#group-standings .standings-card');
    weekData.standings.groups.forEach((group,i)=>{
-    assert.deepEqual([...groupCards[i].querySelectorAll('th')].map(cell=>cell.textContent),['#','Team','Offense','Defense','Record','Diff']);
+    assert.deepEqual([...groupCards[i].querySelectorAll('th')].map(cell=>cell.textContent),['#','Team','W','L','T','PF','PA','Home','Away','Streak']);
     const rows=groupCards[i].querySelectorAll('tbody tr');
     assert.equal(rows.length,5);
     group.teams.forEach((team,j)=>{
      const ratings=ratingsByTeam.get(team.team.id),cells=rows[j].children;
      assert.equal(cells[1].querySelector('.team-roster-link').dataset.teamId,team.team.id);
      assert.ok(cells[1].textContent.startsWith(team.team.city));
-     assert.equal(cells[2].textContent,String(ratings.offense));
-     assert.equal(cells[3].textContent,String(ratings.defense));
-     assert.equal(cells[4].textContent,team.record);
-     assert.equal(cells[5].textContent,`${team.point_differential>0?'+':''}${team.point_differential}`);
+     assert.equal(cells[1].querySelector('.standings-team-ratings').textContent,`O ${ratings.offense} · D ${ratings.defense}`);
+     assert.deepEqual([...cells].slice(2).map(cell=>cell.textContent),
+      [team.wins,team.losses,team.ties,team.points_for,team.points_against,team.home_record,team.away_record,team.streak].map(String));
+     const scroll=groupCards[i].querySelector('.mini-table-wrap');
+     assert.equal(scroll.tabIndex,0);assert.equal(scroll.getAttribute('aria-label'),`${group.group} standings`);
+     assert.equal(groupCards[i].querySelectorAll('th[scope="col"]').length,10);
      assert.equal(rows[j].classList.contains('selected-team'),team.team.id===id);
     });
    });

@@ -1038,3 +1038,17 @@ Upcoming draft previews and the pre-camp market use the upcoming playing year's
 cap and salary scale. Payroll displays the applicable annual growth percentage.
 Rules 35 persist through season transitions and saved replay; earlier careers
 retain their original fixed salary schedules and results.
+
+### Expanded group standings
+
+Group standings show W, L, T, PF, PA, Home, Away and Streak after rank and team.
+Home and away records always use wins–losses–ties. Streaks count consecutive
+regular-season results in chronological order, such as 3W, 2L or 1T; a tie
+starts its own streak. They reset at the start of each season. Offense and
+defense ratings remain visible beneath each team name. Wide tables scroll
+horizontally with touch or keyboard focus.
+
+The score-only standings calculation supplies venue records and streaks for
+all teams, including saved replays and past rules. Existing totals, rankings,
+tiebreakers and playoff seeding keep their behavior. No save or gameplay rule
+version changes are needed for these additional display fields.

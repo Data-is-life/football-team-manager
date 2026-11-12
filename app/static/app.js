@@ -1429,18 +1429,22 @@ function renderResult(data) {
   document.querySelector("#group-standings").innerHTML = data.standings.groups.map((group) => `
     <article class="standings-card">
       <h4>${group.group}</h4>
-      <div class="mini-table-wrap">
+      <div class="mini-table-wrap" role="region" aria-label="${group.group} standings" tabindex="0">
         <table class="mini-table">
-          <thead><tr><th>#</th><th>Team</th><th>Offense</th><th>Defense</th><th>Record</th><th>Diff</th></tr></thead>
+          <thead><tr><th scope="col">#</th><th scope="col">Team</th><th scope="col" title="Wins">W</th><th scope="col" title="Losses">L</th><th scope="col" title="Ties">T</th><th scope="col" title="Points for">PF</th><th scope="col" title="Points against">PA</th><th scope="col" title="Home record: wins–losses–ties">Home</th><th scope="col" title="Away record: wins–losses–ties">Away</th><th scope="col" title="Current consecutive wins, losses or ties">Streak</th></tr></thead>
           <tbody>
             ${group.teams.map((row) => `
               <tr class="${row.team.id === activeTeamId ? "selected-team" : ""}">
                 <td>${row.rank}</td>
-                <td><span class="team-cell"><button class="team-roster-link" type="button" data-team-id="${row.team.id}" aria-label="View ${row.team.city} roster">${row.team.city}</button>${row.rank === 1 ? '<b class="leader-mark">L</b>' : ""}</span></td>
-                <td>${row.ratings.offense}</td>
-                <td>${row.ratings.defense}</td>
-                <td>${row.record}</td>
-                <td>${row.point_differential > 0 ? "+" : ""}${row.point_differential}</td>
+                <td><span class="team-cell"><button class="team-roster-link" type="button" data-team-id="${row.team.id}" aria-label="View ${row.team.city} roster">${row.team.city}</button>${row.rank === 1 ? '<b class="leader-mark">L</b>' : ""}</span><span class="standings-team-ratings" aria-label="Offense ${row.ratings.offense}, Defense ${row.ratings.defense}">O ${row.ratings.offense} · D ${row.ratings.defense}</span></td>
+                <td>${row.wins}</td>
+                <td>${row.losses}</td>
+                <td>${row.ties}</td>
+                <td>${row.points_for}</td>
+                <td>${row.points_against}</td>
+                <td>${row.home_record}</td>
+                <td>${row.away_record}</td>
+                <td>${row.streak}</td>
               </tr>
             `).join("")}
           </tbody>
