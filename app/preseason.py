@@ -132,10 +132,11 @@ def cpu_review(context, team):
 
 
 def run(team,season,seed,choices,prior,root,rounds,market_actions=(),pre_actions=(),camp=False,camp_actions=()):
-    from .free_agency import free_agency,free_agency_order
+    from .free_agency import free_agency,free_agency_order,team_market_premiums
     raw,context=prepare(team,season,seed,choices,prior,root,rounds)
     board=json.loads(raw)
-    market,context=free_agency(team,season,seed,context,free_agency_order(season,seed,prior,root),market_actions)
+    premiums = team_market_premiums(season,seed,prior,root) if root.lineup_rules >= 34 else None
+    market,context=free_agency(team,season,seed,context,free_agency_order(season,seed,prior,root),market_actions,premiums=premiums)
     if not market['complete']:
         if pre_actions or camp or camp_actions: raise ValueError('Finish free agency before roster review or training camp')
     else:
