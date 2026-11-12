@@ -19,6 +19,8 @@ class TeamStanding:
     group_losses: int = 0
     group_ties: int = 0
     opponents: list[tuple[str, str]] = field(default_factory=list)
+    home_outcomes: list[str] = field(default_factory=list)
+    away_outcomes: list[str] = field(default_factory=list)
 
     @property
     def standings_points(self) -> int:
@@ -32,12 +34,33 @@ class TeamStanding:
     def record(self) -> str:
         return f"{self.wins}-{self.losses}" + (f"-{self.ties}" if self.ties else "")
 
+    @property
+    def home_record(self) -> str:
+        return f"{self.home_outcomes.count('W')}-{self.home_outcomes.count('L')}-{self.home_outcomes.count('T')}"
+
+    @property
+    def away_record(self) -> str:
+        return f"{self.away_outcomes.count('W')}-{self.away_outcomes.count('L')}-{self.away_outcomes.count('T')}"
+
+    @property
+    def streak(self) -> str:
+        if not self.opponents:
+            return '—'
+        latest = self.opponents[-1][1]
+        length = 0
+        for _, outcome in reversed(self.opponents):
+            if outcome != latest:
+                break
+            length += 1
+        return f'{length}{latest}'
+
 
 def _apply_result(
     standing: TeamStanding,
     opponent_id: str,
     points_for: int,
     points_against: int,
+    *, is_home: bool | None = None,
 ) -> None:
     if points_for > points_against:
         outcome = "W"
@@ -51,6 +74,8 @@ def _apply_result(
     standing.points_for += points_for
     standing.points_against += points_against
     standing.opponents.append((opponent_id, outcome))
+    if is_home is not None:
+        (standing.home_outcomes if is_home else standing.away_outcomes).append(outcome)
 
     if TEAM_BY_ID[standing.team_id].group == TEAM_BY_ID[opponent_id].group:
         if outcome == "W":
@@ -115,6 +140,9 @@ def _standing_payload(standing: TeamStanding, rank: int, run_seed: int = 0, rost
         "ties": standing.ties,
         "points_for": standing.points_for,
         "points_against": standing.points_against,
+        "home_record": standing.home_record,
+        "away_record": standing.away_record,
+        "streak": standing.streak,
         "point_differential": standing.point_differential,
         "group_record": f"{standing.group_wins}-{standing.group_losses}"
         + (f"-{standing.group_ties}" if standing.group_ties else ""),
@@ -133,10 +161,10 @@ def standings_through_week(season: int, week: int, run_seed: int = 0,
     for completed_week in range(1, week + 1):
         for home_id, away_id, home_score, away_score in league_week_scores(season, completed_week, run_seed, prior_standings, roster_context):
             _apply_result(
-                standings[home_id], away_id, home_score, away_score,
+                standings[home_id], away_id, home_score, away_score, is_home=True,
             )
             _apply_result(
-                standings[away_id], home_id, away_score, home_score,
+                standings[away_id], home_id, away_score, home_score, is_home=False,
             )
 
     group_tables: list[dict[str, object]] = []

@@ -104,6 +104,8 @@ th { color: var(--muted); font-weight: 700; }
 .standings-section, .playoff-section { margin-bottom: 28px; padding: clamp(20px, 3vw, 30px); background: rgba(21,24,36,0.78); border: 1px solid var(--line); border-radius: 18px; }
 .group-standings-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .standings-card { overflow: hidden; background: #10131c; border: 1px solid var(--line); border-radius: 12px; }
+#group-standings .mini-table th, #group-standings .mini-table td { padding: 8px 6px; font-variant-numeric: tabular-nums; }
+.standings-team-ratings { display: block; color: var(--muted); font-size: .68rem; font-weight: 400; }
 .standings-card h4 { margin: 0; padding: 13px 14px; border-bottom: 1px solid var(--line); font-size: 0.88rem; }
 .mini-table-wrap, .playoff-table-wrap { overflow-x: auto; }
 .mini-table, .playoff-table { min-width: 100%; }
