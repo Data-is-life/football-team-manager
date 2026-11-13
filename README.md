@@ -1075,3 +1075,13 @@ or the latest draft, market, cuts and training-camp profile. Opening the tab
 requires no additional request and does not change saved progress. Draft
 rankings include CPU picks, and scouting uses the same current offseason phase.
 Existing careers receive the display without a save migration or new rules.
+
+### Position salary anchors (new careers, rules 36)
+
+Normal veteran salary demands use the best `(current + potential) / 2` at each position across all teams and unsigned free agents. The leader's annual demand, rounded to $10,000, is this share of the signing season's cap:
+
+| QB | WR | RB | TE | OL | DL | LB | CB | S | K |
+|---|---|---|---|---|---|---|---|---|---|
+| 21% | 14% | 7.5% | 6% | 10% | 12% | 16% | 11% | 8% | 2.5% |
+
+The existing accelerating cubic curve is normalized to that leader, retaining minimum salaries, exact half-point demand ratings and existing contract lengths. Initial anchors use the starting league. Each offseason refreshes anchors after the draft, including the full incoming rookie class, before CPU renewal/cut decisions. Anchors remain fixed through signings, releases, development and reloads until the next offseason. Wave pricing and destination premiums apply afterward and may exceed these normal-demand anchors. All contracts remain subject to the hard cap. Signed contracts, rookie pay and inherited payroll remain unchanged; older careers retain their previous salary behavior. Soft salary tiers and revised term boundaries are a separate follow-up.
