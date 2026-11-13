@@ -157,3 +157,23 @@ class PreCampTests(TestCase):
             replayed=replay_career('seattle',1234,tuple(steps),31,season+1,1,'seattle')
             self.assertEqual(ctx,replayed)
             root=replayed
+
+    def test_floor_raise_preserves_free_agent_origin_until_renewal(self):
+        from app.player_contracts import renew_player
+        rosters = tuple((owner, tuple(replace(p, contract=replace(p.contract, annual_salary=1_000_000))
+                                      for p in players)) for owner, players in self.root)
+        context = replace_lineup_rosters(self.root, rosters)
+        plan = raise_plan(dict(context)['seattle'], context, 'seattle')
+        rosters = tuple((owner, tuple(replace(p, contract=replace(p.contract, category='free_agent'))
+                                      if p.id == plan['player_id'] else p for p in players))
+                        for owner, players in context)
+        context = replace_lineup_rosters(context, rosters)
+        raised = raise_to_floor(context, 'seattle', plan['player_id'])
+        player = next(p for p in dict(raised)['seattle'] if p.id == plan['player_id'])
+        self.assertEqual(player.contract.category, 'free_agent')
+        self.assertEqual(player.contract.annual_salary, plan['annual_salary'])
+        self.assertEqual(floor_payroll(dict(raised)['seattle'], raised), payroll_floor(1, 31))
+        year = player.contract.signed_season + player.contract.years
+        renewed = renew_player(dict(raised)['seattle'], player.id, year, 31,
+                               replace(raised, season=year), 'seattle')
+        self.assertNotEqual(next(p for p in renewed if p.id == player.id).contract.category, 'free_agent')

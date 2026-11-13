@@ -49,8 +49,10 @@ def raise_to_floor(context, owner, identity):
     updated=[]
     for p in players:
         if p.id==identity:
-            terms=replace(contract_terms(p),annual_salary=plan['annual_salary'],signed_season=context.season,
-                          years=plan['years'],category='floor_adjustment')
+            terms=contract_terms(p)
+            category='free_agent' if terms.category=='free_agent' else 'floor_adjustment'
+            terms=replace(terms,annual_salary=plan['annual_salary'],signed_season=context.season,
+                          years=plan['years'],category=category)
             p=replace(p,contract=terms,rookie_offer=None)
         updated.append(p)
     rosters[owner]=tuple(updated)

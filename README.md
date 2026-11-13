@@ -1052,3 +1052,12 @@ The score-only standings calculation supplies venue records and streaks for
 all teams, including saved replays and past rules. Existing totals, rankings,
 tiebreakers and playoff seeding keep their behavior. No save or gameplay rule
 version changes are needed for these additional display fields.
+
+### Free-agent roster badges
+
+Players on a free-agent contract show an F badge beside their name, matching
+the rookie R badge style. The marker appears in roster ratings, roster stats
+and scouting views and survives save/reload and season transitions. Undrafted
+rookies signed in free agency may show both R and F. Ordinary renewals replace
+the free-agent contract and clear F; a payroll-floor salary increase preserves
+its free-agent origin. Existing saves receive the marker without migration.

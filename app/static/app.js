@@ -839,6 +839,16 @@ function addRookieBadge(cell, player) {
   cell.append(document.createTextNode(" "), badge);
 }
 
+function addFreeAgentBadge(cell, player) {
+  if (player.contract?.category !== "free_agent") return;
+  const badge = document.createElement("span");
+  badge.className = "free-agent-badge";
+  badge.textContent = "F";
+  badge.title = "Free-agent signing · current contract";
+  badge.setAttribute("aria-label", "Free-agent signing");
+  cell.append(document.createTextNode(" "), badge);
+}
+
 function addPotentialArrow(cell, player) {
   const delta = player.potential_change ?? 0;
   if (!delta) return;
@@ -902,6 +912,7 @@ function createRosterGroups(profile, includeStats = true) {
       }
       if (profile.lineup_rules >= 15) addSalaryCell(row, player.contract ?? player.contract_offer);
       addRookieBadge(row.children[1], player);
+      addFreeAgentBadge(row.children[1], player);
       addRetirementBadge(row.children[1], player);
       addPotentialArrow(row.children[4], player);
       const delta = player.rating_change ?? 0;
@@ -1109,6 +1120,7 @@ function renderRosterStats() {
         row.append(cell);
       }
       addRookieBadge(row.children[1], player);
+      addFreeAgentBadge(row.children[1], player);
       addRetirementBadge(row.children[1], player);
       body.append(row);
     }

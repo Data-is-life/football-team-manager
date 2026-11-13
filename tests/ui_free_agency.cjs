@@ -12,6 +12,13 @@ async function page(checkpoint){
  w.fetch=async(url,init)=>{const body=init&&JSON.parse(init.body);if(body?.action==='free_agency'){state.calls++;if(state.fail)return {ok:false,json:async()=>({detail:'Market temporarily unavailable'})};}const response=await fetch(new URL(url,base),init);if(!response.ok) console.error('Free agency test API error:',url,await response.clone().text());return response;};
  w.eval(script);const p={dom,w,d,state};await until(()=>/restored|could not/.test(q(p,'#save-status').textContent));assert.match(q(p,'#save-status').textContent,/restored/);return p;
 }
+function checkFreeAgentBadge(p, id) {
+ q(p,'#roster-stats-button').click();
+ const rows=p.d.querySelectorAll(`#roster-groups [data-player-id="${id}"]`);
+ assert.ok(rows.length>=2,'Rating and stats rows exist');
+ for(const row of rows){const badge=row.querySelector('.free-agent-badge');assert.ok(badge);assert.equal(badge.textContent,'F');assert.equal(badge.getAttribute('aria-label'),'Free-agent signing');}
+ q(p,'#roster-ratings-button').click();
+}
 async function checks(){
  const request={season:1,run_seed:1234,lineup_rules:29,rebuild_team:'seattle',draft_rounds:6};
  const draft=await api({...request,action:'draft',auto_draft:true});
@@ -30,12 +37,13 @@ async function checks(){
  p.state.fail=true;button.click();await until(()=>!q(p,'#fa-error').hidden);assert.equal(raw(p),before);
  p.state.fail=false;q(p,`[data-fa-id="${id}"]`).click();q(p,`[data-fa-id="${id}"]`).click();await until(()=>save(p).freeAgency.length===1);
  assert.equal(save(p).freeAgency[0].player_id,id);assert.equal(q(p,`[data-fa-id="${id}"]`),null);assert.ok(q(p,`#roster-groups [data-player-id="${id}"]`));
+ checkFreeAgentBadge(p,id);
  assert.match(q(p,'#fa-status').textContent,/Wave 2.*110%/);const signed=save(p);p.dom.window.close();p=await page(signed);
- assert.match(q(p,'#fa-status').textContent,/Wave 2/);assert.ok(q(p,`#roster-groups [data-player-id="${id}"]`));
+ assert.match(q(p,'#fa-status').textContent,/Wave 2/);assert.ok(q(p,`#roster-groups [data-player-id="${id}"]`));checkFreeAgentBadge(p,id);
  q(p,'#fa-pass').click();await until(()=>save(p).freeAgency.length===2);assert.match(q(p,'#fa-status').textContent,/Wave 3.*105%/);
  q(p,'#fa-finish').click();await until(()=>save(p).season===2);
  assert.equal(q(p,'#free-agency').hidden,true);assert.equal(save(p).lineupRules,31);assert.equal(save(p).career[0].free_agency.at(-1).kind,'finish');
- const finished=save(p);p.dom.window.close();p=await page(finished);assert.equal(save(p).season,2);assert.ok(q(p,`#roster-groups [data-player-id="${id}"]`));p.dom.window.close();
+ const finished=save(p);p.dom.window.close();p=await page(finished);assert.equal(save(p).season,2);assert.ok(q(p,`#roster-groups [data-player-id="${id}"]`));checkFreeAgentBadge(p,id);p.dom.window.close();
  const beforeDraft={...checkpoint,version:38,lineupRules:28,week:16,playoffRound:null,draftChoices:null,dropped:[],rosterActions:[],trainingCamp:false};
  p=await page(beforeDraft);q(p,'#simulate-button').click();await until(()=>save(p).week===17);assert.equal(save(p).lineupRules,31);p.dom.window.close();
  const acceptedCamp={...checkpoint,version:38,lineupRules:28};p=await page(acceptedCamp);assert.equal(q(p,'#next-season').textContent,'Continue to Season 2');assert.equal(q(p,'#free-agency').hidden,true);p.dom.window.close();
@@ -87,6 +95,17 @@ async function checks(){
  assert.ok(q(p,'#payroll-status').textContent.includes(capLabel));
  const seededNext=save(p);p.dom.window.close();p=await page(seededNext);
  assert.equal(save(p).lineupRules,35);assert.ok(q(p,'#payroll-status').textContent.includes(capLabel));p.dom.window.close();
+ const badgesPage=await page(seededNext);
+ function badgeLabels(player){const cell=badgesPage.d.createElement('td');badgesPage.w.addRookieBadge(cell,player);badgesPage.w.addFreeAgentBadge(cell,player);return [...cell.querySelectorAll('span')].map(b=>b.textContent);}
+ assert.deepEqual(badgeLabels({id:'veteran',contract:{category:'young'}}),[]);
+ assert.deepEqual(badgeLabels({id:'veteran',contract_offer:{category:'replacement'}}),[]);
+ assert.deepEqual(badgeLabels({id:'veteran',contract:{category:'free_agent'}}),['F']);
+ assert.deepEqual(badgeLabels({id:'rookie-1234-2-999',contract:{category:'free_agent'}}),['R','F']);
+ const cpuSigning=after.free_agency.transactions.find(t=>t.team.id!=='seattle');assert.ok(cpuSigning);
+ const scouting=await api({...modernRequest,action:'free_agency',manual_picks:modernDraft.manual_picks,free_agency:modernSave.freeAgency,view_team:cpuSigning.team.id});
+ const scout=badgesPage.d.createElement('div');scout.append(...badgesPage.w.createRosterGroups(scouting.profile,false));
+ assert.ok(scout.querySelector(`[data-player-id="${cpuSigning.player_id}"] .free-agent-badge`));
+ badgesPage.dom.window.close();
  console.log('Free agency UI passed: entry, sorting/filtering, failure retry, duplicate-click guard, user-first signing, pool removal, pass, reload, finish/advance, next-season replay and corrupt-save preservation.');
 }
 (async()=>{const server=spawn(process.env.PYTHON||'python',['-m','uvicorn','app.main:app','--host','127.0.0.1','--port','8784'],{cwd:root,stdio:['ignore','pipe','pipe']});let logs='';server.stdout.on('data',d=>logs+=d);server.stderr.on('data',d=>logs+=d);try{for(let i=0;;i++){if(server.exitCode!==null)throw new Error(logs);try{if((await fetch(base+'/api/teams')).ok)break;}catch{}if(i===100)throw new Error(logs);await new Promise(r=>setTimeout(r,100));}try{await checks();}catch(error){console.error(logs);throw error;}}finally{server.kill();}})().catch(e=>{console.error(e);process.exitCode=1;});
