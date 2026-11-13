@@ -73,6 +73,7 @@
           </div>
           <section class="team-home" aria-label="Your team">
             <div class="team-ratings" aria-label="Team ratings">
+              <div><span class="control-label">Overall</span><strong id="overall-rating"></strong><span class="rating-scale">/ 99</span></div>
               <div><span class="control-label">Offense</span><strong id="offense-rating"></strong><span class="rating-scale">/ 99</span></div>
               <div><span class="control-label">Defense</span><strong id="defense-rating"></strong><span class="rating-scale">/ 99</span></div>
             </div>
@@ -125,6 +126,7 @@
             <button id="view-game" class="view-tab" type="button" role="tab" aria-selected="false" aria-controls="panel-game" tabindex="-1">Game Stats</button>
             <button id="view-schedule" class="view-tab" type="button" role="tab" aria-selected="true" aria-controls="panel-schedule" tabindex="0">Schedule</button>
             <button id="view-standings" class="view-tab" type="button" role="tab" aria-selected="false" aria-controls="panel-standings" tabindex="-1">Standings</button>
+            <button id="view-rankings" class="view-tab" type="button" role="tab" aria-selected="false" aria-controls="panel-rankings" tabindex="-1">Rankings</button>
             <button id="view-league" class="view-tab" type="button" role="tab" aria-selected="false" aria-controls="panel-league" tabindex="-1">League Results</button>
             <button id="view-race" class="view-tab" type="button" role="tab" aria-selected="false" aria-controls="panel-race" tabindex="-1">Playoff Race</button>
             <button id="view-playoffs" class="view-tab" type="button" role="tab" aria-selected="false" aria-controls="panel-playoffs" tabindex="-1">Playoffs</button>
@@ -372,6 +374,18 @@
                 <span>Six groups · Ratings out of 99</span>
               </div>
               <div id="group-standings" class="group-standings-grid"></div>
+            </section>
+          </div>
+          <div id="panel-rankings" class="view-panel" role="tabpanel" aria-labelledby="view-rankings" tabindex="0" hidden>
+            <section class="standings-section" aria-labelledby="rankings-title">
+              <div class="section-title-row"><div><p class="eyebrow">All 30 teams · Current rosters</p><h2 id="rankings-title">Rankings</h2></div><span>Ratings out of 99</span></div>
+              <p class="roster-note">Overall = (Offense + Defense) ÷ 2. Teams tied on overall appear alphabetically.</p>
+              <div class="mini-table-wrap" role="region" aria-label="League-wide team ratings" tabindex="0">
+                <table class="mini-table rankings-table">
+                  <thead><tr><th scope="col">#</th><th scope="col">Team</th><th scope="col">Overall</th><th scope="col">Offense</th><th scope="col">Defense</th></tr></thead>
+                  <tbody id="rankings-rows"></tbody>
+                </table>
+              </div>
             </section>
           </div>
           <div id="panel-race" class="view-panel" role="tabpanel" aria-labelledby="view-race" tabindex="0" hidden>

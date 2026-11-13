@@ -165,7 +165,7 @@ tr.selected-team td { color: var(--cyan); background: rgba(72,230,210,0.07); }
 .schedule-section { padding-top: 24px; }
 #team-name { margin: 0; font-size: clamp(2.8rem, 7vw, 5rem); line-height: 1; }
 .team-home { display: flex; align-items: center; justify-content: space-between; gap: 20px; flex-wrap: wrap; margin: 24px 0; }
-.team-ratings { display: flex; gap: 12px; }
+.team-ratings { display: flex; flex-wrap: wrap; gap: 12px; }
 .team-ratings > div { display: grid; grid-template-columns: auto auto; gap: 4px 8px; padding: 16px 22px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; }
 .team-ratings .control-label { grid-column: 1 / -1; }
 .team-ratings strong { font-size: 2rem; color: var(--lime); }
@@ -431,3 +431,6 @@ tr.selected-team td { color: var(--cyan); background: rgba(72,230,210,0.07); }
 #free-agency button { margin: 4px; }
 #fa-order, #fa-log { overflow-wrap: anywhere; }
 #free-agency .table-wrap:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+
+.rankings-table { font-variant-numeric: tabular-nums; }
+.rankings-table td:nth-child(3) { font-weight: 800; }

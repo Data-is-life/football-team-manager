@@ -82,6 +82,10 @@ class TeamRatings:
     offense: int
     defense: int
 
+    @property
+    def overall(self):
+        return (self.offense + self.defense) / 2
+
 
 def _stable_number(value: str) -> int:
     return int.from_bytes(hashlib.sha256(value.encode("utf-8")).digest()[:8], "big")
