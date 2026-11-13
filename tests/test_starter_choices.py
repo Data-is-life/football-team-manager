@@ -76,7 +76,14 @@ class StarterChoiceTests(unittest.TestCase):
         profile=career_action('seattle',CareerRequest(**body))
         self.assertEqual({p['id'] for p in profile['roster'] if p['depth']<=ROSTER_RULES[p['position']][1]},set(self.ids))
         scout=career_action('seattle',CareerRequest(**{**body,'view_team':'miami'}))
-        self.assertEqual(scout,team_profile('miami',1234,6,1,1,'seattle'))
+        original=team_profile('miami',1234,6,1,1,'seattle')
+        self.assertEqual({k:v for k,v in scout.items() if k!='rankings'},
+                         {k:v for k,v in original.items() if k!='rankings'})
+        self.assertEqual(scout['rankings'],profile['rankings'])
+        preview=career_action('seattle',CareerRequest(**{**body,'action':'draft'}))['profile']
+        self.assertEqual({p['id']:p['depth'] for p in preview['roster']},
+                         {p['id']:p['depth'] for p in profile['roster']})
+        self.assertEqual(preview['ratings'],profile['ratings'])
         for change in ([dict(week=1,starters=self.ids[:-1])], [dict(week=1,starters=[self.ids[0]]*22)],
                        [dict(week=1,starters=['miami-qb1',*self.ids[1:]])], [dict(week=22,starters=[])],
                        [dict(week=True,starters=[])], [dict(week=2,starters=[]),dict(week=1,starters=[])],

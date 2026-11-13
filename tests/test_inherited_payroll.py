@@ -110,3 +110,81 @@ class InheritedPayrollTests(TestCase):
         self.assertEqual(old['payroll'],new['payroll'])
         self.assertEqual([p['contract'] for p in old['roster']],[p['contract'] for p in new['roster']])
         self.assertFalse(any(p['contract']['category']=='inherited_bad' for p in new['roster']))
+
+    def test_new_careers_have_first_season_expiries_without_repricing(self):
+        from app.retirement import retirement_age
+        selections=set()
+        for seed in (0,1,1234,5678):
+            old=lineup_context((),seed,31,rebuild_team='seattle')
+            new=lineup_context((),seed,32,rebuild_team='seattle')
+            self.assertEqual(new,lineup_context((),seed,32,rebuild_team='seattle'))
+            for owner,players in new:
+                previous={p.id:p for p in dict(old)[owner]}
+                expiring=[p for p in players if p.contract.years==1]
+                self.assertEqual(len(expiring),len(players)//4)
+                self.assertTrue(all(retirement_age(p,seed)>p.age for p in expiring))
+                self.assertTrue(any(p.contract.years>1 for p in players))
+                for player in players:
+                    before=previous[player.id]
+                    self.assertEqual(replace(player,contract=before.contract),before)
+                    self.assertEqual(player.contract.annual_salary,before.contract.annual_salary)
+                    if player.contract.category=='inherited_bad':
+                        self.assertEqual(player.contract,before.contract)
+                self.assertEqual(payroll(players),payroll(dict(old)[owner]))
+            selections.add(tuple(p.id for p in dict(new)['seattle'] if p.contract.years==1))
+        self.assertEqual(len(selections),4)
+
+    def test_first_market_requires_resolving_new_starting_expiries(self):
+        self.assert_first_market_and_saved_rollover(32)
+
+    def test_rules_33_market_camp_and_saved_rollover(self):
+        self.assert_first_market_and_saved_rollover(33)
+
+    def test_rules_34_market_camp_and_saved_rollover(self):
+        self.assert_first_market_and_saved_rollover(34)
+
+    def test_rules_35_market_camp_and_saved_rollover(self):
+        self.assert_first_market_and_saved_rollover(35)
+
+    def assert_first_market_and_saved_rollover(self, rules):
+        from fastapi import HTTPException
+        from app.preseason import run
+        from app.player_contracts import contract_expired
+        seed=1234
+        root=lineup_context((),seed,rules,rebuild_team='seattle')
+        args=dict(run_seed=seed,lineup_rules=rules,rebuild_team='seattle',draft_rounds=6)
+        draft=career_action('seattle',CareerRequest(action='draft',auto_draft=True,**args))
+        req=dict(manual_picks=draft['manual_picks'],**args)
+        market=career_action('seattle',CareerRequest(action='free_agency',**req))
+        expired=[p for p in market['profile']['roster'] if p.get('renewal_offer')]
+        self.assertEqual(len(expired),8)
+        self.assertTrue(all(p['contract']['years_remaining']==0 for p in expired))
+        self.assertTrue(all(p.contract.years>=2 for p in dict(lineup_context((),seed,31,rebuild_team='seattle'))['seattle']))
+        with self.assertRaises(HTTPException):
+            career_action('seattle',CareerRequest(action='free_agency',free_agency=[dict(kind='finish')],**req))
+        target=min((p for p in expired if p['renewal_offer']['affordable']),key=lambda p:p['renewal_offer']['annual_salary'])
+        actions=[dict(kind='resign',player_id=target['id'])]+[dict(kind='drop',player_id=p['id']) for p in expired if p['id']!=target['id']]+[dict(kind='finish')]
+        review=career_action('seattle',CareerRequest(action='free_agency',free_agency=actions,**req))
+        self.assertTrue(review['free_agency']['complete'])
+        self.assertFalse(review['training_camp'])
+        signed=next(p for p in review['profile']['roster'] if p['id']==target['id'])
+        self.assertEqual(signed['contract']['annual_salary'],target['renewal_offer']['annual_salary'])
+        self.assertEqual(signed['contract']['signed_season'],2)
+        self.assertEqual(review,career_action('seattle',CareerRequest(action='free_agency',free_agency=actions,**req)))
+        # All CPU teams resolve their expired contracts in the same first market.
+        _,context=run('seattle',1,seed,tuple(draft['manual_picks']),(),root,6,tuple((a['kind'],a.get('player_id','')) for a in actions))
+        self.assertTrue(all(not contract_expired(p,2) for owner,players in context for p in players))
+        pre=[]
+        if review['payroll_floor_adjustment']:
+            pre=[dict(kind='raise',player_id=review['payroll_floor_adjustment']['player_id'])]
+        camp=career_action('seattle',CareerRequest(action='camp',free_agency=actions,pre_camp_actions=pre,**req))
+        self.assertTrue(camp['can_continue'])
+        past=dict(season=1,lineup_rules=rules,draft_rounds=6,manual_picks=draft['manual_picks'],
+                  free_agency=actions,pre_camp_actions=pre,camp_actions=[])
+        next_req=dict(action='profile',season=2,career=[past],**args)
+        next_profile=career_action('seattle',CareerRequest(**next_req))
+        self.assertEqual(next_profile,career_action('seattle',CareerRequest(**next_req)))
+        renewed=next(p for p in next_profile['roster'] if p['id']==target['id'])
+        self.assertEqual(renewed['contract']['signed_season'],2)
+        self.assertEqual(renewed['contract']['annual_salary'],signed['contract']['annual_salary'])
+        self.assertEqual(next_profile['lineup_rules'],rules)

@@ -969,3 +969,119 @@ The HTTP benchmark now defaults to `--rules 31`, covering the new sequence over
 three offseasons, including financial review, camp and saved-career replay.
 Use `--rules 30` to reproduce the earlier performance comparison. Existing
 legacy baselines are retained unchanged.
+
+### Starting contract expiries (rules 32)
+
+New careers begin with roughly one quarter of each team's inherited roster on
+contracts expiring after the first season (eight of 35 players). Selection is
+seeded and favors players who will survive to the first renewal window. Other
+contract terms, annual salaries, payroll, player ratings and inherited bad deals
+remain unchanged. The first pre-camp market requires renewing or releasing those
+expired players; CPU teams handle the same decisions. Existing careers retain
+their original contract book and rules. New rules-32 careers keep their rule
+version through subsequent seasons and saved replay.
+
+### Wider initial strength and scoring sensitivity (rules 33)
+
+New careers draw opponents' shared strength with standard deviation 6 instead
+of 4, keeping the offense/defense skew at 2, exact unit means of 75 and bounds
+of 60–90. The managed team's rebuilding setup stays the same. This happens only
+at career creation; subsequent seasons develop the existing rosters normally.
+
+Scoring uses sensitivity 0.48 instead of 0.36 for the offense-versus-defense
+rating gap. The scoring base, home advantage, scoring noise and shutout rescue
+remain unchanged. Rules 33 persist through rollover and save/replay. Existing
+careers keep their earlier rules and results; the API's legacy default remains 1.
+
+### Destination premiums for free agents (rules 34)
+
+New careers apply a team-specific premium to unsigned players' normal salary
+requests, on top of the existing wave multiplier. It is the same for user and
+CPU teams and is capped at 20%:
+
+- Roster component: +1% per point that the average of offense and defense falls
+  below 75, capped at +10% at 65 or lower.
+- Record component: +10% × max(0, (losses − wins) / games), with ties counting
+  as half a win. A .500 or winning team pays no record premium.
+
+For example, a team rated 70 that finished 3–14 pays +11.47%. A normal $5M demand
+in wave 1 is $5M × 1.20 × 1.1147 = $6.69M after rounding to $10,000.
+Salary floors apply after the multipliers; there is no destination discount.
+
+Ratings and record come from the concluded regular season, before the draft
+and market changes, and stay fixed for that offseason. They are recalculated
+from the next season's results in the following market. The free-agency screen
+shows the roster and record components, and all displayed demands, CPU choices,
+signings and cap checks use the destination-adjusted amount. Renewals of players
+already on a team's roster retain their existing pricing.
+
+Rules 34 persist through rollover and saved action replay. Earlier careers keep
+their original salary rules and results; saved markets are never repriced.
+
+### Seeded annual cap growth (rules 35)
+
+New careers retain the $200M Season 1 cap. Each subsequent season draws its own
+league-wide increase from a normal distribution centered on 6%, with standard
+deviation 2 percentage points, rejecting values outside 2–10%. Rates are rounded
+to 0.01 percentage points. Each seasonal seed is independently derived from the
+random career seed and season number; reloads and saved replay never reroll it.
+
+The cap compounds from the previous cap, rounded to $10,000 and bounded so the
+actual annual increase stays within 2–10%. The payroll floor remains exactly 60%
+of the cap. New minimum salaries and all draft-slot salaries scale from their
+Season 1 amounts by the career's cumulative cap growth, rounded to $10,000.
+New veteran/renewal demands use the same cap and minimum; destination premiums
+and wave discounts apply afterward. Existing signed salaries and dead-cap
+obligations never inflate.
+
+Upcoming draft previews and the pre-camp market use the upcoming playing year's
+cap and salary scale. Payroll displays the applicable annual growth percentage.
+Rules 35 persist through season transitions and saved replay; earlier careers
+retain their original fixed salary schedules and results.
+
+### Expanded group standings
+
+Group standings show W, L, T, PF, PA, Home, Away and Streak after rank and team.
+Home and away records always use wins–losses–ties. Streaks count consecutive
+regular-season results in chronological order, such as 3W, 2L or 1T; a tie
+starts its own streak. They reset at the start of each season. Offense and
+defense ratings remain visible beneath each team name. Wide tables scroll
+horizontally with touch or keyboard focus.
+
+The score-only standings calculation supplies venue records and streaks for
+all teams, including saved replays and past rules. Existing totals, rankings,
+tiebreakers and playoff seeding keep their behavior. No save or gameplay rule
+version changes are needed for these additional display fields.
+
+### Free-agent roster badges
+
+Players on a free-agent contract show an F badge beside their name, matching
+the rookie R badge style. The marker appears in roster ratings, roster stats
+and scouting views and survives save/reload and season transitions. Undrafted
+rookies signed in free agency may show both R and F. Ordinary renewals replace
+the free-agent contract and clear F; a payroll-floor salary increase preserves
+its free-agent origin. Existing saves receive the marker without migration.
+
+### Overall rating and league Rankings
+
+Overall is the exact average of offense and defense, retaining half points. The
+team header and scouting summary display it. A Rankings tab lists all 30 teams
+by overall, with tied teams listed alphabetically, showing offense and defense,
+roster links and the managed-team highlight. Ratings describe current rosters;
+standings and playoff seed order retain their own rules.
+
+Rankings are included with profile responses and update from weekly standings
+or the latest draft, market, cuts and training-camp profile. Opening the tab
+requires no additional request and does not change saved progress. Draft
+rankings include CPU picks, and scouting uses the same current offseason phase.
+Existing careers receive the display without a save migration or new rules.
+
+### Position salary anchors (new careers, rules 36)
+
+Normal veteran salary demands use the best `(current + potential) / 2` at each position across all teams and unsigned free agents. The leader's annual demand, rounded to $10,000, is this share of the signing season's cap:
+
+| QB | WR | RB | TE | OL | DL | LB | CB | S | K |
+|---|---|---|---|---|---|---|---|---|---|
+| 21% | 14% | 7.5% | 6% | 10% | 12% | 16% | 11% | 8% | 2.5% |
+
+The existing accelerating cubic curve is normalized to that leader, retaining minimum salaries, exact half-point demand ratings and existing contract lengths. Initial anchors use the starting league. Each offseason refreshes anchors after the draft, including the full incoming rookie class, before CPU renewal/cut decisions. Anchors remain fixed through signings, releases, development and reloads until the next offseason. Wave pricing and destination premiums apply afterward and may exceed these normal-demand anchors. All contracts remain subject to the hard cap. Signed contracts, rookie pay and inherited payroll remain unchanged; older careers retain their previous salary behavior. Soft salary tiers and revised term boundaries are a separate follow-up.

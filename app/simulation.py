@@ -82,6 +82,10 @@ class TeamRatings:
     offense: int
     defense: int
 
+    @property
+    def overall(self):
+        return (self.offense + self.defense) / 2
+
 
 def _stable_number(value: str) -> int:
     return int.from_bytes(hashlib.sha256(value.encode("utf-8")).digest()[:8], "big")
@@ -220,7 +224,8 @@ def _team_box(
 ) -> dict[str, object]:
     ratings = team_ratings(team.id, run_seed, roster_context)
     opponent_ratings = team_ratings(opponent.id, run_seed, roster_context)
-    expected_points = 22.0 + (ratings.offense - opponent_ratings.defense) * 0.36
+    sensitivity = 0.48 if getattr(roster_context, "lineup_rules", 1) >= 33 else 0.36
+    expected_points = 22.0 + (ratings.offense - opponent_ratings.defense) * sensitivity
     expected_points += 0.0 if is_home is None else (1.6 if is_home else -0.4)
 
     touchdowns = max(0, min(6, round(rng.gauss(expected_points / 8.2, 1.15))))

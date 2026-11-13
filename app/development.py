@@ -61,6 +61,11 @@ class DevelopmentContext:
         return iter(self.rosters)
 
 
+@dataclass(frozen=True)
+class SalaryDevelopmentContext(DevelopmentContext):
+    salary_anchors: tuple = ()
+
+
 def initial_state(player, seed, kicker_potential=False):
     if player.position == 'K' and not kicker_potential:
         return DevelopmentState(player.rating, player.rating)
@@ -74,7 +79,7 @@ def initial_state(player, seed, kicker_potential=False):
 def with_rosters(context, rosters):
     old = dict(context.development)
     values = {p.id: old.get(p.id) or initial_state(p, context.run_seed, context.lineup_rules >= 9) for p in chain((p for _, players in rosters for p in players), context.free_agents)}
-    return DevelopmentContext(tuple(rosters), context.season, context.run_seed, tuple(sorted(values.items())), context.lineup_rules, context.rebuild_team, context.dead_cap, context.free_agents)
+    return replace(context, rosters=tuple(rosters), development=tuple(sorted(values.items())))
 
 
 def rating_view(player, context, development_states=None):
@@ -195,7 +200,7 @@ def advance_context(context, run_seed, season, development_start=1, lineup_rules
     if rebuild_team is None and current_rules >= 3:
         rebuild_team = context.rebuild_team
     lineup_rules = lineup_rules if lineup_rules is not None else max(3, current_rules)
-    if lineup_rules not in (3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31) or current_rules > lineup_rules:
+    if lineup_rules not in (3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36) or current_rules > lineup_rules:
         raise ValueError('Invalid development rules')
     if not 1 <= development_start <= season <= 999:
         raise ValueError('Invalid development season')
@@ -211,6 +216,8 @@ def advance_context(context, run_seed, season, development_start=1, lineup_rules
     roster_upgrade = lineup_rules >= 14 and current_rules < 14 and bool(context)
     if roster_upgrade and season <= context.season:
         raise ValueError('35-player roster minimum applies at the next season transition')
+    if lineup_rules >= 36 and current_rules < 36 and context:
+        raise ValueError('Position salary anchors require a new career')
     rotation_growth = current_rules >= 5
     if current_rules < 3:
         if not context and lineup_rules >= 4:
@@ -227,16 +234,23 @@ def advance_context(context, run_seed, season, development_start=1, lineup_rules
         rosters = tuple((owner,ranked_players(players)) for owner,players in rosters)
         if lineup_rules >= 12:
             from .league_balance import balance_opponents
-            rosters = balance_opponents(rosters, run_seed, rebuild_team)
+            rosters = balance_opponents(rosters, run_seed, rebuild_team, lineup_rules)
         if lineup_rules >= 15:
             from .player_contracts import signed_rosters
-            rosters = signed_rosters(rosters,development_start,lineup_rules)
+            rosters = signed_rosters(rosters,development_start,lineup_rules, run_seed=run_seed)
             if lineup_rules>=25 and rebuild_team is not None:
                 from .player_contracts import inherited_payroll
                 rosters=inherited_payroll(rosters,rebuild_team,run_seed,development_start,
                     lineup_rules if lineup_rules>=31 else 25)
+            if lineup_rules >= 32:
+                from .player_contracts import stagger_starting_expiries
+                rosters = stagger_starting_expiries(rosters,run_seed,development_start)
         states = tuple(sorted((p.id,initial_state(p,run_seed,lineup_rules >= 9)) for _,players in rosters for p in players))
-        context = DevelopmentContext(rosters,max(1,development_start-1),run_seed,states,lineup_rules,rebuild_team)
+        context_type = SalaryDevelopmentContext if lineup_rules >= 36 else DevelopmentContext
+        context = context_type(rosters,max(1,development_start-1),run_seed,states,lineup_rules,rebuild_team)
+        if lineup_rules >= 36:
+            from .player_contracts import snapshot_salary_anchors
+            context = replace(context, salary_anchors=snapshot_salary_anchors(context))
         if lineup_rules >= 5 and development_start == 1:
             context = capture_rotation(context)
             rotation_growth = True
@@ -267,7 +281,9 @@ def advance_context(context, run_seed, season, development_start=1, lineup_rules
                     False, True, True, True)
                 agents.append(player)
                 updated_states.append((player.id, state))
-        context = DevelopmentContext(tuple(rosters),year,run_seed,tuple(sorted(updated_states)),lineup_rules,rebuild_team,tuple(c for c in context.dead_cap if c.end_season>=year),tuple(agents))
+        context = replace(context, rosters=tuple(rosters), season=year,
+            development=tuple(sorted(updated_states)),
+            dead_cap=tuple(c for c in context.dead_cap if c.end_season>=year), free_agents=tuple(agents))
         if lineup_rules >= 5:
             context = capture_rotation(context)
             rotation_growth = True

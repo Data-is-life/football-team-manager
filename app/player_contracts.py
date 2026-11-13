@@ -2,6 +2,7 @@
 from dataclasses import asdict, dataclass, replace
 from decimal import Decimal, ROUND_HALF_UP
 from functools import lru_cache
+import random
 
 MINIMUM_SALARY = 1_000_000
 # Annual salary for a 75-current-rated player; game-balance values, not NFL data.
@@ -27,24 +28,56 @@ MARKET_SALARIES = {
 }
 
 
-def market_salary(position, rating, season, rules=21):
+POSITION_CAP_PERCENT = {'QB':21, 'WR':14, 'RB':7.5, 'TE':6, 'OL':10,
+                        'DL':12, 'LB':16, 'CB':11, 'S':8, 'K':2.5}
+
+
+def snapshot_salary_anchors(context, extra_players=()):
+    """Freeze the best exact current/potential average for each position."""
+    states = dict(context.development)
+    players = [p for _, roster in context for p in roster]
+    players.extend(context.free_agents)
+    players.extend(extra_players)
+    anchors = {}
+    for player in players:
+        rating = salary_demand_rating(player, contract_potential(player, context, states))
+        anchors[player.position] = max(anchors.get(player.position, Decimal(0)), rating)
+    return tuple(sorted(anchors.items()))
+
+
+def market_salary(position, rating, season, rules=21, *, run_seed=0, anchor_rating=None):
     """Versioned market demand, signing-cap scaling and $10k rounding."""
+    if rules >= 36:
+        if anchor_rating is None or not 1 <= Decimal(str(anchor_rating)) <= 99:
+            raise ValueError('Position salary demands require a league anchor')
+        anchor = Decimal(str(anchor_rating))
+        floor_rating = min(Decimal(60), anchor-1)
+        ability = max(floor_rating, min(anchor, Decimal(str(rating))))
+        floor = Decimal(minimum_salary(season, rules, run_seed=run_seed))
+        ceiling = Decimal(str(POSITION_CAP_PERCENT[position])) * salary_cap(season, rules, run_seed=run_seed) / 100
+        # Preserve the cubic shape, normalized to the actual positional leader.
+        # A very weak position still has a leader and a minimum-price floor.
+        origin = floor_rating-20
+        share = (ability-origin)**3-20**3
+        denominator = (anchor-origin)**3-20**3
+        raw = floor+(ceiling-floor)*share/denominator
+        return max(int(floor), int((raw/10_000).quantize(Decimal('1'), rounding=ROUND_HALF_UP))*10_000)
     if rules >= 27:
         # Floor through 60; smoothly accelerating cubic above it. Integer powers
         # and Decimal keep half-rating quotes and replay independent of floats.
         ability = max(Decimal(60), min(Decimal(99), Decimal(str(rating))))
         share = ((ability-40)**3-20**3) / Decimal(59**3-20**3)
-        floor = Decimal(minimum_salary(season,rules))
-        ceiling = Decimal(MARKET_SALARIES[position][-1]) * salary_cap(season,rules) / SALARY_CAP
+        floor = Decimal(minimum_salary(season,rules, run_seed=run_seed))
+        ceiling = Decimal(MARKET_SALARIES[position][-1]) * salary_cap(season,rules, run_seed=run_seed) / SALARY_CAP
         raw = floor + (ceiling-floor)*share
-        return max(minimum_salary(season,rules),int((raw/10_000).quantize(Decimal('1'),rounding=ROUND_HALF_UP))*10_000)
+        return max(minimum_salary(season,rules, run_seed=run_seed),int((raw/10_000).quantize(Decimal('1'),rounding=ROUND_HALF_UP))*10_000)
     rating = max(MARKET_RATINGS[0], min(MARKET_RATINGS[-1], Decimal(str(rating))))
     amounts = MARKET_SALARIES[position]
     for index, (low, high) in enumerate(zip(MARKET_RATINGS, MARKET_RATINGS[1:])):
         if rating <= high:
             raw = Decimal(amounts[index]) + Decimal(amounts[index+1]-amounts[index]) * (rating-low) / (high-low)
-            raw = raw * salary_cap(season,21) / SALARY_CAP
-            return max(minimum_salary(season,21), int((raw/10_000).quantize(Decimal('1'),rounding=ROUND_HALF_UP))*10_000)
+            raw = raw * salary_cap(season,21, run_seed=run_seed) / SALARY_CAP
+            return max(minimum_salary(season,21, run_seed=run_seed), int((raw/10_000).quantize(Decimal('1'),rounding=ROUND_HALF_UP))*10_000)
     raise AssertionError('Unreachable salary anchor')
 
 
@@ -113,29 +146,69 @@ def annual_amount(base, season, quantum):
     return amount
 
 
-def minimum_salary(season, rules=15):
+@lru_cache(maxsize=4096, typed=True)
+def cap_growth_basis_points(season, run_seed):
+    """Independent seasonal stream: truncated N(6%, 2%), bounded to 2–10%."""
+    from .simulation import _run_number
+    if type(season) is not int or season < 1:
+        raise ValueError('Salary schedule season must be a positive integer')
+    if season == 1:
+        return 0
+    season_seed = _run_number(f'salary-cap-growth-v1:{season}', run_seed)
+    rng = random.Random(season_seed)
+    while True:
+        growth = rng.gauss(600, 200)
+        if 200 <= growth <= 1000:
+            return int(growth + .5)
+
+
+@lru_cache(maxsize=4096, typed=True)
+def seeded_salary_cap(season, run_seed):
+    """Compound each year's draw; $10k rounding must preserve the 2–10% bounds."""
+    if type(season) is not int or season < 1:
+        raise ValueError('Salary schedule season must be a positive integer')
+    amount = SALARY_CAP
+    quantum = 10_000
+    for year in range(2, season+1):
+        rate = cap_growth_basis_points(year, run_seed)
+        rounded = ((amount * (10_000 + rate) + 5000 * quantum) // (10_000 * quantum)) * quantum
+        lower = ((amount * 102 + 100 * quantum - 1) // (100 * quantum)) * quantum
+        upper = (amount * 110 // (100 * quantum)) * quantum
+        amount = max(lower, min(upper, rounded))
+    return amount
+
+
+def cap_scaled_salary(base, season, run_seed):
+    """New agreements track the career's cap; previously signed terms stay fixed."""
+    numerator = base * seeded_salary_cap(season, run_seed)
+    return ((numerator + 5000 * SALARY_CAP) // (10_000 * SALARY_CAP)) * 10_000
+
+
+def minimum_salary(season, rules=15, *, run_seed=0):
+    if rules >= 35: return cap_scaled_salary(MINIMUM_SALARY,season,run_seed)
     return annual_amount(MINIMUM_SALARY,season,10_000) if rules >= 17 else MINIMUM_SALARY
 
 
-def salary_cap(season, rules=16):
+def salary_cap(season, rules=16, *, run_seed=0):
+    if rules >= 35: return seeded_salary_cap(season,run_seed)
     return annual_amount(SALARY_CAP,season,1_000_000) if rules >= 17 else SALARY_CAP
 
 
-def payroll_floor(season, rules=16):
-    if rules >= 31: return salary_cap(season,rules)*60//100
+def payroll_floor(season, rules=16, *, run_seed=0):
+    if rules >= 31: return salary_cap(season,rules, run_seed=run_seed)*60//100
     if rules < 17: return PAYROLL_FLOOR
-    return ((salary_cap(season,rules)*80 + 50_000_000)//100_000_000)*1_000_000
+    return ((salary_cap(season,rules, run_seed=run_seed)*80 + 50_000_000)//100_000_000)*1_000_000
 
 
-def starting_contract(player, season, rules=15):
+def starting_contract(player, season, rules=15, *, run_seed=0):
     if player.id.startswith('replacement-'):
         signed = int(player.id.split('-')[2])
-        return PlayerContract(minimum_salary(signed,rules),signed,1,'replacement')
+        return PlayerContract(minimum_salary(signed,rules, run_seed=run_seed),signed,1,'replacement')
     if player.id.startswith('rookie-'):
         raise ValueError('Drafted players need their recorded selection to assign salary')
     # Inherited contracts were already signed before the GM arrived. Preserve
     # their original terms; the current market applies only to new agreements.
-    return veteran_contract(player,season,min(rules,20))
+    return veteran_contract(player,season,min(rules,20), run_seed=run_seed)
 
 
 def salary_demand_rating(player, potential):
@@ -152,18 +225,19 @@ def contract_potential(player, context, development_states=None):
     return rating_view(player,context,development_states)['potential_rating']
 
 
-def veteran_contract(player, season, rules=15, potential=None):
+def veteran_contract(player, season, rules=15, potential=None, *, run_seed=0, context=None):
     category, years = ('franchise',5) if player.rating >= 90 else ('low_rated',2) if player.rating < 70 else ('veteran',4) if player.age >= 28 else ('young',3)
     if rules >= 21:
         rating=salary_demand_rating(player,potential) if rules>=26 else player.rating
-        salary = market_salary(player.position,rating,season,rules)
+        anchor = dict(context.salary_anchors).get(player.position) if rules >= 36 and context is not None else None
+        salary = market_salary(player.position,rating,season,rules, run_seed=run_seed, anchor_rating=anchor)
     else:
         raw = Decimal(BASE_SALARIES[player.position]) * player.rating ** 2 / 75 ** 2
-        salary = max(minimum_salary(season,rules),int((raw / 10_000).quantize(Decimal('1'),rounding=ROUND_HALF_UP))*10_000)
+        salary = max(minimum_salary(season,rules, run_seed=run_seed),int((raw / 10_000).quantize(Decimal('1'),rounding=ROUND_HALF_UP))*10_000)
     return PlayerContract(salary,season,years,category)
 
 
-def rookie_contract(round_number, overall, season, rules=15):
+def rookie_contract(round_number, overall, season, rules=15, *, run_seed=0):
     if not 1 <= round_number <= 6 or not (round_number-1)*30 < overall <= round_number*30:
         raise ValueError('Draft round and overall pick must match the 30-team draft')
     if round_number == 1:
@@ -171,14 +245,34 @@ def rookie_contract(round_number, overall, season, rules=15):
     else:
         salary = {2:3_000_000,3:2_500_000,4:2_000_000,5:1_500_000,6:1_000_000}[round_number]
     years = 4 if round_number==1 else 3 if round_number<=3 else 2
-    if rules >= 17: salary = annual_amount(salary,season,10_000)
+    if rules >= 35: salary = cap_scaled_salary(salary,season,run_seed)
+    elif rules >= 17: salary = annual_amount(salary,season,10_000)
     return PlayerContract(salary,season,years,'rookie',round_number,overall)
 
 
-def signed_rosters(rosters, season, rules=15):
-    return tuple((owner,tuple(p if p.contract is not None or p.rookie_offer is not None else replace(p,contract=starting_contract(p,season,rules))
+def signed_rosters(rosters, season, rules=15, *, run_seed=0):
+    return tuple((owner,tuple(p if p.contract is not None or p.rookie_offer is not None else replace(p,contract=starting_contract(p,season,rules, run_seed=run_seed))
                               for p in players)) for owner,players in rosters)
 
+
+
+def stagger_starting_expiries(rosters, seed, season):
+    """New careers inherit a mix of remaining terms, not only fresh deals."""
+    from .simulation import _run_number
+    from .retirement import retirement_age
+    updated = []
+    for owner, players in rosters:
+        eligible = [p for p in players if p.contract is not None
+                    and p.contract.category != 'inherited_bad']
+        # Favor players who will still be around for the first renewal window.
+        ordered = sorted(eligible, key=lambda p: (
+            retirement_age(p, seed) <= p.age,
+            _run_number(f'starting-expiry:{owner}:{p.id}', seed), p.id))
+        expiring = {p.id for p in ordered[:max(1, len(players)//4)]}
+        updated.append((owner, tuple(replace(p, contract=replace(p.contract, years=1))
+            if p.id in expiring and p.contract.signed_season == season else p
+            for p in players)))
+    return tuple(updated)
 
 
 def inherited_payroll(rosters, owner, seed, season, rules=25):
@@ -191,7 +285,7 @@ def inherited_payroll(rosters, owner, seed, season, rules=25):
     if any(p.contract.category=='inherited_bad' for p in players):
         return rosters
     def draw(purpose):return _run_number(f'inherited-payroll:{owner}:{purpose}',seed)
-    low,high=payroll_floor(season,rules),salary_cap(season,rules)
+    low,high=payroll_floor(season,rules, run_seed=seed),salary_cap(season,rules, run_seed=seed)
     target=low+draw('total')%((high-low)//1_000_000+1)*1_000_000
     weak=[p for p in players if p.rating<70 and p.depth>ROSTER_RULES[p.position][1]]
     groups=([p for p in weak if p.position=='QB'],
@@ -206,10 +300,10 @@ def inherited_payroll(rosters, owner, seed, season, rules=25):
         selected=min(viable or group,key=lambda p:draw(f'bad:{index}:{p.id}'))
         quote_rating=78+draw(f'price:{selected.id}')%5 if selected.position=='QB' else 82+draw(f'price:{selected.id}')%7
         bad[selected.id]=replace(selected.contract,
-            annual_salary=market_salary(selected.position,quote_rating,season),
+            annual_salary=market_salary(selected.position,quote_rating,season, run_seed=seed),
             years=3+draw(f'term:{selected.id}')%2,category='inherited_bad')
     ordinary=[p for p in players if p.id not in bad]
-    minimum=minimum_salary(season,25)
+    minimum=minimum_salary(season,25, run_seed=seed)
     extra=target-sum(c.annual_salary for c in bad.values())-len(ordinary)*minimum
     if extra<0 or extra%10_000:raise ValueError('Inherited payroll cannot fit its required contracts')
     units=extra//10_000
@@ -225,12 +319,12 @@ def inherited_payroll(rosters, owner, seed, season, rules=25):
     return tuple((team,updated if team==owner else roster) for team,roster in rosters)
 
 def ensure_contracts(context, season):
-    return replace(context,rosters=signed_rosters(context.rosters,season,getattr(context,"lineup_rules",1)))
+    return replace(context,rosters=signed_rosters(context.rosters,season,getattr(context,"lineup_rules",1), run_seed=getattr(context,'run_seed',0)))
 
 
 def attach_historical_draft_contracts(context, board):
     """Recover exact draft-slot pay from replayed picks when upgrading a save."""
-    contracts = {pick['player']['id']:rookie_contract(pick['round'],pick['overall'],board['draft_season'],getattr(context,'lineup_rules',1)) for pick in board['picks']}
+    contracts = {pick['player']['id']:rookie_contract(pick['round'],pick['overall'],board['draft_season'],getattr(context,'lineup_rules',1), run_seed=getattr(context,'run_seed',0)) for pick in board['picks']}
     rosters = tuple((owner,tuple(replace(p,contract=contracts[p.id]) if p.contract is None and p.rookie_offer is None and p.id in contracts else p
                                 for p in players)) for owner,players in context)
     return ensure_contracts(replace(context,rosters=rosters),board['draft_season'])
@@ -253,7 +347,7 @@ def public_player_fields(player, context=(), *, development_states=None, renewal
         result['contract_offer'] = rookie_offer_payload(player.rookie_offer)
     if getattr(context,'lineup_rules',1) >= 20 and contract_expired(player,context.season):
         potential=contract_potential(player,context,development_states) if context.lineup_rules>=26 else None
-        offer = veteran_contract(player,context.season,context.lineup_rules,potential)
+        offer = veteran_contract(player,context.season,context.lineup_rules,potential, run_seed=getattr(context,'run_seed',0), context=context)
         result['renewal_offer'] = {'annual_salary':offer.annual_salary,'years':offer.years,
             'starts_season':offer.signed_season,'category':offer.category,
             'annual_change':offer.annual_salary-player.contract.annual_salary}
@@ -263,7 +357,7 @@ def public_player_fields(player, context=(), *, development_states=None, renewal
             owner=renewal_owner if renewal_owner is not None else payroll_owner([player],context)
             amount=(renewal_payroll if renewal_payroll is not None
                     else cap_payroll(dict(context)[owner],context,owner=owner))
-            result['renewal_offer']['affordable']=amount+offer.annual_salary-player.contract.annual_salary<=salary_cap(context.season,context.lineup_rules)
+            result['renewal_offer']['affordable']=amount+offer.annual_salary-player.contract.annual_salary<=salary_cap(context.season,context.lineup_rules, run_seed=getattr(context,'run_seed',0))
     return result
 
 
@@ -300,8 +394,8 @@ def sign_retained_rookies(context, season):
             raise ValueError('Rookie signing must match the upcoming playing season')
         offer = player.rookie_offer
         emergency = (context.lineup_rules >= 29 and player.id.startswith('replacement-')
-                     and offer == starting_contract(player,season,context.lineup_rules))
-        if not emergency and offer != rookie_contract(offer.draft_round,offer.overall_pick,season,context.lineup_rules):
+                     and offer == starting_contract(player,season,context.lineup_rules, run_seed=getattr(context,'run_seed',0)))
+        if not emergency and offer != rookie_contract(offer.draft_round,offer.overall_pick,season,context.lineup_rules, run_seed=getattr(context,'run_seed',0)):
             raise ValueError('Rookie offer must match its recorded draft slot')
         return replace(player,contract=offer,rookie_offer=None)
     return replace(context,rosters=tuple((owner,tuple(sign(p) for p in players)) for owner,players in context))
@@ -314,7 +408,7 @@ def payroll_payload(players, context, season=None, owner=None):
     rules = context.lineup_rules
     roster_total=payroll(players)
     dead=dead_cap_total(context,payroll_owner(players,context,owner),season) if rules>=23 else 0
-    total, cap, floor = roster_total+dead, salary_cap(season,rules), payroll_floor(season,rules)
+    total, cap, floor = roster_total+dead, salary_cap(season,rules, run_seed=getattr(context,'run_seed',0)), payroll_floor(season,rules, run_seed=getattr(context,'run_seed',0))
     committed = sum(p.contract.annual_salary for p in players if p.contract is not None
                     and (rules < 20 or not contract_expired(p,season)))
     rookie_holds = sum(p.rookie_offer.annual_salary for p in players if p.rookie_offer is not None)
@@ -326,7 +420,9 @@ def payroll_payload(players, context, season=None, owner=None):
             **({'committed':committed,'rookie_holds':rookie_holds} if rules>=19 else {}),
             **({'expired_holds':expired_holds} if rules>=20 else {}),
             **({'dead_cap':dead} if rules>=23 else {}),
-            **({'season':season,'minimum_salary':minimum_salary(season,rules)} if rules>=17 else {})}}
+            **({'cap_growth_percent':cap_growth_basis_points(season,context.run_seed)/100,
+                'previous_cap':salary_cap(max(1,season-1),rules,run_seed=context.run_seed)} if rules>=35 else {}),
+            **({'season':season,'minimum_salary':minimum_salary(season,rules, run_seed=getattr(context,'run_seed',0))} if rules>=17 else {})}}
 
 
 def payroll_breakdown(players, context, season=None, owner=None):
@@ -356,7 +452,7 @@ def payroll_breakdown(players, context, season=None, owner=None):
 
 
 def cap_ready(players, context, season=None, owner=None):
-    return getattr(context,'lineup_rules',1) < 16 or cap_payroll(players,context,season,owner) <= salary_cap(context.season if season is None else season,context.lineup_rules)
+    return getattr(context,'lineup_rules',1) < 16 or cap_payroll(players,context,season,owner) <= salary_cap(context.season if season is None else season,context.lineup_rules, run_seed=getattr(context,'run_seed',0))
 
 
 def cap_release(players, identity, owner, season, seed, context, excluded):
@@ -422,7 +518,7 @@ def cpu_cap_cuts(players, owner, season, seed, context):
     remaining, excluded = list(players), []
     while not cap_ready(remaining,context,season+1):
         # Preserve ability per dollar; the ID tie-break makes replay deterministic.
-        eligible = [p for p in remaining if contract_terms(p).annual_salary > minimum_salary(season+1,context.lineup_rules)]
+        eligible = [p for p in remaining if contract_terms(p).annual_salary > minimum_salary(season+1,context.lineup_rules, run_seed=seed)]
         if not eligible:
             raise ValueError('CPU roster cannot fit under the salary cap')
         player = min(eligible,key=lambda p: (p.rating/contract_terms(p).annual_salary,-contract_terms(p).annual_salary,p.id))
@@ -446,7 +542,7 @@ def renew_player(players, identity, season, rules, context=None, owner=None):
     if not contract_expired(player,season):
         raise ValueError('Only an expired contract can be re-signed after training camp')
     potential=contract_potential(player,context) if rules>=26 else None
-    deal = veteran_contract(player,season,rules,potential)
+    deal = veteran_contract(player,season,rules,potential, run_seed=getattr(context,'run_seed',0), context=context)
     updated=[replace(p,contract=deal) if p.id==identity else p for p in players]
     if rules>=23 and context is not None and not cap_ready(updated,context,season,owner):
         raise ValueError('Re-signing would exceed the salary cap. Release unsigned rookies or expired contracts first; signed salaries are fully guaranteed.')
@@ -489,7 +585,7 @@ def cpu_contract_priorities(players, context, year):
             upside = max(0, potential-player.rating)
             ability = max(0, player.rating-50) + .20*upside
             if contract_expired(player,year):
-                salary = veteran_contract(player,year,context.lineup_rules,potential).annual_salary
+                salary = veteran_contract(player,year,context.lineup_rules,potential, run_seed=getattr(context,'run_seed',0), context=context).annual_salary
             else:
                 salary = contract_terms(player).annual_salary
             # Price discourages costly depth, but does not let minimum-salary
@@ -546,7 +642,7 @@ def smart_cpu_offseason(players, owner, season, seed, context):
 
     # Only unsigned/expired holds provide relief; releasing a guaranteed deal
     # merely converts its salary to dead cap and should not be a budget tactic.
-    minimum = minimum_salary(year, context.lineup_rules)
+    minimum = minimum_salary(year, context.lineup_rules, run_seed=seed)
     while not cap_ready(remaining,context,year,owner):
         eligible = [p for p in remaining if
                     (p.contract is None or contract_expired(p,year))
@@ -593,7 +689,7 @@ def guaranteed_cpu_offseason(players, owner, season, seed, context):
     excluded=[p.id for p in original if p.id not in retained]
     while not cap_ready(remaining,context,year,owner):
         eligible=[p for p in remaining if (p.contract is None or contract_expired(p,year))
-                  and contract_terms(p).annual_salary>minimum_salary(year,context.lineup_rules)]
+                  and contract_terms(p).annual_salary>minimum_salary(year,context.lineup_rules, run_seed=seed)]
         if not eligible:raise ValueError('CPU guaranteed obligations cannot fit under the salary cap')
         p=min(eligible,key=lambda p:(p.rating/contract_terms(p).annual_salary,-contract_terms(p).annual_salary,p.id))
         excluded.append(p.id)
