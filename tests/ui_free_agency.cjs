@@ -75,14 +75,15 @@ async function checks(){
  assert.equal(after.profile.roster.find(p=>p.id===modernTarget.id).contract.annual_salary,modernTarget.annual_salary);
  assert.deepEqual(after.free_agency.destination_premium,premium);checkRankings(p,after.profile);p.dom.window.close();
  // Seeded cap: draft, market and next-season UI agree before and after reload.
- const seededRequest={...request,lineup_rules:36};
+ for (const salaryRules of [36,37]) {
+ const seededRequest={...request,lineup_rules:salaryRules};
  const seededDraft=await api({...seededRequest,action:'draft',auto_draft:true});
  const seededArgs={...seededRequest,manual_picks:seededDraft.manual_picks};
  const seededMarket=await api({...seededArgs,action:'free_agency'});
  const upcoming=seededMarket.profile.payroll;
  assert.ok(upcoming.cap>=204000000&&upcoming.cap<=220000000);
  assert.ok(upcoming.cap_growth_percent>=2&&upcoming.cap_growth_percent<=10);
- p=await page({...checkpoint,version:41,lineupRules:36,trainingCamp:false,draftChoices:seededDraft.manual_picks,dropped:[],rosterActions:[],freeAgency:[]});
+ p=await page({...checkpoint,version:41,lineupRules:salaryRules,trainingCamp:false,draftChoices:seededDraft.manual_picks,dropped:[],rosterActions:[],freeAgency:[]});
  const capLabel=`$${(upcoming.cap/1e6).toFixed(2)}M cap`;
  assert.ok(q(p,'#payroll-status').textContent.includes(capLabel));
  assert.ok(q(p,'#payroll-status').textContent.includes(`Cap growth +${upcoming.cap_growth_percent.toFixed(2)}%`));
@@ -99,10 +100,11 @@ async function checks(){
  p=await page({...seededSave,freeAgency:seededActions,preCampActions:pre,trainingCamp:true});
  checkRankings(p,seededCamp.profile);
  q(p,'#next-season').click();await until(()=>save(p).season===2);
- assert.equal(save(p).lineupRules,36);assert.equal(save(p).career[0].lineup_rules,36);checkRankings(p,seededCamp.profile);
+ assert.equal(save(p).lineupRules,salaryRules);assert.equal(save(p).career[0].lineup_rules,salaryRules);checkRankings(p,seededCamp.profile);
  assert.ok(q(p,'#payroll-status').textContent.includes(capLabel));
  const seededNext=save(p);p.dom.window.close();p=await page(seededNext);
- assert.equal(save(p).lineupRules,36);assert.ok(q(p,'#payroll-status').textContent.includes(capLabel));p.dom.window.close();
+ assert.equal(save(p).lineupRules,salaryRules);assert.ok(q(p,'#payroll-status').textContent.includes(capLabel));p.dom.window.close();
+ if(salaryRules===37) {const guide=await page(seededNext);assert.match(q(guide,'#salary-curve-guide').textContent,/doubling tiers.*69.*3.8.*85.*12/);assert.match(q(guide,'#re-signing-guide').textContent,/current.*potential.*2 years/);assert.doesNotMatch(q(guide,'#salary-demand-guide').textContent,/current rating and age/);guide.dom.window.close();}
  const badgesPage=await page(seededNext);
  function badgeLabels(player){const cell=badgesPage.d.createElement('td');badgesPage.w.addRookieBadge(cell,player);badgesPage.w.addFreeAgentBadge(cell,player);return [...cell.querySelectorAll('span')].map(b=>b.textContent);}
  assert.deepEqual(badgeLabels({id:'veteran',contract:{category:'young'}}),[]);
@@ -114,6 +116,7 @@ async function checks(){
  const scout=badgesPage.d.createElement('div');scout.append(...badgesPage.w.createRosterGroups(scouting.profile,false));
  assert.ok(scout.querySelector(`[data-player-id="${cpuSigning.player_id}"] .free-agent-badge`));
  badgesPage.dom.window.close();
+ }
  console.log('Free agency UI passed: entry, sorting/filtering, failure retry, duplicate-click guard, user-first signing, pool removal, pass, reload, finish/advance, next-season replay and corrupt-save preservation.');
 }
 (async()=>{const server=spawn(process.env.PYTHON||'python',['-m','uvicorn','app.main:app','--host','127.0.0.1','--port','8784'],{cwd:root,stdio:['ignore','pipe','pipe']});let logs='';server.stdout.on('data',d=>logs+=d);server.stderr.on('data',d=>logs+=d);try{for(let i=0;;i++){if(server.exitCode!==null)throw new Error(logs);try{if((await fetch(base+'/api/teams')).ok)break;}catch{}if(i===100)throw new Error(logs);await new Promise(r=>setTimeout(r,100));}try{await checks();}catch(error){console.error(logs);throw error;}}finally{server.kill();}})().catch(e=>{console.error(e);process.exitCode=1;});

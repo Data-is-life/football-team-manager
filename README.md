@@ -1085,3 +1085,9 @@ Normal veteran salary demands use the best `(current + potential) / 2` at each p
 | 21% | 14% | 7.5% | 6% | 10% | 12% | 16% | 11% | 8% | 2.5% |
 
 The existing accelerating cubic curve is normalized to that leader, retaining minimum salaries, exact half-point demand ratings and existing contract lengths. Initial anchors use the starting league. Each offseason refreshes anchors after the draft, including the full incoming rookie class, before CPU renewal/cut decisions. Anchors remain fixed through signings, releases, development and reloads until the next offseason. Wave pricing and destination premiums apply afterward and may exceed these normal-demand anchors. All contracts remain subject to the hard cap. Signed contracts, rookie pay and inherited payroll remain unchanged; older careers retain their previous salary behavior. Soft salary tiers and revised term boundaries are a separate follow-up.
+
+### Soft salary tiers (new careers, rules 37)
+
+Both normal veteran salary and contract length use the exact `(current + potential) / 2`. Salary weights interpolate linearly between 60/70/80/90/100 at 2/4/8/16/32; for example 69 = 3.8, 71 = 4.4 and 85 = 12. Below 60, weights taper linearly to zero at 40, with the existing minimum salary enforced. Normalize each player's weight against the frozen positional leader's weight so that leader's normal demand retains its specified cap share. Salaries round to $10,000; wave and destination pricing still apply afterward. The game caps player ratings at 99; 100 is the final mathematical curve endpoint.
+
+Contract terms change only at rating boundaries: below 70 = 2 years, 70–79.5 = 3, 80–89.5 = 4, 90+ = 5. Age no longer sets new veteran contract length. Existing salaries, signed terms, inherited payroll, rookie contracts and older-career pricing remain unchanged.
