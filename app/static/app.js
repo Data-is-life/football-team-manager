@@ -83,6 +83,7 @@ const rosterCompetition = document.querySelector("#roster-competition");
 let rosterProfile = null;
 let seasonRetirees = [];
 let rookieSeason = 1;
+let teamRankings = [];
 let developmentRecap = null;
 const developmentDialog = document.querySelector("#development-dialog");
 let rosterMode = "ratings";
@@ -571,10 +572,14 @@ async function loadScoutingRoster(teamId, city) {
     && owner === activeTeamId && runSeed === activeRunSeed && season === activeSeason;
   try {
     let profile;
-    if (activeTrainingCamp) {
+    if (activeLineupRules>=31 && activeFreeAgency!==null) {
+      profile = (await careerRequest("free_agency", { view_team:teamId, manual_picks:activeDraftChoices, free_agency:activeFreeAgency })).profile;
+    } else if (activeTrainingCamp) {
       profile = (await careerRequest(activeFreeAgency !== null ? "free_agency" : "camp", { view_team: teamId, manual_picks: activeDraftChoices, dropped: activeDropped, ...(activeFreeAgency !== null ? {free_agency:activeFreeAgency} : {}) })).profile;
     } else if (activeDropped.length && draftState?.complete) {
       profile = (await careerRequest("cuts", { view_team: teamId, manual_picks: activeDraftChoices, dropped: activeDropped })).profile;
+    } else if (draftState) {
+      profile = (await careerRequest("draft", { view_team:teamId, manual_picks:activeDraftChoices ?? [] })).profile;
     } else if (hasLineupContext()) profile = await careerRequest("profile", { view_team: teamId });
     else {
       const response = await fetch(`/api/team/${teamId}?run_seed=${runSeed}&lineup_rules=${activeLineupRules}&season=${activeSeason}&development_start=${activeDevelopmentStart ?? 1}${rebuildQuery()}`);
@@ -583,22 +588,8 @@ async function loadScoutingRoster(teamId, city) {
     }
     if (!isCurrent()) return;
     if (profile.team.id !== teamId || profile.run_seed !== runSeed) throw new Error("Roster could not be loaded. Please try again.");
-    if (draftState && !activeDropped.length && !activeTrainingCamp) {
-      const rookies = draftState.picks.filter(pick => pick.team.id === teamId).map(pick => pick.player);
-      profile.roster.push(...rookies);
-      if (activeLineupRules >= 2) {
-        const players = [];
-        for (const rule of profile.roster_rules) {
-          profile.roster.filter(p => p.position === rule.position)
-            .sort((a, b) => b.current_rating - a.current_rating || a.depth - b.depth || a.id.localeCompare(b.id))
-            .forEach((p, index) => { p.depth = index + 1; players.push(p); });
-        }
-        profile.roster = players;
-      }
-      for (const rule of profile.roster_rules) rule.count = profile.roster.filter(p => p.position === rule.position).length;
-    }
     document.querySelector("#scout-groups").replaceChildren(...createRosterGroups(profile, false));
-    status.textContent = `${profile.team.group} · ${profile.roster.length} players · Offense ${profile.ratings.offense} · Defense ${profile.ratings.defense} · Ratings out of 99`;
+    status.textContent = `${profile.team.group} · ${profile.roster.length} players · Overall ${overallRating(profile.ratings)} · Offense ${profile.ratings.offense} · Defense ${profile.ratings.defense} · Ratings out of 99`;
   } catch (error) {
     if (!isCurrent()) return;
     status.textContent = "Roster could not be loaded. Please try again.";
@@ -607,6 +598,10 @@ async function loadScoutingRoster(teamId, city) {
 }
 
 document.querySelector("#group-standings").addEventListener("click", event => {
+  const button = event.target.closest(".team-roster-link");
+  if (button) loadScoutingRoster(button.dataset.teamId, button.textContent);
+});
+document.querySelector("#rankings-rows").addEventListener("click", event => {
   const button = event.target.closest(".team-roster-link");
   if (button) loadScoutingRoster(button.dataset.teamId, button.textContent);
 });
@@ -727,6 +722,28 @@ function renderHelp() {
   document.querySelector("#roster-limit-note").textContent = `${activeLineupRules >= 14 ? "Every team starts with 35 players. " : ""}${rosterMinimum() ? `Regular-season roster: ${rosterLimitText()} players.` : `Regular-season maximum: ${rosterLimit()} players.`} Offseason draft picks may temporarily increase the roster. Position minimums appear above each group.`;
   document.querySelector("#contract-info").hidden = !activeContracts;
   document.querySelector("#draft-format").textContent = `${activeDraftRounds} rounds · Same order each round · CPU teams balance player quality and position needs. Rookies join your roster without replacing anyone. The regular-season ${rosterMinimum() ? "roster range" : "limit"} is ${rosterLimitText()}.`;
+}
+
+function overallRating(ratings) {
+  return (ratings.offense + ratings.defense) / 2;
+}
+
+function renderRankings(rows = teamRankings) {
+  teamRankings = [...rows].sort((a,b) => overallRating(b.ratings)-overallRating(a.ratings)
+    || a.team.city.localeCompare(b.team.city) || a.team.id.localeCompare(b.team.id));
+  document.querySelector("#rankings-rows").replaceChildren(...teamRankings.map((entry,index) => {
+    const row = document.createElement("tr");
+    row.dataset.teamId = entry.team.id;
+    row.classList.toggle("selected-team", entry.team.id === activeTeamId);
+    for (const value of [index+1, entry.team.city, overallRating(entry.ratings), entry.ratings.offense, entry.ratings.defense]) {
+      const cell = document.createElement("td"); cell.textContent = value; row.append(cell);
+    }
+    const button = document.createElement("button"); button.type = "button";
+    button.className = "team-roster-link"; button.dataset.teamId = entry.team.id;
+    button.textContent = entry.team.city; button.setAttribute("aria-label", `View ${entry.team.city} roster`);
+    row.children[1].replaceChildren(button);
+    return row;
+  }));
 }
 
 function activateView(id, { focus = false } = {}) {
@@ -1020,6 +1037,8 @@ function renderTeamProfile(profile, latestDraftSeason = activeSeason) {
   rosterMode = "ratings";
   rosterCompetition.value = "regular";
   rosterTotals = { regular: profile.roster_stats, playoffs: profile.roster_stats };
+  document.querySelector("#overall-rating").textContent = overallRating(profile.ratings);
+  renderRankings(profile.rankings ?? []);
   document.querySelector("#offense-rating").textContent = profile.ratings.offense;
   document.querySelector("#defense-rating").textContent = profile.ratings.defense;
   // Keep the shared inline confirmation alive when replacing roster rows.
@@ -1211,6 +1230,7 @@ function renderSchedule(data, runSeed, { priorStandings = {}, history = [], care
   seasonSimulationActive = false;
   stopSeasonRequested = false;
   activeTeamId = data.team.id;
+  renderRankings();
   activeRunSeed = runSeed;
   activeSeason = data.season;
   clearDevelopmentRecap();
@@ -1384,6 +1404,7 @@ function renderQualification(data) {
 function renderResult(data) {
   clearLeaders();
   regularSnapshot = data;
+  renderRankings(data.standings.groups.flatMap(group => group.teams));
   rosterTotals.regular = data.roster_stats;
   renderRosterStats();
   latestResult = data.result;
@@ -1448,7 +1469,7 @@ function renderResult(data) {
             ${group.teams.map((row) => `
               <tr class="${row.team.id === activeTeamId ? "selected-team" : ""}">
                 <td>${row.rank}</td>
-                <td><span class="team-cell"><button class="team-roster-link" type="button" data-team-id="${row.team.id}" aria-label="View ${row.team.city} roster">${row.team.city}</button>${row.rank === 1 ? '<b class="leader-mark">L</b>' : ""}</span><span class="standings-team-ratings" aria-label="Offense ${row.ratings.offense}, Defense ${row.ratings.defense}">O ${row.ratings.offense} · D ${row.ratings.defense}</span></td>
+                <td><span class="team-cell"><button class="team-roster-link" type="button" data-team-id="${row.team.id}" aria-label="View ${row.team.city} roster">${row.team.city}</button>${row.rank === 1 ? '<b class="leader-mark">L</b>' : ""}</span><span class="standings-team-ratings" aria-label="Overall ${overallRating(row.ratings)}, Offense ${row.ratings.offense}, Defense ${row.ratings.defense}">OVR ${overallRating(row.ratings)} · O ${row.ratings.offense} · D ${row.ratings.defense}</span></td>
                 <td>${row.wins}</td>
                 <td>${row.losses}</td>
                 <td>${row.ties}</td>

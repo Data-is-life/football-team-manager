@@ -15,6 +15,7 @@ from .leaders import league_leaders
 from .simulation import roster_for, simulate_through_week, team_ratings, roster_rules, roster_limit, roster_minimum
 from .attributes import ATTRIBUTE_INFO, attribute_keys
 from .ratings import rating_payload
+from .team_rankings import league_team_rankings
 from .player_contracts import public_player_fields, payroll_payload, cap_ready, pending_renewals, release_preview, payroll_breakdown, cap_payroll, contract_expired
 from .lineups import lineup_context, replace_lineup_rosters
 from .simulation import ranked_players
@@ -60,10 +61,18 @@ def team_profile(team_id: str, run_seed: Annotated[int, Query(ge=0, le=429496729
     return profile_payload(team_id, players, run_seed, context)
 
 
-def profile_payload(team_id, players, run_seed, roster_context=(), preferred=(), payroll_season=None, release_previews=False):
-    if preferred or getattr(roster_context, 'lineup_rules', 1) >= 2:
-        players = selected_roster(players, preferred, fill=True) if preferred else tuple(players) if isinstance(roster_context, StarterPlan) else ranked_players(players)
+def profile_payload(team_id, players, run_seed, roster_context=(), preferred=(), payroll_season=None, release_previews=False, league_rosters=None):
+    rules = getattr(roster_context, 'lineup_rules', 1)
+    if preferred or rules >= 2:
+        preserve_starters = isinstance(roster_context, StarterPlan) and roster_context.owner == team_id
+        players = selected_roster(players, preferred, fill=True) if preferred else tuple(players) if preserve_starters else ranked_players(players)
+    if league_rosters is not None or preferred or rules >= 2:
         rosters = dict(roster_context)
+        if league_rosters is not None:
+            rosters.update((owner, ranked_players(roster) if rules >= 2 else tuple(roster))
+                           for owner, roster in league_rosters.items())
+            if isinstance(roster_context, StarterPlan):
+                rosters[roster_context.owner] = tuple(league_rosters[roster_context.owner])
         rosters[team_id] = players
         roster_context = replace_lineup_rosters(roster_context,tuple(rosters.items()))
     development_states = (dict(roster_context.development)
@@ -75,6 +84,7 @@ def profile_payload(team_id, players, run_seed, roster_context=(), preferred=(),
     return {
         "team": asdict(TEAM_BY_ID[team_id]),
         "ratings": asdict(team_ratings(team_id, run_seed, roster_context)),
+        "rankings": league_team_rankings(run_seed, roster_context),
         "run_seed": run_seed,
         "lineup_rules": getattr(roster_context, "lineup_rules", 1),
         **({"rebuild_team": roster_context.rebuild_team} if getattr(roster_context, "rebuild_team", None) else {}),
@@ -197,11 +207,12 @@ def rookie_draft(team_id: str, request: DraftRequest) -> dict:
         if request.rebuild_team is not None and request.rebuild_team != team_id:
             raise ValueError('Rebuild team must match the managed team')
         context = lineup_context((), request.run_seed, request.lineup_rules,request.season,request.development_start,request.rebuild_team)
-        draft, players = build_draft(team_id, request.season, request.run_seed,
-                                    tuple(request.manual_picks), prior, context, auto_pick=request.auto_draft, draft_rounds=request.draft_rounds)
+        draft, rosters = build_draft(team_id, request.season, request.run_seed,
+                                    tuple(request.manual_picks), prior, context, auto_pick=request.auto_draft, draft_rounds=request.draft_rounds, return_league=True)
+        players = rosters[team_id]
     except ValueError as error:
         raise HTTPException(status_code=422, detail=str(error)) from error
-    return {**draft, "profile": profile_payload(team_id, players, request.run_seed, context, payroll_season=request.season+1)}
+    return {**draft, "profile": profile_payload(team_id, players, request.run_seed, context, payroll_season=request.season+1, league_rosters=rosters)}
 
 
 class LineupChange(BaseModel):
@@ -361,9 +372,9 @@ def career_action(team_id: str, request: CareerRequest) -> dict:
                         **({'contracts_pending':pending_renewals(dict(cut_context)[team_id],cut_context)} if request.lineup_rules>=20 else {}),
                         'can_continue': not pending_renewals(dict(cut_context)[team_id],cut_context) and roster_minimum(cut_context) <= len(dict(cut_context)[team_id]) <= roster_limit(cut_context) and cap_ready(dict(cut_context)[team_id],cut_context,request.season+1,team_id),
                         'profile': profile_payload(viewed, players, request.run_seed, cut_context, current_starters(context) if viewed == team_id and request.lineup_rules < 18 else (),payroll_season=request.season+1, release_previews=viewed == team_id)}
-            draft, players = build_draft(team_id, request.season, request.run_seed,
-                                        tuple(request.manual_picks), prior, context, auto_pick=request.auto_draft, draft_rounds=request.draft_rounds)
-            return {**draft, 'profile': profile_payload(team_id, players, request.run_seed, context, payroll_season=request.season+1)}
+            draft, rosters = build_draft(team_id, request.season, request.run_seed,
+                                        tuple(request.manual_picks), prior, context, auto_pick=request.auto_draft, draft_rounds=request.draft_rounds, return_league=True)
+            return {**draft, 'profile': profile_payload(viewed, rosters[viewed], request.run_seed, context, payroll_season=request.season+1, league_rosters=rosters)}
         return profile_payload(viewed, list(roster_for(viewed, request.run_seed, context).values()), request.run_seed, context)
     except ValueError as error:
         raise HTTPException(status_code=422, detail=str(error)) from error

@@ -19,6 +19,12 @@ function checkFreeAgentBadge(p, id) {
  for(const row of rows){const badge=row.querySelector('.free-agent-badge');assert.ok(badge);assert.equal(badge.textContent,'F');assert.equal(badge.getAttribute('aria-label'),'Free-agent signing');}
  q(p,'#roster-ratings-button').click();
 }
+function checkRankings(p,profile){
+ const rows=[...p.d.querySelectorAll('#rankings-rows tr')];assert.equal(rows.length,30);
+ const expected=new Map(profile.rankings.map(row=>[row.team.id,row.ratings]));
+ for(const row of rows){const ratings=expected.get(row.dataset.teamId);assert.deepEqual([...row.children].slice(2).map(c=>c.textContent),[String(ratings.overall),String(ratings.offense),String(ratings.defense)]);}
+ assert.equal(q(p,'#overall-rating').textContent,String((profile.ratings.offense+profile.ratings.defense)/2));
+}
 async function checks(){
  const request={season:1,run_seed:1234,lineup_rules:29,rebuild_team:'seattle',draft_rounds:6};
  const draft=await api({...request,action:'draft',auto_draft:true});
@@ -67,7 +73,7 @@ async function checks(){
  assert.equal(save(p).lineupRules,34);assert.match(q(p,'#fa-status').textContent,/Wave 2.*Team premium/);
  const after=await api({...modernRequest,action:'free_agency',manual_picks:modernDraft.manual_picks,free_agency:modernSave.freeAgency});
  assert.equal(after.profile.roster.find(p=>p.id===modernTarget.id).contract.annual_salary,modernTarget.annual_salary);
- assert.deepEqual(after.free_agency.destination_premium,premium);p.dom.window.close();
+ assert.deepEqual(after.free_agency.destination_premium,premium);checkRankings(p,after.profile);p.dom.window.close();
  // Seeded cap: draft, market and next-season UI agree before and after reload.
  const seededRequest={...request,lineup_rules:35};
  const seededDraft=await api({...seededRequest,action:'draft',auto_draft:true});
@@ -90,8 +96,9 @@ async function checks(){
  const seededCamp=await api({...seededArgs,action:'camp',free_agency:seededActions,pre_camp_actions:pre});
  assert.equal(seededCamp.can_continue,true);
  p=await page({...seededSave,freeAgency:seededActions,preCampActions:pre,trainingCamp:true});
+ checkRankings(p,seededCamp.profile);
  q(p,'#next-season').click();await until(()=>save(p).season===2);
- assert.equal(save(p).lineupRules,35);assert.equal(save(p).career[0].lineup_rules,35);
+ assert.equal(save(p).lineupRules,35);assert.equal(save(p).career[0].lineup_rules,35);checkRankings(p,seededCamp.profile);
  assert.ok(q(p,'#payroll-status').textContent.includes(capLabel));
  const seededNext=save(p);p.dom.window.close();p=await page(seededNext);
  assert.equal(save(p).lineupRules,35);assert.ok(q(p,'#payroll-status').textContent.includes(capLabel));p.dom.window.close();

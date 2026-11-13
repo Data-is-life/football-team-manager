@@ -1061,3 +1061,17 @@ and scouting views and survives save/reload and season transitions. Undrafted
 rookies signed in free agency may show both R and F. Ordinary renewals replace
 the free-agent contract and clear F; a payroll-floor salary increase preserves
 its free-agent origin. Existing saves receive the marker without migration.
+
+### Overall rating and league Rankings
+
+Overall is the exact average of offense and defense, retaining half points. The
+team header and scouting summary display it. A Rankings tab lists all 30 teams
+by overall, with tied teams listed alphabetically, showing offense and defense,
+roster links and the managed-team highlight. Ratings describe current rosters;
+standings and playoff seed order retain their own rules.
+
+Rankings are included with profile responses and update from weekly standings
+or the latest draft, market, cuts and training-camp profile. Opening the tab
+requires no additional request and does not change saved progress. Draft
+rankings include CPU picks, and scouting uses the same current offseason phase.
+Existing careers receive the display without a save migration or new rules.

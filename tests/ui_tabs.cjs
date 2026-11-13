@@ -108,7 +108,20 @@ async function checkUI() {
    assert.doesNotMatch(d.querySelector('#roster-groups').textContent,/Scouting rating|Football IQ|Clutch Factor/);
   }
   checkRatings(api);
-  const views=['roster','game','schedule','standings','league','race','playoffs','gm','help'];
+  function checkRankings(entries, managedTeam) {
+   const expected=[...entries].sort((a,b)=>(b.ratings.offense+b.ratings.defense)-(a.ratings.offense+a.ratings.defense)||a.team.city.localeCompare(b.team.city)||a.team.id.localeCompare(b.team.id));
+   assert.deepEqual([...d.querySelectorAll('.rankings-table th')].map(c=>c.textContent),['#','Team','Overall','Offense','Defense']);
+   const rows=[...d.querySelectorAll('#rankings-rows tr')];assert.equal(rows.length,30);
+   rows.forEach((row,i)=>{
+    const entry=expected[i];assert.equal(row.dataset.teamId,entry.team.id);
+    assert.deepEqual([...row.children].map(c=>c.textContent),[String(i+1),entry.team.city,String((entry.ratings.offense+entry.ratings.defense)/2),String(entry.ratings.offense),String(entry.ratings.defense)]);
+    assert.equal(row.classList.contains('selected-team'),entry.team.id===managedTeam);
+    assert.equal(row.querySelector('.team-roster-link').dataset.teamId,entry.team.id);
+   });
+   assert.equal(d.querySelector('#overall-rating').textContent,String((Number(d.querySelector('#offense-rating').textContent)+Number(d.querySelector('#defense-rating').textContent))/2));
+  }
+  checkRankings(api.rankings,id);
+  const views=['roster','game','schedule','standings','rankings','league','race','playoffs','gm','help'];
   assert.deepEqual([...d.querySelectorAll('.view-tab:not([hidden])')].map(tab=>tab.id),views.map(view=>`view-${view}`));
   let requests=0;
   const originalFetch=w.fetch;
@@ -130,6 +143,11 @@ async function checkUI() {
   checkView('schedule');
   for(const view of views) go(view);
   assert.equal(requests,0,'Switching views must not fetch or reset the season');
+  const rankingsSave=w.localStorage.getItem('arcade-league-save');
+  w.renderRankings([{team:{id:'z',city:'Zulu'},ratings:{offense:75,defense:76}},{team:{id:'a',city:'Alpha'},ratings:{offense:76,defense:75}}]);
+  assert.deepEqual([...d.querySelectorAll('#rankings-rows tr')].map(row=>[row.children[1].textContent,row.children[2].textContent]),[['Alpha','75.5'],['Zulu','75.5']]);
+  assert.equal(w.localStorage.getItem('arcade-league-save'),rankingsSave);
+  w.renderRankings(api.rankings);checkRankings(api.rankings,id);
   for(const view of ['game','league','standings','race','playoffs']) assert.equal(d.querySelector(`#${view}-empty`).hidden,false);
   function key(from,key,to) {
    const button=d.querySelector(`#view-${from}`);button.focus();
@@ -275,6 +293,13 @@ async function checkUI() {
     d.querySelector('#scout-close').click();
     assert.equal(dialog.open,false);
     assert.equal(d.querySelector('#scout-groups').children.length,0);
+    go('rankings');
+    const beforeRankingsScout=w.localStorage.getItem('arcade-league-save');
+    d.querySelector(`#rankings-rows button[data-team-id="${target.dataset.teamId}"]`).click();
+    await until(()=>d.querySelectorAll('#scout-groups .roster-player').length===38);
+    checkView('rankings');
+    assert.ok(d.querySelector('#scout-status').textContent.includes(`Overall ${(profile.ratings.offense+profile.ratings.defense)/2}`));
+    d.querySelector('#scout-close').click();assert.equal(w.localStorage.getItem('arcade-league-save'),beforeRankingsScout);go('standings');
     // Failed inspection can retry without disturbing the managed team.
     const realFetch=w.fetch;
     w.fetch=url=>url.startsWith(`/api/team/${target.dataset.teamId}?run_seed=${fixtureSeed}&`)?Promise.resolve({ok:false}):realFetch(url);
@@ -309,6 +334,7 @@ async function checkUI() {
     assert.match(qualification.textContent,new RegExp(`Final record: ${weekData.record.wins}–${weekData.record.losses}${weekData.record.ties?'–'+weekData.record.ties:''}`));
     if(seed){assert.ok(qualification.textContent.includes(`seed #${seed.seed} (${seed.qualification})`));assert.equal(qualification.textContent.includes('first-round bye'),seed.bye);}
    }
+   checkRankings(weekData.standings.groups.flatMap(group=>group.teams),id);
    const groupCards=d.querySelectorAll('#group-standings .standings-card');
    weekData.standings.groups.forEach((group,i)=>{
     assert.deepEqual([...groupCards[i].querySelectorAll('th')].map(cell=>cell.textContent),['#','Team','W','L','T','PF','PA','Home','Away','Streak']);
@@ -318,7 +344,7 @@ async function checkUI() {
      const ratings=ratingsByTeam.get(team.team.id),cells=rows[j].children;
      assert.equal(cells[1].querySelector('.team-roster-link').dataset.teamId,team.team.id);
      assert.ok(cells[1].textContent.startsWith(team.team.city));
-     assert.equal(cells[1].querySelector('.standings-team-ratings').textContent,`O ${ratings.offense} · D ${ratings.defense}`);
+     assert.equal(cells[1].querySelector('.standings-team-ratings').textContent,`OVR ${(ratings.offense+ratings.defense)/2} · O ${ratings.offense} · D ${ratings.defense}`);
      assert.deepEqual([...cells].slice(2).map(cell=>cell.textContent),
       [team.wins,team.losses,team.ties,team.points_for,team.points_against,team.home_record,team.away_record,team.streak].map(String));
      const scroll=groupCards[i].querySelector('.mini-table-wrap');
@@ -500,6 +526,7 @@ async function checkUI() {
   const freshProfile=await (await fetch(base+`/api/team/seattle?run_seed=${fixtureSeed+2}&lineup_rules=35&rebuild_team=seattle`)).json();
   const oldSeattle=await (await fetch(base+`/api/team/seattle?run_seed=${fixtureSeed}`)).json();
   checkRatings(freshProfile);
+  checkRankings(freshProfile.rankings,'seattle');
   assert.equal(freshProfile.roster.reduce((total,p)=>total+p.contract.annual_salary,0),freshProfile.payroll.total);
   assert.ok(freshProfile.payroll.total>=freshProfile.payroll.floor&&freshProfile.payroll.total<=freshProfile.payroll.cap);
   assert.equal(freshProfile.payroll.below_floor,0);
@@ -560,7 +587,7 @@ async function checkUI() {
   assert.doesNotMatch(fixture.textContent,/NaN|Infinity|null|undefined/);
   dom.window.close();
  }
- console.log('UI checks passed: nine tabs, keyboard navigation, empty states, unchanged views across weeks, roster collapse state, always-expanded league content, efficiency/kicking/roster season stats, full seasons/playoffs, retry, team reset/cancel, phase-correct simulation/draft/starter actions and playoff replay guards, and consolidated How to Play guidance, unchanged saves, live rules and visible statuses.');
+ console.log('UI checks passed: ten tabs, keyboard navigation, empty states, unchanged views across weeks, roster collapse state, always-expanded league content, efficiency/kicking/roster season stats, full seasons/playoffs, retry, team reset/cancel, phase-correct simulation/draft/starter actions and playoff replay guards, and consolidated How to Play guidance, unchanged saves, live rules and visible statuses.');
  }
 (async()=>{
  const server=spawn(process.env.PYTHON || 'python',['-m','uvicorn','app.main:app','--host','127.0.0.1','--port','8767'],{cwd:root,stdio:['ignore','pipe','pipe']});
