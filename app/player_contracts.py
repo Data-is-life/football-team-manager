@@ -28,8 +28,40 @@ MARKET_SALARIES = {
 }
 
 
-def market_salary(position, rating, season, rules=21, *, run_seed=0):
+POSITION_CAP_PERCENT = {'QB':21, 'WR':14, 'RB':7.5, 'TE':6, 'OL':10,
+                        'DL':12, 'LB':16, 'CB':11, 'S':8, 'K':2.5}
+
+
+def snapshot_salary_anchors(context, extra_players=()):
+    """Freeze the best exact current/potential average for each position."""
+    states = dict(context.development)
+    players = [p for _, roster in context for p in roster]
+    players.extend(context.free_agents)
+    players.extend(extra_players)
+    anchors = {}
+    for player in players:
+        rating = salary_demand_rating(player, contract_potential(player, context, states))
+        anchors[player.position] = max(anchors.get(player.position, Decimal(0)), rating)
+    return tuple(sorted(anchors.items()))
+
+
+def market_salary(position, rating, season, rules=21, *, run_seed=0, anchor_rating=None):
     """Versioned market demand, signing-cap scaling and $10k rounding."""
+    if rules >= 36:
+        if anchor_rating is None or not 1 <= Decimal(str(anchor_rating)) <= 99:
+            raise ValueError('Position salary demands require a league anchor')
+        anchor = Decimal(str(anchor_rating))
+        floor_rating = min(Decimal(60), anchor-1)
+        ability = max(floor_rating, min(anchor, Decimal(str(rating))))
+        floor = Decimal(minimum_salary(season, rules, run_seed=run_seed))
+        ceiling = Decimal(str(POSITION_CAP_PERCENT[position])) * salary_cap(season, rules, run_seed=run_seed) / 100
+        # Preserve the cubic shape, normalized to the actual positional leader.
+        # A very weak position still has a leader and a minimum-price floor.
+        origin = floor_rating-20
+        share = (ability-origin)**3-20**3
+        denominator = (anchor-origin)**3-20**3
+        raw = floor+(ceiling-floor)*share/denominator
+        return max(int(floor), int((raw/10_000).quantize(Decimal('1'), rounding=ROUND_HALF_UP))*10_000)
     if rules >= 27:
         # Floor through 60; smoothly accelerating cubic above it. Integer powers
         # and Decimal keep half-rating quotes and replay independent of floats.
@@ -193,11 +225,12 @@ def contract_potential(player, context, development_states=None):
     return rating_view(player,context,development_states)['potential_rating']
 
 
-def veteran_contract(player, season, rules=15, potential=None, *, run_seed=0):
+def veteran_contract(player, season, rules=15, potential=None, *, run_seed=0, context=None):
     category, years = ('franchise',5) if player.rating >= 90 else ('low_rated',2) if player.rating < 70 else ('veteran',4) if player.age >= 28 else ('young',3)
     if rules >= 21:
         rating=salary_demand_rating(player,potential) if rules>=26 else player.rating
-        salary = market_salary(player.position,rating,season,rules, run_seed=run_seed)
+        anchor = dict(context.salary_anchors).get(player.position) if rules >= 36 and context is not None else None
+        salary = market_salary(player.position,rating,season,rules, run_seed=run_seed, anchor_rating=anchor)
     else:
         raw = Decimal(BASE_SALARIES[player.position]) * player.rating ** 2 / 75 ** 2
         salary = max(minimum_salary(season,rules, run_seed=run_seed),int((raw / 10_000).quantize(Decimal('1'),rounding=ROUND_HALF_UP))*10_000)
@@ -314,7 +347,7 @@ def public_player_fields(player, context=(), *, development_states=None, renewal
         result['contract_offer'] = rookie_offer_payload(player.rookie_offer)
     if getattr(context,'lineup_rules',1) >= 20 and contract_expired(player,context.season):
         potential=contract_potential(player,context,development_states) if context.lineup_rules>=26 else None
-        offer = veteran_contract(player,context.season,context.lineup_rules,potential, run_seed=getattr(context,'run_seed',0))
+        offer = veteran_contract(player,context.season,context.lineup_rules,potential, run_seed=getattr(context,'run_seed',0), context=context)
         result['renewal_offer'] = {'annual_salary':offer.annual_salary,'years':offer.years,
             'starts_season':offer.signed_season,'category':offer.category,
             'annual_change':offer.annual_salary-player.contract.annual_salary}
@@ -509,7 +542,7 @@ def renew_player(players, identity, season, rules, context=None, owner=None):
     if not contract_expired(player,season):
         raise ValueError('Only an expired contract can be re-signed after training camp')
     potential=contract_potential(player,context) if rules>=26 else None
-    deal = veteran_contract(player,season,rules,potential, run_seed=getattr(context,'run_seed',0))
+    deal = veteran_contract(player,season,rules,potential, run_seed=getattr(context,'run_seed',0), context=context)
     updated=[replace(p,contract=deal) if p.id==identity else p for p in players]
     if rules>=23 and context is not None and not cap_ready(updated,context,season,owner):
         raise ValueError('Re-signing would exceed the salary cap. Release unsigned rookies or expired contracts first; signed salaries are fully guaranteed.')
@@ -552,7 +585,7 @@ def cpu_contract_priorities(players, context, year):
             upside = max(0, potential-player.rating)
             ability = max(0, player.rating-50) + .20*upside
             if contract_expired(player,year):
-                salary = veteran_contract(player,year,context.lineup_rules,potential, run_seed=getattr(context,'run_seed',0)).annual_salary
+                salary = veteran_contract(player,year,context.lineup_rules,potential, run_seed=getattr(context,'run_seed',0), context=context).annual_salary
             else:
                 salary = contract_terms(player).annual_salary
             # Price discourages costly depth, but does not let minimum-salary

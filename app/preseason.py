@@ -95,6 +95,12 @@ def prepare(team,season,seed,choices,prior,root,rounds):
     # Relabel the upcoming financial year without running development.
     context=replace(getattr(root,'latest',root),season=season+1)
     context=replace_lineup_rosters(context,tuple((o,tuple(ps)) for o,ps in rosters.items()))
+    if context.lineup_rules >= 36:
+        from .player_contracts import snapshot_salary_anchors
+        # Include the full incoming class, including undrafted free agents,
+        # before CPU renewals or any market actions can alter the reference.
+        context=replace(context,free_agents=tuple(p for p in context.free_agents if not retiring(p,root)))
+        context=replace(context,salary_anchors=snapshot_salary_anchors(context,draft_class(season,seed)))
     for owner in rosters:
         if owner!=team:
             rosters[owner],context=guaranteed_cpu_offseason(rosters[owner],owner,season,seed,context)

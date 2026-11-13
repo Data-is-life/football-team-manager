@@ -50,7 +50,7 @@ def team_market_premiums(season, seed, prior, context):
 
 def asking_contract(player, context, wave, development_states=None, *, premium_basis_points=0):
     normal = veteran_contract(player, context.season, context.lineup_rules,
-                             contract_potential(player, context, development_states), run_seed=getattr(context,'run_seed',0))
+                             contract_potential(player, context, development_states), run_seed=getattr(context,'run_seed',0), context=context)
     return wave_contract(normal,context.season,context.lineup_rules,wave,premium_basis_points=premium_basis_points, run_seed=getattr(context,'run_seed',0))
 
 
@@ -112,7 +112,7 @@ def free_agency(team_id, season, request_seed, context, order, actions=(), *, pr
         key = (player.id,wave,premium)
         if key not in wave_contracts:
             if player.id not in normal_contracts:
-                normal_contracts[player.id] = veteran_contract(player,context.season,context.lineup_rules,potential_for(player), run_seed=getattr(context,'run_seed',0))
+                normal_contracts[player.id] = veteran_contract(player,context.season,context.lineup_rules,potential_for(player), run_seed=getattr(context,'run_seed',0), context=context)
             wave_contracts[key] = wave_contract(normal_contracts[player.id],context.season,context.lineup_rules,wave,
                 premium_basis_points=premium, run_seed=getattr(context,'run_seed',0))
         return wave_contracts[key]
