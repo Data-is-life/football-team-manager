@@ -24,9 +24,10 @@ let activeTeamId = null;
 let activeRunSeed = 0;
 let activeSeason = 1;
 let activeCareerStartWeek = 1;
-let activeLineupRules = 36;
+let activeLineupRules = 37;
 const legacySalaryGuide=document.querySelector("#salary-growth-guide").textContent;
 const legacyCampGuide=document.querySelector("#training-camp-guide").textContent;
+const legacyContractGuides = Object.fromEntries(["re-signing-guide", "salary-demand-guide", "salary-curve-guide"].map(id => [id, document.getElementById(id).textContent]));
 let activeDevelopmentStart = 1;
 let activeRebuildTeam = null;
 let activePriorStandings = {};
@@ -190,7 +191,7 @@ function readSave() {
   if (save.draftSortDirection !== undefined && !["asc","desc"].includes(save.draftSortDirection)) throw new Error("Invalid draft sort direction");
   if (save.draftPosition !== undefined && ![...document.querySelector("#draft-position").options].some(option => option.value === save.draftPosition)) throw new Error("Invalid draft filter");
   if (save.version < 5) save.lineupRules = 1;
-  if (![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36].includes(save.lineupRules)) throw new Error("Invalid lineup rules");
+  if (![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37].includes(save.lineupRules)) throw new Error("Invalid lineup rules");
   if (save.trainingCamp !== undefined && typeof save.trainingCamp !== "boolean") throw new Error("Invalid camp save");
   if (save.trainingCamp && (save.lineupRules < 18 || save.draftChoices?.length !== save.draftRounds || save.week !== 17 || save.playoffRound !== 4)) throw new Error("Invalid camp checkpoint");
   if ([15, 16, 17, 18].includes(save.lineupRules) && save.draftChoices === null) save.lineupRules = 20;
@@ -714,6 +715,12 @@ function renderHelp() {
   document.querySelector("#salary-growth-guide").textContent=activeLineupRules>=31 ? "The payroll minimum is exactly 60% of the salary cap. Both limits are hard and must be resolved before training camp. Signed salaries plus retained rookie commitments count toward the minimum; dead cap only counts against the maximum. New free agents must fit remaining cap space even while the roster is above 38. Signed salaries and voluntary increases are guaranteed." : legacySalaryGuide;
   if (activeLineupRules>=35) document.querySelector("#salary-growth-guide").textContent += " Each offseason, the league cap rises 2–10%, usually near 6%. New salary demands, rookie pay and minimum salaries follow the same cap growth. Signed salaries stay fixed. Reloading preserves the announced cap.";
   if (activeLineupRules>=36) document.querySelector("#salary-growth-guide").textContent += " Normal veteran demands use each position's best league-wide current/potential average: QB 21%, WR 14%, RB 7.5%, TE 6%, OL 10%, DL 12%, LB 16%, CB 11%, S 8%, K 2.5% of the cap. Anchors refresh before offseason renewals and remain fixed through the market and camp. Wave pricing and destination premiums apply afterward.";
+  for (const [id, text] of Object.entries(legacyContractGuides)) document.getElementById(id).textContent = text;
+  if (activeLineupRules>=37) {
+    document.querySelector("#re-signing-guide").textContent = "Renew or release expired players during the pre-camp market. Review annual pay and term before confirming. Both use (current + potential) ÷ 2: below 70 = 2 years; 70–79.5 = 3; 80–89.5 = 4; 90+ = 5. Age does not set the term. Signed salaries are fully guaranteed and renewals must fit the cap.";
+    document.querySelector("#salary-demand-guide").textContent = "Normal veteran demands use the exact (current + potential) ÷ 2, including half points. Offers use pre-camp ratings; development does not change agreed contracts. Signed salaries, inherited deals and rookie draft-slot pay stay fixed.";
+    document.querySelector("#salary-curve-guide").textContent = "Veteran salaries interpolate between doubling tiers at 60, 70, 80, 90 and 100, with relative amounts 2, 4, 8, 16 and 32. A rating of 69 has weight 3.8; 71 has 4.4; 85 has 12. Amounts taper below 60 and minimum salaries still apply. Each position's leader sets the dollar scale using its cap share; wave pricing and team premiums apply afterward. Player ratings stop at 99; 100 is the curve endpoint.";
+  }
   document.querySelector("#training-camp-guide").textContent=activeLineupRules>=31 ? "After the championship, draft first, then sign free agents and renew or release current players before development. Finish the market, resolve initial cuts and the hard 60% payroll minimum and salary cap, then start training camp. Development happens once; final cuts must preserve both financial limits before the season." : legacyCampGuide;
   document.querySelector("#training-camp-guide").hidden = activeLineupRules < 18;
   document.querySelector("#rookie-contract-guide").hidden = activeLineupRules < 19;
@@ -1222,7 +1229,7 @@ function createRunSeed() {
   return candidate === activeRunSeed ? (candidate % 4294967295) + 1 : candidate;
 }
 
-function renderSchedule(data, runSeed, { priorStandings = {}, history = [], career = [], lineupRules = 36, developmentStart = 1, rebuildTeam = null, contracts = true, lineupChanges = [], careerStartWeek = 1, draftRounds = 6 } = {}) {
+function renderSchedule(data, runSeed, { priorStandings = {}, history = [], career = [], lineupRules = 37, developmentStart = 1, rebuildTeam = null, contracts = true, lineupChanges = [], careerStartWeek = 1, draftRounds = 6 } = {}) {
   closeSeasonConfirmation(false);
   simulationMore.open = false;
   clearLeaders();
@@ -1593,8 +1600,8 @@ form.addEventListener("submit", async (event) => {
     const runSeed = createRunSeed();
     const [scheduleResponse, profileResponse, regularResponse] = await Promise.all([
       fetch(`/api/schedule/${teamId}?season=1`),
-      fetch(`/api/team/${teamId}?run_seed=${runSeed}&lineup_rules=36&season=1&development_start=1${rebuildQuery(teamId)}`),
-      fetch(`/api/season/${teamId}/week/16?run_seed=${runSeed}&lineup_rules=36&season=1&development_start=1${rebuildQuery(teamId)}`),
+      fetch(`/api/team/${teamId}?run_seed=${runSeed}&lineup_rules=37&season=1&development_start=1${rebuildQuery(teamId)}`),
+      fetch(`/api/season/${teamId}/week/16?run_seed=${runSeed}&lineup_rules=37&season=1&development_start=1${rebuildQuery(teamId)}`),
     ]);
     if (!scheduleResponse.ok || !profileResponse.ok || !regularResponse.ok) {
       throw new Error("Your team could not be loaded. Please try again.");
@@ -1602,7 +1609,7 @@ form.addEventListener("submit", async (event) => {
     const [schedule, profile, regular] = await Promise.all([
       scheduleResponse.json(), profileResponse.json(), regularResponse.json(),
     ]);
-    if (profile.run_seed !== runSeed || profile.team.id !== teamId || profile.lineup_rules !== 36 || profile.rebuild_team !== teamId
+    if (profile.run_seed !== runSeed || profile.team.id !== teamId || profile.lineup_rules !== 37 || profile.rebuild_team !== teamId
         || schedule.team?.id !== teamId || schedule.season !== 1 || regular.team?.id !== teamId
         || regular.season !== 1 || regular.week !== 16 || regular.run_seed !== runSeed) {
       throw new Error("Your team could not be loaded. Please try again.");
@@ -2568,7 +2575,7 @@ nextSeasonButton.addEventListener("click", async () => {
       : !playoffState.qualified ? "Missed playoffs" : `Lost in ${lastOwnRound.name}` };
   try {
     const developmentStart = activeDevelopmentStart ?? nextSeason;
-    const lineupRules = activeLineupRules >= 36 ? 36 : activeLineupRules >= 35 ? 35 : activeLineupRules >= 34 ? 34 : activeLineupRules >= 33 ? 33 : activeLineupRules >= 32 ? 32 : activeLineupRules >= 28 ? 31 : activeLineupRules >= 11 ? 28 : 10;
+    const lineupRules = activeLineupRules >= 37 ? 37 : activeLineupRules >= 36 ? 36 : activeLineupRules >= 35 ? 35 : activeLineupRules >= 34 ? 34 : activeLineupRules >= 33 ? 33 : activeLineupRules >= 32 ? 32 : activeLineupRules >= 28 ? 31 : activeLineupRules >= 11 ? 28 : 10;
     // Re-rank the new roster after development and draft/cuts. Prior-season
     // overrides remain only in career history, where completed games need them.
     const lineupChanges = [];

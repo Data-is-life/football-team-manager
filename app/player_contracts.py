@@ -45,12 +45,32 @@ def snapshot_salary_anchors(context, extra_players=()):
     return tuple(sorted(anchors.items()))
 
 
+def soft_salary_weight(rating):
+    """Linear amounts between doubling tiers; retain exact half ratings."""
+    ability = max(Decimal(40), min(Decimal(100), Decimal(str(rating))))
+    tiers = ((40, 0), (60, 2), (70, 4), (80, 8), (90, 16), (100, 32))
+    for (low, start), (high, end) in zip(tiers, tiers[1:]):
+        if ability <= high:
+            return Decimal(start) + Decimal(end-start)*(ability-low)/(high-low)
+    raise AssertionError('Unreachable salary tier')
+
+
 def market_salary(position, rating, season, rules=21, *, run_seed=0, anchor_rating=None):
     """Versioned market demand, signing-cap scaling and $10k rounding."""
     if rules >= 36:
         if anchor_rating is None or not 1 <= Decimal(str(anchor_rating)) <= 99:
             raise ValueError('Position salary demands require a league anchor')
         anchor = Decimal(str(anchor_rating))
+        if rules >= 37:
+            floor = minimum_salary(season, rules, run_seed=run_seed)
+            ceiling = Decimal(str(POSITION_CAP_PERCENT[position])) * salary_cap(season, rules, run_seed=run_seed) / 100
+            denominator = soft_salary_weight(anchor)
+            ability = min(anchor, Decimal(str(rating)))
+            if denominator:
+                raw = ceiling*soft_salary_weight(ability)/denominator
+            else:
+                raw = ceiling if ability >= anchor else Decimal(floor)
+            return max(floor, int((raw/10_000).quantize(Decimal('1'), rounding=ROUND_HALF_UP))*10_000)
         floor_rating = min(Decimal(60), anchor-1)
         ability = max(floor_rating, min(anchor, Decimal(str(rating))))
         floor = Decimal(minimum_salary(season, rules, run_seed=run_seed))
@@ -229,6 +249,9 @@ def veteran_contract(player, season, rules=15, potential=None, *, run_seed=0, co
     category, years = ('franchise',5) if player.rating >= 90 else ('low_rated',2) if player.rating < 70 else ('veteran',4) if player.age >= 28 else ('young',3)
     if rules >= 21:
         rating=salary_demand_rating(player,potential) if rules>=26 else player.rating
+        if rules >= 37:
+            category, years = (('franchise',5) if rating >= 90 else ('veteran',4) if rating >= 80
+                               else ('young',3) if rating >= 70 else ('low_rated',2))
         anchor = dict(context.salary_anchors).get(player.position) if rules >= 36 and context is not None else None
         salary = market_salary(player.position,rating,season,rules, run_seed=run_seed, anchor_rating=anchor)
     else:
