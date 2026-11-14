@@ -22,8 +22,8 @@ function checkFreeAgentBadge(p, id) {
 function checkRankings(p,profile){
  const rows=[...p.d.querySelectorAll('#rankings-rows tr')];assert.equal(rows.length,30);
  const expected=new Map(profile.rankings.map(row=>[row.team.id,row.ratings]));
- for(const row of rows){const ratings=expected.get(row.dataset.teamId);assert.deepEqual([...row.children].slice(2).map(c=>c.textContent),[String(ratings.overall),String(ratings.offense),String(ratings.defense)]);}
- assert.equal(q(p,'#overall-rating').textContent,String((profile.ratings.offense+profile.ratings.defense)/2));
+ for(const row of rows){const ratings=expected.get(row.dataset.teamId);assert.deepEqual([...row.children].slice(2).map(c=>c.textContent),[ratings.overall,ratings.offense,ratings.defense].map(v=>String(Number(v.toFixed(2)))));}
+ assert.equal(q(p,'#overall-rating').textContent,String(Number(((profile.ratings.offense+profile.ratings.defense)/2).toFixed(2))));
 }
 async function checks(){
  const request={season:1,run_seed:1234,lineup_rules:29,rebuild_team:'seattle',draft_rounds:6};
@@ -75,7 +75,7 @@ async function checks(){
  assert.equal(after.profile.roster.find(p=>p.id===modernTarget.id).contract.annual_salary,modernTarget.annual_salary);
  assert.deepEqual(after.free_agency.destination_premium,premium);checkRankings(p,after.profile);p.dom.window.close();
  // Seeded cap: draft, market and next-season UI agree before and after reload.
- for (const salaryRules of [36,37]) {
+ for (const salaryRules of [36,37,38]) {
  const seededRequest={...request,lineup_rules:salaryRules};
  const seededDraft=await api({...seededRequest,action:'draft',auto_draft:true});
  const seededArgs={...seededRequest,manual_picks:seededDraft.manual_picks};
