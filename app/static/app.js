@@ -24,7 +24,7 @@ let activeTeamId = null;
 let activeRunSeed = 0;
 let activeSeason = 1;
 let activeCareerStartWeek = 1;
-let activeLineupRules = 37;
+let activeLineupRules = 38;
 const legacySalaryGuide=document.querySelector("#salary-growth-guide").textContent;
 const legacyCampGuide=document.querySelector("#training-camp-guide").textContent;
 const legacyContractGuides = Object.fromEntries(["re-signing-guide", "salary-demand-guide", "salary-curve-guide"].map(id => [id, document.getElementById(id).textContent]));
@@ -191,7 +191,7 @@ function readSave() {
   if (save.draftSortDirection !== undefined && !["asc","desc"].includes(save.draftSortDirection)) throw new Error("Invalid draft sort direction");
   if (save.draftPosition !== undefined && ![...document.querySelector("#draft-position").options].some(option => option.value === save.draftPosition)) throw new Error("Invalid draft filter");
   if (save.version < 5) save.lineupRules = 1;
-  if (![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37].includes(save.lineupRules)) throw new Error("Invalid lineup rules");
+  if (![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38].includes(save.lineupRules)) throw new Error("Invalid lineup rules");
   if (save.trainingCamp !== undefined && typeof save.trainingCamp !== "boolean") throw new Error("Invalid camp save");
   if (save.trainingCamp && (save.lineupRules < 18 || save.draftChoices?.length !== save.draftRounds || save.week !== 17 || save.playoffRound !== 4)) throw new Error("Invalid camp checkpoint");
   if ([15, 16, 17, 18].includes(save.lineupRules) && save.draftChoices === null) save.lineupRules = 20;
@@ -590,7 +590,7 @@ async function loadScoutingRoster(teamId, city) {
     if (!isCurrent()) return;
     if (profile.team.id !== teamId || profile.run_seed !== runSeed) throw new Error("Roster could not be loaded. Please try again.");
     document.querySelector("#scout-groups").replaceChildren(...createRosterGroups(profile, false));
-    status.textContent = `${profile.team.group} · ${profile.roster.length} players · Overall ${overallRating(profile.ratings)} · Offense ${profile.ratings.offense} · Defense ${profile.ratings.defense} · Ratings out of 99`;
+    status.textContent = `${profile.team.group} · ${profile.roster.length} players · Overall ${ratingLabel(overallRating(profile.ratings))} · Offense ${ratingLabel(profile.ratings.offense)} · Defense ${ratingLabel(profile.ratings.defense)} · Ratings out of 99`;
   } catch (error) {
     if (!isCurrent()) return;
     status.textContent = "Roster could not be loaded. Please try again.";
@@ -710,6 +710,9 @@ document.querySelector("#welcome-dismiss").addEventListener("click", () => {
 document.querySelector("#welcome-help").addEventListener("click", () => activateView("help", { focus: true }));
 
 function renderHelp() {
+  const teamRatingGuide = document.querySelector("#team-rating-guide");
+  teamRatingGuide.hidden = activeLineupRules < 38;
+  teamRatingGuide.textContent = "Position ratings use current ability in fixed depth slots. QB: 95/5%; WR: 40/30/20/10%; RB and TE: 75/25%; OL: starters average 85%, sixth 10%, seventh 5%; DL and LB: starters average 75%, next backup 20%, last backup 5%; CB: first two average 75%, third 20%, fourth 5%; S: first two average 75%, third 25%. Missing slots contribute zero, with no redistribution. Offense = (QB×1.20 + WR×0.90 + RB×0.90 + TE×0.80 + OL×1.20) ÷ 5. Defense = (CB + DL + LB + S) ÷ 4. Overall = (Offense + Defense) ÷ 2. K1 sets the separate kicking position rating. Games and ranking order use full precision; displayed team ratings round to two decimals. Positional interactions are reserved for the future drive engine.";
   document.querySelector("#player-salary-guide").hidden = activeLineupRules < 15;
   document.querySelector("#salary-growth-guide").hidden = activeLineupRules < 17;
   document.querySelector("#salary-growth-guide").textContent=activeLineupRules>=31 ? "The payroll minimum is exactly 60% of the salary cap. Both limits are hard and must be resolved before training camp. Signed salaries plus retained rookie commitments count toward the minimum; dead cap only counts against the maximum. New free agents must fit remaining cap space even while the roster is above 38. Signed salaries and voluntary increases are guaranteed." : legacySalaryGuide;
@@ -732,6 +735,10 @@ function renderHelp() {
   document.querySelector("#draft-format").textContent = `${activeDraftRounds} rounds · Same order each round · CPU teams balance player quality and position needs. Rookies join your roster without replacing anyone. The regular-season ${rosterMinimum() ? "roster range" : "limit"} is ${rosterLimitText()}.`;
 }
 
+function ratingLabel(value) {
+  return Number(value.toFixed(2));
+}
+
 function overallRating(ratings) {
   return (ratings.offense + ratings.defense) / 2;
 }
@@ -743,7 +750,7 @@ function renderRankings(rows = teamRankings) {
     const row = document.createElement("tr");
     row.dataset.teamId = entry.team.id;
     row.classList.toggle("selected-team", entry.team.id === activeTeamId);
-    for (const value of [index+1, entry.team.city, overallRating(entry.ratings), entry.ratings.offense, entry.ratings.defense]) {
+    for (const value of [index+1, entry.team.city, ratingLabel(overallRating(entry.ratings)), ratingLabel(entry.ratings.offense), ratingLabel(entry.ratings.defense)]) {
       const cell = document.createElement("td"); cell.textContent = value; row.append(cell);
     }
     const button = document.createElement("button"); button.type = "button";
@@ -1045,10 +1052,10 @@ function renderTeamProfile(profile, latestDraftSeason = activeSeason) {
   rosterMode = "ratings";
   rosterCompetition.value = "regular";
   rosterTotals = { regular: profile.roster_stats, playoffs: profile.roster_stats };
-  document.querySelector("#overall-rating").textContent = overallRating(profile.ratings);
+  document.querySelector("#overall-rating").textContent = ratingLabel(overallRating(profile.ratings));
   renderRankings(profile.rankings ?? []);
-  document.querySelector("#offense-rating").textContent = profile.ratings.offense;
-  document.querySelector("#defense-rating").textContent = profile.ratings.defense;
+  document.querySelector("#offense-rating").textContent = ratingLabel(profile.ratings.offense);
+  document.querySelector("#defense-rating").textContent = ratingLabel(profile.ratings.defense);
   // Keep the shared inline confirmation alive when replacing roster rows.
   rosterManagement.append(cutConfirmation);
   const groups = createRosterGroups(profile);
@@ -1229,7 +1236,7 @@ function createRunSeed() {
   return candidate === activeRunSeed ? (candidate % 4294967295) + 1 : candidate;
 }
 
-function renderSchedule(data, runSeed, { priorStandings = {}, history = [], career = [], lineupRules = 37, developmentStart = 1, rebuildTeam = null, contracts = true, lineupChanges = [], careerStartWeek = 1, draftRounds = 6 } = {}) {
+function renderSchedule(data, runSeed, { priorStandings = {}, history = [], career = [], lineupRules = 38, developmentStart = 1, rebuildTeam = null, contracts = true, lineupChanges = [], careerStartWeek = 1, draftRounds = 6 } = {}) {
   closeSeasonConfirmation(false);
   simulationMore.open = false;
   clearLeaders();
@@ -1477,7 +1484,7 @@ function renderResult(data) {
             ${group.teams.map((row) => `
               <tr class="${row.team.id === activeTeamId ? "selected-team" : ""}">
                 <td>${row.rank}</td>
-                <td><span class="team-cell"><button class="team-roster-link" type="button" data-team-id="${row.team.id}" aria-label="View ${row.team.city} roster">${row.team.city}</button>${row.rank === 1 ? '<b class="leader-mark">L</b>' : ""}</span><span class="standings-team-ratings" aria-label="Overall ${overallRating(row.ratings)}, Offense ${row.ratings.offense}, Defense ${row.ratings.defense}">OVR ${overallRating(row.ratings)} · O ${row.ratings.offense} · D ${row.ratings.defense}</span></td>
+                <td><span class="team-cell"><button class="team-roster-link" type="button" data-team-id="${row.team.id}" aria-label="View ${row.team.city} roster">${row.team.city}</button>${row.rank === 1 ? '<b class="leader-mark">L</b>' : ""}</span><span class="standings-team-ratings" aria-label="Overall ${ratingLabel(overallRating(row.ratings))}, Offense ${ratingLabel(row.ratings.offense)}, Defense ${ratingLabel(row.ratings.defense)}">OVR ${ratingLabel(overallRating(row.ratings))} · O ${ratingLabel(row.ratings.offense)} · D ${ratingLabel(row.ratings.defense)}</span></td>
                 <td>${row.wins}</td>
                 <td>${row.losses}</td>
                 <td>${row.ties}</td>
@@ -1600,8 +1607,8 @@ form.addEventListener("submit", async (event) => {
     const runSeed = createRunSeed();
     const [scheduleResponse, profileResponse, regularResponse] = await Promise.all([
       fetch(`/api/schedule/${teamId}?season=1`),
-      fetch(`/api/team/${teamId}?run_seed=${runSeed}&lineup_rules=37&season=1&development_start=1${rebuildQuery(teamId)}`),
-      fetch(`/api/season/${teamId}/week/16?run_seed=${runSeed}&lineup_rules=37&season=1&development_start=1${rebuildQuery(teamId)}`),
+      fetch(`/api/team/${teamId}?run_seed=${runSeed}&lineup_rules=38&season=1&development_start=1${rebuildQuery(teamId)}`),
+      fetch(`/api/season/${teamId}/week/16?run_seed=${runSeed}&lineup_rules=38&season=1&development_start=1${rebuildQuery(teamId)}`),
     ]);
     if (!scheduleResponse.ok || !profileResponse.ok || !regularResponse.ok) {
       throw new Error("Your team could not be loaded. Please try again.");
@@ -1609,7 +1616,7 @@ form.addEventListener("submit", async (event) => {
     const [schedule, profile, regular] = await Promise.all([
       scheduleResponse.json(), profileResponse.json(), regularResponse.json(),
     ]);
-    if (profile.run_seed !== runSeed || profile.team.id !== teamId || profile.lineup_rules !== 37 || profile.rebuild_team !== teamId
+    if (profile.run_seed !== runSeed || profile.team.id !== teamId || profile.lineup_rules !== 38 || profile.rebuild_team !== teamId
         || schedule.team?.id !== teamId || schedule.season !== 1 || regular.team?.id !== teamId
         || regular.season !== 1 || regular.week !== 16 || regular.run_seed !== runSeed) {
       throw new Error("Your team could not be loaded. Please try again.");
@@ -2575,7 +2582,7 @@ nextSeasonButton.addEventListener("click", async () => {
       : !playoffState.qualified ? "Missed playoffs" : `Lost in ${lastOwnRound.name}` };
   try {
     const developmentStart = activeDevelopmentStart ?? nextSeason;
-    const lineupRules = activeLineupRules >= 37 ? 37 : activeLineupRules >= 36 ? 36 : activeLineupRules >= 35 ? 35 : activeLineupRules >= 34 ? 34 : activeLineupRules >= 33 ? 33 : activeLineupRules >= 32 ? 32 : activeLineupRules >= 28 ? 31 : activeLineupRules >= 11 ? 28 : 10;
+    const lineupRules = activeLineupRules >= 38 ? 38 : activeLineupRules >= 37 ? 37 : activeLineupRules >= 36 ? 36 : activeLineupRules >= 35 ? 35 : activeLineupRules >= 34 ? 34 : activeLineupRules >= 33 ? 33 : activeLineupRules >= 32 ? 32 : activeLineupRules >= 28 ? 31 : activeLineupRules >= 11 ? 28 : 10;
     // Re-rank the new roster after development and draft/cuts. Prior-season
     // overrides remain only in career history, where completed games need them.
     const lineupChanges = [];

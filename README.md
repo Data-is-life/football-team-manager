@@ -1091,3 +1091,23 @@ The existing accelerating cubic curve is normalized to that leader, retaining mi
 Both normal veteran salary and contract length use the exact `(current + potential) / 2`. Salary weights interpolate linearly between 60/70/80/90/100 at 2/4/8/16/32; for example 69 = 3.8, 71 = 4.4 and 85 = 12. Below 60, weights taper linearly to zero at 40, with the existing minimum salary enforced. Normalize each player's weight against the frozen positional leader's weight so that leader's normal demand retains its specified cap share. Salaries round to $10,000; wave and destination pricing still apply afterward. The game caps player ratings at 99; 100 is the final mathematical curve endpoint.
 
 Contract terms change only at rating boundaries: below 70 = 2 years, 70–79.5 = 3, 80–89.5 = 4, 90+ = 5. Age no longer sets new veteran contract length. Existing salaries, signed terms, inherited payroll, rookie contracts and older-career pricing remain unchanged.
+
+### Weighted position ratings (new careers, rules 38)
+
+Each position uses current ability sorted from best to worst. Missing slots contribute zero; weights never redistribute, and players beyond the listed slots do not affect the position rating. Kicking remains separate.
+
+| Position | Fixed depth weights |
+|---|---|
+| QB | 95%, 5% |
+| WR | 40%, 30%, 20%, 10% |
+| RB / TE | 75%, 25% |
+| OL | OL1–5 average × 85%, OL6 × 10%, OL7 × 5% |
+| DL | DL1–4 average × 75%, DL5 × 20%, DL6 × 5% |
+| LB | LB1–3 average × 75%, LB4 × 20%, LB5 × 5% |
+| CB | CB1–2 average × 75%, CB3 × 20%, CB4 × 5% |
+| S | S1–2 average × 75%, S3 × 25% |
+| K | K1 × 100% |
+
+Offense = (QB × 1.20 + WR × 0.90 + RB × 0.90 + TE × 0.80 + OL × 1.20) / 5. Defense = (CB + DL + LB + S) / 4. Overall = (Offense + Defense) / 2. Fixed integer basis points preserve precision through the position calculation; no intermediate unit rounding is applied. Gameplay and ranking order use the full numeric result. The team header, scouting, standings and Rankings display at most two decimal places.
+
+This removes the old pooled 80% starter / 20% bench calculation for new careers. An 80-rated QB without a backup contributes 76; adding a 60-rated QB2 raises that to 79. Adding usable depth cannot lower a position rating. Initial roster generation, salary contracts and existing-career ratings/results retain their prior behavior. Initial opponent calibration still uses the historical generation method; it is not rerun against the new formula. CPU backup minimums and position interactions in the future drive engine are separate work.

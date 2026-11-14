@@ -114,11 +114,11 @@ async function checkUI() {
    const rows=[...d.querySelectorAll('#rankings-rows tr')];assert.equal(rows.length,30);
    rows.forEach((row,i)=>{
     const entry=expected[i];assert.equal(row.dataset.teamId,entry.team.id);
-    assert.deepEqual([...row.children].map(c=>c.textContent),[String(i+1),entry.team.city,String((entry.ratings.offense+entry.ratings.defense)/2),String(entry.ratings.offense),String(entry.ratings.defense)]);
+    assert.deepEqual([...row.children].map(c=>c.textContent),[String(i+1),entry.team.city,...[((entry.ratings.offense+entry.ratings.defense)/2),entry.ratings.offense,entry.ratings.defense].map(v=>String(Number(v.toFixed(2))))]);
     assert.equal(row.classList.contains('selected-team'),entry.team.id===managedTeam);
     assert.equal(row.querySelector('.team-roster-link').dataset.teamId,entry.team.id);
    });
-   assert.equal(d.querySelector('#overall-rating').textContent,String((Number(d.querySelector('#offense-rating').textContent)+Number(d.querySelector('#defense-rating').textContent))/2));
+   assert.equal(d.querySelector('#overall-rating').textContent,String(Number(((entries.find(e=>e.team.id===managedTeam).ratings.offense+entries.find(e=>e.team.id===managedTeam).ratings.defense)/2).toFixed(2))));
   }
   checkRankings(api.rankings,id);
   const views=['roster','game','schedule','standings','rankings','league','race','playoffs','gm','help'];
@@ -523,8 +523,9 @@ async function checkUI() {
   assert.equal(d.querySelector('#gm-regular').textContent,'0–0–0');
   assert.equal(d.querySelector('#roster-ratings-button').getAttribute('aria-pressed'),'true');
   assert.equal(d.querySelector('#roster-competition').value,'regular');
-  const freshProfile=await (await fetch(base+`/api/team/seattle?run_seed=${fixtureSeed+2}&lineup_rules=37&rebuild_team=seattle`)).json();
+  const freshProfile=await (await fetch(base+`/api/team/seattle?run_seed=${fixtureSeed+2}&lineup_rules=38&rebuild_team=seattle`)).json();
   const oldSeattle=await (await fetch(base+`/api/team/seattle?run_seed=${fixtureSeed}`)).json();
+  assert.match(d.querySelector('#team-rating-guide').textContent,/Missing slots contribute zero.*Offense.*Defense/);
   checkRatings(freshProfile);
   checkRankings(freshProfile.rankings,'seattle');
   assert.equal(freshProfile.roster.reduce((total,p)=>total+p.contract.annual_salary,0),freshProfile.payroll.total);
@@ -536,8 +537,8 @@ async function checkUI() {
 
   assert.notDeepEqual(freshProfile.roster.map(player=>player.name),oldSeattle.roster.map(player=>player.name));
   assert.deepEqual([...d.querySelectorAll('#roster-groups .roster-player')].map(row=>row.children[1].firstChild.textContent),freshProfile.roster.map(player=>player.name));
-  assert.equal(d.querySelector('#offense-rating').textContent,String(freshProfile.ratings.offense));
-  assert.equal(d.querySelector('#defense-rating').textContent,String(freshProfile.ratings.defense));
+  assert.equal(d.querySelector('#offense-rating').textContent,String(Number(freshProfile.ratings.offense.toFixed(2))));
+  assert.equal(d.querySelector('#defense-rating').textContent,String(Number(freshProfile.ratings.defense.toFixed(2))));
   go('roster');
   // The new roster has Seattle IDs, so inspect zero totals directly after switching teams.
   d.querySelector('#roster-stats-button').click();
@@ -557,7 +558,7 @@ async function checkUI() {
   d.querySelector('#simulate-button').click();
   await until(()=>d.querySelector('#simulate-button').textContent==='Regular season complete');
   assert.equal(usedSeeds.at(-1),fixtureSeed+2);
-  const freshGame=await (await fetch(base+`/api/season/seattle/week/17?run_seed=${fixtureSeed+2}&lineup_rules=37&rebuild_team=seattle`)).json();
+  const freshGame=await (await fetch(base+`/api/season/seattle/week/17?run_seed=${fixtureSeed+2}&lineup_rules=38&rebuild_team=seattle`)).json();
   assert.equal(d.querySelector('#season-record').textContent,`${freshGame.record.wins}–${freshGame.record.losses}${freshGame.record.ties?`–${freshGame.record.ties}`:''}`);
   assert.equal(d.querySelector('#schedule .game-final').textContent,`${freshGame.game_results[0].outcome} · ${freshGame.game_results[0].team_score}–${freshGame.game_results[0].opponent_score}${freshGame.game_results[0].overtime?' · OT':''}`);
   if(index===0) {

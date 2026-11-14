@@ -79,8 +79,8 @@ class Player:
 
 @dataclass(frozen=True)
 class TeamRatings:
-    offense: int
-    defense: int
+    offense: int | float
+    defense: int | float
 
     @property
     def overall(self):
@@ -115,6 +115,9 @@ def lineup_unit_rating(players, positions):
 def team_ratings(team_id: str, run_seed: int = 0, roster_context: tuple = ()) -> TeamRatings:
     if team_id not in TEAM_BY_ID:
         raise KeyError(f"Unknown team: {team_id}")
+    if getattr(roster_context, 'lineup_rules', 1) >= 38:
+        from .position_ratings import weighted_unit_ratings
+        return TeamRatings(*weighted_unit_ratings(dict(roster_context)[team_id]))
     if getattr(roster_context, 'lineup_rules', 1) >= 2:
         players = dict(roster_context)[team_id]
         return TeamRatings(lineup_unit_rating(players, {"QB", "RB", "WR", "TE", "OL"}),
