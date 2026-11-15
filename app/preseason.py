@@ -140,7 +140,7 @@ def cpu_review(context, team):
     return context
 
 
-def run(team,season,seed,choices,prior,root,rounds,market_actions=(),pre_actions=(),camp=False,camp_actions=()):
+def run(team,season,seed,choices,prior,root,rounds,market_actions=(),pre_actions=(),camp=False,camp_actions=(),trade_actions=()):
     from .free_agency import free_agency,free_agency_order,team_market_premiums
     raw,context=prepare(team,season,seed,choices,prior,root,rounds)
     board=json.loads(raw)
@@ -168,11 +168,18 @@ def run(team,season,seed,choices,prior,root,rounds,market_actions=(),pre_actions
             if kind!='drop': raise ValueError('Only releases are available after training camp')
             context=release_player(context,team,identity,final=True)
     elif camp_actions: raise ValueError('Start training camp before final cuts')
+    trading=None
+    if trade_actions and (root.lineup_rules<41 or not camp):
+        raise ValueError('Trading requires completed training camp')
+    if root.lineup_rules>=41 and camp:
+        from .trades import replay
+        trading,context=replay(context,team,trade_actions)
     players=dict(context)[team]
     ready=market['complete'] and roster_minimum(context)<=len(players)<=roster_limit(context) and financial_ready(players,context,team)
     return {**board,'training_camp':camp,'development_season':season+1,
         'development_roster':development_roster,'dropped':[], 'roster_actions':[],
         'free_agency':market,'pre_camp_actions':[{'kind':k,'player_id':i} for k,i in pre_actions],
         'camp_actions':[{'kind':k,'player_id':i} for k,i in camp_actions],
-        'can_continue':ready,'contracts_pending':pending_renewals(players,context),
+        **({'trading':trading} if trading is not None else {}),
+        'can_continue':ready and (trading is None or trading['complete']),'contracts_pending':pending_renewals(players,context),
         'payroll_floor_adjustment':raise_plan(players,context,team) if market['complete'] and not camp else None},context

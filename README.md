@@ -1127,3 +1127,13 @@ CPU teams retain at least one backup at each position except kicker: QB 2, WR 3,
 ### Draft entry ages (new careers, rules 40)
 
 New draft prospects enter at ages 21–23. A separate seeded age stream preserves the existing prospect IDs, names, positions, ratings, attributes and ordering. All draft views, picks, salary-anchor snapshots and undrafted free agents use the same versioned class. Older careers retain their original 21–24 classes and replay; starting rosters are unchanged. The cap applies at draft entry, not to later career aging.
+
+### Trading period (new careers, rules 41)
+
+Offseason order is Draft → Free agency → Training camp → Trading period → Season starts. The Trades tab supports one signed player for one signed player. Preview shows a deterministic CPU decision, rejection reasons, both payroll changes and CPU value/overall change; confirming revalidates the offer. Finish trading starts the next season. Current draft-year rookies, players signed in that offseason’s free agency, unsigned/expired contracts and emergency replacements are ineligible. The receiving team assumes the entire unchanged remaining guaranteed contract; trading creates no dead cap. Both teams must satisfy cap, payroll floor and roster requirements, including CPU backup minimums.
+
+Every CPU uses the same initial valuation policy with its own roster fit. Talent value is `(max(0, current − 40)² + 20 × max(0, potential − current)) × age factor × position importance`. Age factor is `clamp(1 − (age − position decline age) × .06, .35, 1.10)`. Position importance matches offense weights (QB/OL 1.2, WR/RB .9, TE .8); defense uses 1 and K .25. Contract value multiplies talent by `clamp(1 + .25 × (normal annual demand − actual annual salary) / max(normal demand, minimum salary) × min(remaining years, 3), −.5, 1.5)`, using the existing frozen salary anchors.
+
+The CPU requires incoming value within `max(25, 10% of absolute outgoing value)`, no QB position loss above 3 and no overall loss beyond .25. It then requires either a value gain of `max(10, 2% of absolute outgoing value)` or at least .05 overall improvement. Thus approximately equal-value offers can pass when they improve positional fit; trivial rounding gains cannot. Decisions use full precision, with rounding only for display. These are initial game-balance parameters, not a claim of real-world trade pricing.
+
+Trade logs replay through saves and season history. New careers use save version 42; older careers retain their existing offseason order and gameplay. Multiple-player packages, draft picks, in-season trading and CPU-to-CPU trading are separate features.

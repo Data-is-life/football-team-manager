@@ -105,6 +105,7 @@
           <div class="view-tabs" role="tablist" aria-label="Team and league views">
             <button id="view-roster" class="view-tab" type="button" role="tab" aria-selected="false" aria-controls="panel-roster" tabindex="-1">Roster</button>
             <button id="view-free-agency" class="view-tab" type="button" role="tab" aria-selected="false" aria-controls="panel-free-agency" tabindex="-1" hidden>Free Agency</button>
+            <button id="view-trades" class="view-tab" type="button" role="tab" aria-selected="false" aria-controls="panel-trades" tabindex="-1" hidden>Trades</button>
             <button id="view-game" class="view-tab" type="button" role="tab" aria-selected="false" aria-controls="panel-game" tabindex="-1">Game Stats</button>
             <button id="view-schedule" class="view-tab" type="button" role="tab" aria-selected="true" aria-controls="panel-schedule" tabindex="0">Schedule</button>
             <button id="view-standings" class="view-tab" type="button" role="tab" aria-selected="false" aria-controls="panel-standings" tabindex="-1">Standings</button>
@@ -137,6 +138,20 @@
           <p id="fa-error" role="alert" hidden></p>
           <details><summary>League turns and signings</summary><p id="fa-order"></p><p id="fa-log"></p></details>
         </section>
+          </div>
+          <div id="panel-trades" class="view-panel" role="tabpanel" aria-labelledby="view-trades" tabindex="0" hidden>
+            <h2>Trading period</h2>
+            <p>After camp, before the season · One player for one player. No current-year rookies, new free-agent signings or emergency replacements. Receiving teams assume the unchanged remaining guaranteed contract.</p>
+            <p>Both teams must meet roster and payroll requirements. The CPU evaluates talent, age, potential, contract cost and positional fit. Preview an offer before confirming it.</p>
+            <label for="trade-own">Your player</label><select id="trade-own"></select>
+            <label for="trade-team">Other team</label><select id="trade-team"></select>
+            <label for="trade-other">Their player</label><select id="trade-other"></select>
+            <button id="trade-preview" type="button">Preview trade</button>
+            <div id="trade-result" role="status" aria-live="polite"></div>
+            <button id="trade-confirm" type="button" hidden>Confirm trade</button>
+            <button id="trade-finish" type="button">Finish trading and start season</button>
+            <p id="trade-error" role="alert" hidden></p>
+            <h3>Completed trades</h3><ul id="trade-log"></ul>
           </div>
           <div id="panel-draft" class="view-panel draft-workspace" role="tabpanel" aria-labelledby="view-draft" tabindex="0" hidden>
             <div class="scout-heading"><div><p class="eyebrow">Offseason</p><h2 id="draft-title" tabindex="-1">Rookie draft</h2></div>
