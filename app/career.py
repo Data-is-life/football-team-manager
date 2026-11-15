@@ -128,7 +128,7 @@ def offseason(team_id, season, run_seed, choices, dropped, prior=(), roster_cont
         pool = {p.id: p for p in roster_context.free_agents}
         pool.update((p.id, p) for p in market_source if p.id not in retained)
         states = dict(roster_context.development)
-        for p in draft_class(season, run_seed):
+        for p in draft_class(season, run_seed,roster_context.lineup_rules):
             if p.id not in picked:
                 p, state = next_player(p, initial_state(p, run_seed, True), run_seed,
                                       season + 1, False, True, True, True)

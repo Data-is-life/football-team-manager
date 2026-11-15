@@ -1123,3 +1123,7 @@ GM Records includes a clearly marked current-season row in Franchise history, ev
 ### CPU bench minimums (new careers, rules 39)
 
 CPU teams retain at least one backup at each position except kicker: QB 2, WR 3, RB 2, TE 2, OL 6, K 1, DL 5, LB 4, CB 3 and S 3 (31 total). User starter minimums and weighted-rating starter counts remain unchanged. Owner-specific depth floors apply to emergency filling after drafting/retirement/releases, CPU offseason cuts, market needs and reserved cap space, and final CPU roster review. Real free agents are considered before final minimum-salary emergency replacements. CPU cuts preserve the required depth and finalized market/camp validation checks those minimums. Existing careers retain their rules and replay; initial players/payroll are unchanged. Hiding CPU development/badge details and limiting draft ages remain separate work.
+
+### Draft entry ages (new careers, rules 40)
+
+New draft prospects enter at ages 21–23. A separate seeded age stream preserves the existing prospect IDs, names, positions, ratings, attributes and ordering. All draft views, picks, salary-anchor snapshots and undrafted free agents use the same versioned class. Older careers retain their original 21–24 classes and replay; starting rosters are unchanged. The cap applies at draft entry, not to later career aging.

@@ -100,7 +100,7 @@ def prepare(team,season,seed,choices,prior,root,rounds):
         # Include the full incoming class, including undrafted free agents,
         # before CPU renewals or any market actions can alter the reference.
         context=replace(context,free_agents=tuple(p for p in context.free_agents if not retiring(p,root)))
-        context=replace(context,salary_anchors=snapshot_salary_anchors(context,draft_class(season,seed)))
+        context=replace(context,salary_anchors=snapshot_salary_anchors(context,draft_class(season,seed,context.lineup_rules)))
     for owner in rosters:
         if owner!=team:
             rosters[owner],context=guaranteed_cpu_offseason(rosters[owner],owner,season,seed,context)
@@ -108,7 +108,7 @@ def prepare(team,season,seed,choices,prior,root,rounds):
     pool={p.id:p for p in root.free_agents if not retiring(p,root)}
     pool.update((p.id,p) for p in source if p.id not in retained)
     picked={p['player']['id'] for p in board['picks']}
-    pool.update((p.id,p) for p in draft_class(season,seed) if p.id not in picked)
+    pool.update((p.id,p) for p in draft_class(season,seed,context.lineup_rules) if p.id not in picked)
     states=dict(root.development)
     for p in pool.values():
         if p.id not in states: states[p.id]=initial_state(p,seed,True)

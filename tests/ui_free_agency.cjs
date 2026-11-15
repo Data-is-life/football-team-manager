@@ -93,11 +93,13 @@ async function checks(){
  assert.equal(after.profile.roster.find(p=>p.id===modernTarget.id).contract.annual_salary,modernTarget.annual_salary);
  assert.deepEqual(after.free_agency.destination_premium,premium);checkRankings(p,after.profile);p.dom.window.close();
  // Seeded cap: draft, market and next-season UI agree before and after reload.
- for (const salaryRules of [36,37,38,39]) {
+ for (const salaryRules of [36,37,38,39,40]) {
  const seededRequest={...request,lineup_rules:salaryRules};
  const seededDraft=await api({...seededRequest,action:'draft',auto_draft:true});
+ if(salaryRules===40) assert.ok(seededDraft.picks.every(p=>p.player.age>=21&&p.player.age<=23));
  const seededArgs={...seededRequest,manual_picks:seededDraft.manual_picks};
  const seededMarket=await api({...seededArgs,action:'free_agency'});
+ if(salaryRules===40) assert.ok(seededMarket.free_agency.available.filter(p=>p.id.startsWith('rookie-1234-2-')).every(p=>p.age>=21&&p.age<=23));
  const upcoming=seededMarket.profile.payroll;
  assert.ok(upcoming.cap>=204000000&&upcoming.cap<=220000000);
  assert.ok(upcoming.cap_growth_percent>=2&&upcoming.cap_growth_percent<=10);
