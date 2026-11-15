@@ -24,7 +24,7 @@ def player_payload(player: Player, roster_context=(), *, rating_fields=None, dev
 
 
 @lru_cache(maxsize=32)
-def draft_class(season: int, run_seed: int) -> tuple[Player, ...]:
+def draft_class(season: int, run_seed: int, lineup_rules: int = 1) -> tuple[Player, ...]:
     """Independent of selections/order: every replay has the same permanent rookie IDs."""
     rng = random.Random(_run_number(f'draft-class:{season + 1}', run_seed))
     positions = [ROSTER_SLOTS[i % len(ROSTER_SLOTS)][0] for i in range(CLASS_SIZE)]
@@ -42,6 +42,10 @@ def draft_class(season: int, run_seed: int) -> tuple[Player, ...]:
         players.append(Player(id=player_id, name=name, position=position, rating=rating,
                               depth=0, experience=0, age=rng.randint(21, 24),
                               attributes=generate_attributes(player_id, position, rating, run_seed)))
+    if lineup_rules >= 40:
+        # Keep the legacy generation stream intact: only entry ages change.
+        ages = random.Random(_run_number(f'draft-entry-ages-v1:{season + 1}', run_seed))
+        players = [replace(player, age=ages.randint(21,23)) for player in players]
     return tuple(sorted(players, key=lambda player: (-player.rating, player.id)))
 
 
@@ -137,7 +141,7 @@ def build_draft(team_id: str, season: int, run_seed: int, choices: tuple[str, ..
         raise ValueError('Invalid draft context')
     if len(set(choices)) != len(choices):
         raise ValueError('A prospect cannot be selected twice')
-    prospects = draft_class(season, run_seed)
+    prospects = draft_class(season, run_seed, getattr(roster_context,"lineup_rules",1))
     states = dict(roster_context.development) if getattr(roster_context,'lineup_rules',1)>=3 else None
     # Prospect metadata is fixed for this draft; only team needs change per pick.
     prospect_ratings = {p.id:rating_payload(p,roster_context,states) for p in prospects}
