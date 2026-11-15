@@ -93,7 +93,7 @@ async function checks(){
  assert.equal(after.profile.roster.find(p=>p.id===modernTarget.id).contract.annual_salary,modernTarget.annual_salary);
  assert.deepEqual(after.free_agency.destination_premium,premium);checkRankings(p,after.profile);p.dom.window.close();
  // Seeded cap: draft, market and next-season UI agree before and after reload.
- for (const salaryRules of [36,37,38,39,40]) {
+ for (const salaryRules of [36,37,38,39,40,41]) {
  const seededRequest={...request,lineup_rules:salaryRules};
  const seededDraft=await api({...seededRequest,action:'draft',auto_draft:true});
  if(salaryRules===40) assert.ok(seededDraft.picks.every(p=>p.player.age>=21&&p.player.age<=23));
@@ -117,7 +117,7 @@ async function checks(){
  const review=await api({...seededArgs,action:'free_agency',free_agency:seededActions});
  const pre=review.payroll_floor_adjustment?[{kind:'raise',player_id:review.payroll_floor_adjustment.player_id}]:[];
  const seededCamp=await api({...seededArgs,action:'camp',free_agency:seededActions,pre_camp_actions:pre});
- assert.equal(seededCamp.can_continue,true);
+ assert.equal(seededCamp.can_continue,salaryRules<41);
  p=await page({...seededSave,freeAgency:seededActions,preCampActions:pre,trainingCamp:true});
  checkRankings(p,seededCamp.profile);
  q(p,'#next-season').click();await until(()=>save(p).season===2);
