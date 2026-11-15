@@ -539,6 +539,7 @@ async function resumeProgress() {
     if (postseason) { renderPostseason(postseason); activateView("playoffs"); }
     if (savedDraft) { draftSort = save.draftSort ?? (save.lineupRules >= 30 ? "value" : "current"); draftSortDirection = save.draftSortDirection ?? draftSortDefault(draftSort); document.querySelector("#draft-position").value = save.draftPosition ?? ""; applyDraft(savedDraft); }
     if (savedMarket) applyFreeAgency(savedMarket);
+    if (freeAgencyState && !freeAgencyState.complete) activateView("free-agency");
     select.value = save.teamId;
     saveStatus.textContent = "Saved progress restored. Autosave is on in this browser.";
     resumeButton.hidden = true;
@@ -763,6 +764,7 @@ function renderRankings(rows = teamRankings) {
 
 function activateView(id, { focus = false } = {}) {
   if (id === "draft" && !draftNavigationAvailable()) return;
+  if (id === "free-agency" && (!freeAgencyState || freeAgencyState.complete)) return;
   if (id === "help") renderHelp();
   for (const tab of viewTabs) {
     const selected = tab.id === `view-${id}`;
@@ -1272,6 +1274,8 @@ function renderSchedule(data, runSeed, { priorStandings = {}, history = [], care
   activeFreeAgency = null;
   freeAgencyState = null;
   document.querySelector("#free-agency").hidden = true;
+  document.querySelector("#view-free-agency").hidden = true;
+  document.querySelector("#roster-fa-return").hidden = true;
   document.querySelector("#floor-confirmation").hidden=true;
   document.querySelector("#meet-payroll-floor").hidden=true;
   activeDropped = [];
@@ -2630,6 +2634,7 @@ function renderFloorControls() {
   button.hidden=activeLineupRules<31 || !freeAgencyState?.complete || activeTrainingCamp || !plan;
   button.disabled=cutBusy||campBusy||freeAgencyBusy||!plan?.allowed;
 }
+document.querySelector("#roster-fa-return").addEventListener("click",()=>activateView("free-agency",{focus:true}));
 document.querySelector("#fa-review-own").addEventListener("click",()=>activateView("roster",{focus:true}));
 document.querySelector("#meet-payroll-floor").addEventListener("click",()=>{
   const plan=draftState?.payroll_floor_adjustment;if (!plan || !plan.allowed) return;
@@ -2661,7 +2666,11 @@ function renderFreeAgency() {
   document.querySelector("#fa-flow-guide").textContent=activeLineupRules>=31 ? "Your team picks first each wave. You can sign above 38 players. Review your own players to renew or release expired contracts. Finish advances to roster and payroll review, before training camp and development." : "You pick first each wave. Sign one player or pass, then the other 29 teams act. Waiting lowers prices but risks losing your target. Finish resolves the remaining CPU turns and advances to next season.";
   if (activeLineupRules>=34) document.querySelector("#fa-flow-guide").textContent += " Players ask more from teams with weaker rosters or losing records. Your team premium stays fixed for this market.";
   const panel = document.querySelector("#free-agency");
-  panel.hidden = !data || data.complete;
+  const available = Boolean(data && !data.complete);
+  document.querySelector("#view-free-agency").hidden = !available;
+  document.querySelector("#roster-fa-return").hidden = !available;
+  panel.hidden = !available;
+  if (!available && document.querySelector("#view-free-agency").getAttribute("aria-selected") === "true") activateView("roster");
   if (!data || data.complete) return;
   const premium = data.destination_premium;
   const priceNote = premium
@@ -2690,6 +2699,7 @@ function renderFreeAgency() {
 }
 async function loadFreeAgency(kind=null, player_id='') {
   if (freeAgencyBusy || cutBusy || campBusy || careerEnded() || activeLineupRules < 29 || (activeLineupRules<31 && !activeTrainingCamp) || freeAgencyState?.complete) return;
+  const enteringMarket = !freeAgencyState;
   const actions = [...(activeFreeAgency ?? []), ...(kind ? [{kind,player_id}] : [])];
   freeAgencyBusy = true; renderFreeAgency(); updateOffseasonActions();
   document.querySelector("#fa-error").hidden = true;
@@ -2699,10 +2709,10 @@ async function loadFreeAgency(kind=null, player_id='') {
       if (data.team?.id!==activeTeamId || data.run_seed!==activeRunSeed || data.season!==activeSeason || !data.free_agency) throw new Error("Free agency could not be loaded.");
       applyDraft(data); saveProgress();
       if (data.free_agency.complete) activateView("roster",{focus:true});
-      else document.querySelector("#fa-title").focus({preventScroll:true});
+      else if (enteringMarket) activateView("free-agency",{focus:true});
     } else { applyFreeAgency(data); saveProgress(); }
     if (activeLineupRules<31 && data.complete) { freeAgencyBusy = false; updateOffseasonActions(); nextSeasonButton.click(); }
-    else if (activeLineupRules<31) document.querySelector("#fa-title").focus({preventScroll:true});
+    else if (activeLineupRules<31 && enteringMarket) activateView("free-agency",{focus:true});
   } catch (error) {
     document.querySelector("#fa-error").textContent = error.message;
     document.querySelector("#fa-error").hidden = false;
