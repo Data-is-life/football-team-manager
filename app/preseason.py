@@ -126,7 +126,7 @@ def cpu_review(context, team):
         priorities=cpu_contract_priorities(players,context,context.season)
         while len(players)>roster_limit(context):
             counts=Counter(p.position for p in players)
-            eligible=[p for p in players if counts[p.position]>roster_rules(context)[p.position][1]]
+            eligible=[p for p in players if counts[p.position]>roster_rules(context,owner)[p.position][1]]
             eligible.sort(key=lambda p:(p.contract is not None and not contract_expired(p,context.season),priorities[p.id],-contract_terms(p).annual_salary,p.id))
             for p in eligible:
                 try: next_context=release_player(context,owner,p.id)
@@ -134,6 +134,7 @@ def cpu_review(context, team):
                 break
             else: raise ValueError('CPU roster has no financially legal cut')
             context=next_context; players=list(dict(context)[owner])
+        validate_roster(players,minimum_total=roster_minimum(context),maximum_total=roster_limit(context),context=context,owner=owner)
         plan=raise_plan(players,context,owner)
         if plan: context=raise_to_floor(context,owner,plan['player_id'])
     return context
@@ -157,7 +158,7 @@ def run(team,season,seed,choices,prior,root,rounds,market_actions=(),pre_actions
     if camp:
         context=sign_retained_rookies(context,season+1)
         for owner,players in context:
-            validate_roster(players,minimum_total=roster_minimum(context),maximum_total=roster_limit(context))
+            validate_roster(players,minimum_total=roster_minimum(context),maximum_total=roster_limit(context),context=context,owner=owner)
             if not financial_ready(players,context,owner):
                 raise ValueError('Meet the hard payroll minimum and maximum before training camp')
         context=advance_context(replace(context,season=season),seed,season+1,lineup_rules=root.lineup_rules)

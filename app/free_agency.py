@@ -95,9 +95,10 @@ def free_agency(team_id, season, request_seed, context, order, actions=(), *, pr
     states = dict(context.development)
 
     rules = roster_rules(context)
+    owner_rules = {owner: roster_rules(context,owner) for owner in rosters}
     minimum_total, maximum_total = roster_minimum(context), roster_limit(context)
     counts = {owner:Counter(p.position for p in players) for owner,players in rosters.items()}
-    missing = {owner:sum(max(0,floor-counts[owner][pos]) for pos,(_,floor) in rules.items())
+    missing = {owner:sum(max(0,floor-counts[owner][pos]) for pos,(_,floor) in owner_rules[owner].items())
                for owner in rosters}
     budgets = {owner:cap_payroll(players,context,context.season,owner) for owner,players in rosters.items()}
     potentials, normal_contracts, wave_contracts = {}, {}, {}
@@ -119,7 +120,7 @@ def free_agency(team_id, season, request_seed, context, order, actions=(), *, pr
 
     def reserved(owner, player=None):
         added = int(player is not None)
-        filled = int(player is not None and counts[owner][player.position] < rules[player.position][1])
+        filled = int(player is not None and counts[owner][player.position] < owner_rules[owner][player.position][1])
         return minimum * max(missing[owner]-filled, minimum_total-len(rosters[owner])-added, 0)
 
     def can_sign(owner, player, deal):
@@ -133,7 +134,7 @@ def free_agency(team_id, season, request_seed, context, order, actions=(), *, pr
         deal = demand(owner, player)
         if not can_sign(owner,player,deal):
             raise ValueError('Signing must fit roster space, salary cap and required roster minimums')
-        if counts[owner][player.position] < rules[player.position][1]:
+        if counts[owner][player.position] < owner_rules[owner][player.position][1]:
             missing[owner] -= 1
         counts[owner][player.position] += 1
         budgets[owner] += deal.annual_salary
@@ -152,7 +153,7 @@ def free_agency(team_id, season, request_seed, context, order, actions=(), *, pr
                 weakest[player.position] = min(weakest.get(player.position,player.rating),player.rating)
             candidates = []
             for player in pool.values():
-                target, floor = rules[player.position]
+                target, floor = owner_rules[owner][player.position]
                 count = counts[owner][player.position]
                 shortage = count < floor
                 baseline = weakest.get(player.position,40)
@@ -218,7 +219,7 @@ def free_agency(team_id, season, request_seed, context, order, actions=(), *, pr
         rosters = {owner:fill_roster(players,owner,season,request_seed,excluded,context=context,
                                    identity_suffix='-free-agency') for owner,players in rosters.items()}
         for owner,players in rosters.items():
-            validate_roster(players,minimum_total=roster_minimum(context),maximum_total=None if pre_camp else roster_limit(context))
+            validate_roster(players,minimum_total=roster_minimum(context),maximum_total=None if pre_camp else roster_limit(context),context=context,owner=owner)
             if not pre_camp and cap_payroll(players,context,context.season,owner)>cap:
                 raise ValueError('Final roster exceeds the salary cap')
     context = replace(context, free_agents=tuple(pool[k] for k in sorted(pool)))

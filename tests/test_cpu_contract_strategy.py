@@ -53,8 +53,8 @@ class CpuContractStrategyTests(TestCase):
     def test_reused_priorities_preserve_full_offseason_and_score_once(self):
         # Exercise oversized rosters and expired renewals, including cap relief.
         # The comparison deliberately restores the old second scoring pass.
-        def recomputing_cuts(players, context, year, *, priorities=None):
-            return smart_cpu_roster_cuts(players, context, year)
+        def recomputing_cuts(players, context, year, *, priorities=None, owner=None):
+            return smart_cpu_roster_cuts(players, context, year, owner=owner)
 
         for seed in (1234, 5678):
             context = lineup_context((), seed, 28, rebuild_team='seattle')

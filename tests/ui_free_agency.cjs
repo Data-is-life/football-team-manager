@@ -93,7 +93,7 @@ async function checks(){
  assert.equal(after.profile.roster.find(p=>p.id===modernTarget.id).contract.annual_salary,modernTarget.annual_salary);
  assert.deepEqual(after.free_agency.destination_premium,premium);checkRankings(p,after.profile);p.dom.window.close();
  // Seeded cap: draft, market and next-season UI agree before and after reload.
- for (const salaryRules of [36,37,38]) {
+ for (const salaryRules of [36,37,38,39]) {
  const seededRequest={...request,lineup_rules:salaryRules};
  const seededDraft=await api({...seededRequest,action:'draft',auto_draft:true});
  const seededArgs={...seededRequest,manual_picks:seededDraft.manual_picks};
