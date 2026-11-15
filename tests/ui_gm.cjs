@@ -28,11 +28,35 @@ async function checks(){
   let wins=0,losses=0;
   for(const r of state?.rounds??[])for(const game of r.games)if([game.home.team.id,game.away.team.id].includes(id)){if(game.winner.team.id===id)wins++;else losses++;}
   assert.deepEqual(record(p),[`${regular.record.wins}–${regular.record.losses}–${regular.record.ties}`,String(regular.standings.playoff_race.some(entry=>entry.team.id===id)?1:0),`${wins}–${losses}`,String(state?.champion?.team.id===id?1:0)]);
+  const currentCells=[...q(p,'#current-season-row').querySelectorAll('td')].map(c=>c.textContent);
+  assert.equal(currentCells[0],'1 (current)');
+  assert.equal(currentCells[1],`${regular.record.wins}–${regular.record.losses}–${regular.record.ties}`);
+  assert.equal(currentCells[3],`${wins}–${losses}`);
+  if(id===nonqual) assert.equal(currentCells[2],'Missed playoffs');
+  if(id===final.champion.team.id&&round===4) assert.equal(currentCells[2],'Champions');
+  assert.equal(q(p,'#season-history-rows').children.length,0);
   const calls=p.state.calls,saved=raw(p);q(p,'#view-gm').click();
   assert.equal(q(p,'#panel-gm').hidden,false);assert.equal(q(p,'#view-gm').getAttribute('aria-selected'),'true');assert.equal(p.state.calls,calls);assert.equal(raw(p),saved,'Viewing records must not mutate the save');
   assert.equal(q(p,'#gm-legacy-note').hidden,true);
   const before=record(p);p.dom.window.close();p=await restore(JSON.parse(saved));assert.deepEqual(record(p),before);p.dom.window.close();
  }
+ let live=await restore(legacy(bye,0,null));
+ assert.match(q(live,'#current-season-row').textContent,/1 \(current\).*0–0–0.*Week 0/);
+ for(const week of [1,2,3]) {
+  q(live,'#simulate-button').click();
+  await until(()=>JSON.parse(raw(live)).week===week);
+  const expected=await api(`/api/season/${bye}/week/${week}?run_seed=1234`);
+  assert.equal(q(live,'#current-season-row').querySelectorAll('td')[1].textContent,`${expected.record.wins}–${expected.record.losses}–${expected.record.ties}`);
+  assert.match(q(live,'#current-season-row').textContent,new RegExp(`Week ${week}`));
+  const before=record(live),saved=raw(live),row=q(live,'#current-season-row').textContent;
+  live.w.renderGMRecords();live.w.renderGMRecords();assert.deepEqual(record(live),before);assert.equal(raw(live),saved);
+  live.dom.window.close();live=await restore(JSON.parse(saved));assert.deepEqual(record(live),before);assert.equal(q(live,'#current-season-row').textContent,row);
+ }
+ const stable=q(live,'#current-season-row').textContent,checkpoint=raw(live),realFetch=live.w.fetch;
+ live.w.fetch=async()=>({ok:false,json:async()=>({detail:'Temporary failure'})});
+ q(live,'#simulate-button').click();await until(()=>!q(live,'#error').hidden);
+ assert.equal(q(live,'#current-season-row').textContent,stable);assert.equal(raw(live),checkpoint);
+ live.w.fetch=realFetch;live.dom.window.close();
  let p=await restore(legacy(bye,8,null));
  const regular=await api(`/api/season/${bye}/week/8?run_seed=1234`);
  assert.deepEqual(record(p),[`${regular.record.wins}–${regular.record.losses}–${regular.record.ties}`,'0','0–0','0']);p.dom.window.close();
@@ -42,6 +66,7 @@ async function checks(){
  const old={version:2,teamId:'seattle',runSeed:1234,season:3,week:0,playoffRound:null,priorStandings:ranks,history};
  p=await restore(old);assert.deepEqual(record(p),['21–12–1','2','3–5 W / 1 L','1']);assert.equal(q(p,'#gm-legacy-note').hidden,false);
  q(p,'#view-gm').click();assert.equal(q(p,'#season-history').closest('#panel-gm'),q(p,'#panel-gm'));
+ assert.equal(q(p,'#current-season-row').children.length,1);assert.match(q(p,'#current-season-row').textContent,/3 \(current\).*0–0–0/);
  assert.equal(q(p,'#season-history-rows').children.length,2);assert.match(q(p,'#season-history-rows').textContent,/3–4 W \/ 0 L/);p.dom.window.close();
  const exact={...old,version:10,lineupRules:1,developmentStart:null,rebuildTeam:null,draftChoices:null,dropped:[],career:[],history:history.map((entry,i)=>({...entry,playoffWins:i?0:3,playoffLosses:i?1:0}))};
  p=await restore(exact);assert.deepEqual(record(p),['21–12–1','2','3–1','1']);assert.equal(q(p,'#gm-legacy-note').hidden,true);p.dom.window.close();

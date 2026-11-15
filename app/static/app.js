@@ -432,6 +432,7 @@ function managedRecord(snapshot, season = activeSeason) {
 
 function renderGMRecords() {
   renderContract();
+  renderCurrentSeasonRow();
   const current = currentPlayoffRecord();
   const record = { minimum: current.wins, maximum: current.wins, losses: current.losses };
   const regular = managedRecord(regularSnapshot);
@@ -455,9 +456,40 @@ function renderGMRecords() {
   document.querySelector("#gm-legacy-note").hidden = record.minimum === record.maximum;
 }
 
-function renderSeasonHistory() {
+function renderCurrentSeasonRow() {
   const section = document.querySelector("#season-history");
-  section.hidden = careerHistory.length === 0;
+  section.hidden = !activeTeamId;
+  const currentRows = [];
+  if (activeTeamId) {
+    const row = document.createElement("tr");
+    row.dataset.season = activeSeason;
+    row.dataset.current = "true";
+    const managed = managedRecord(regularSnapshot);
+    const team = regularSnapshot?.record;
+    const result = record => `${record.wins}–${record.losses}–${record.ties}`;
+    const ownRecord = team && activeCareerStartWeek === 17 && activeSeason === 1
+      ? `${result(managed)} (team ${result(team)})` : result(managed);
+    const qualified = regularSnapshot?.season_complete && regularSnapshot.standings.playoff_race.some(entry => entry.team.id === activeTeamId);
+    const lastOwn = (playoffState?.rounds ?? []).flatMap(round => round.games.map(game => ({ round, game })))
+      .filter(({game}) => game.home.team.id === activeTeamId || game.away.team.id === activeTeamId).at(-1);
+    let finish = `Regular season · Week ${regularSnapshot?.week ?? 0}`;
+    if (regularSnapshot?.season_complete) {
+      finish = !qualified ? "Missed playoffs" : !playoffState ? "Qualified · awaiting playoffs" : "Playoffs in progress";
+      if (qualified && lastOwn && lastOwn.game.winner.team.id !== activeTeamId) finish = `Lost in ${lastOwn.round.name}`;
+      if (playoffState?.champion?.team.id === activeTeamId) finish = "Champions";
+    }
+    const champion = playoffState?.champion?.team.city ?? "—";
+    const playoff = currentPlayoffRecord();
+    for (const value of [`${activeSeason} (current)`, ownRecord, finish, `${playoff.wins}–${playoff.losses}`, champion]) {
+      const cell = document.createElement("td"); cell.textContent = value; row.append(cell);
+    }
+    currentRows.push(row);
+  }
+  document.querySelector("#current-season-row").replaceChildren(...currentRows);
+}
+
+function renderSeasonHistory() {
+  renderCurrentSeasonRow();
   const rows = careerHistory.map(entry => {
     const row = document.createElement("tr");
     const champion = [...select.options].find(option => option.value === entry.championId)?.textContent;
