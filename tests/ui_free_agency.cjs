@@ -12,6 +12,22 @@ async function page(checkpoint){
  w.fetch=async(url,init)=>{const body=init&&JSON.parse(init.body);if(body?.action==='free_agency'){state.calls++;if(state.fail)return {ok:false,json:async()=>({detail:'Market temporarily unavailable'})};}const response=await fetch(new URL(url,base),init);if(!response.ok) console.error('Free agency test API error:',url,await response.clone().text());return response;};
  w.eval(script);const p={dom,w,d,state};await until(()=>/restored|could not/.test(q(p,'#save-status').textContent));assert.match(q(p,'#save-status').textContent,/restored/);return p;
 }
+function checkMarketTab(p) {
+ const tab=q(p,'#view-free-agency'),panel=q(p,'#panel-free-agency');
+ assert.equal(tab.hidden,false);assert.equal(tab.getAttribute('aria-controls'),panel.id);
+ assert.equal(panel.getAttribute('aria-labelledby'),tab.id);
+ assert.ok(panel.contains(q(p,'#free-agency')));
+ tab.click();assert.equal(panel.hidden,false);
+ assert.equal(p.d.querySelectorAll('.view-panel:not([hidden])').length,1);
+ const checkpoint=raw(p),calls=p.state.calls;
+ q(p,'#fa-review-own').click();assert.equal(q(p,'#panel-roster').hidden,false);
+ assert.equal(panel.hidden,true);assert.equal(q(p,'#roster-fa-return').hidden,false);
+ q(p,'#roster-fa-return').click();assert.equal(panel.hidden,false);
+ assert.equal(tab.getAttribute('aria-selected'),'true');
+ q(p,'#view-roster').dispatchEvent(new p.w.KeyboardEvent('keydown',{key:'ArrowRight',bubbles:true}));
+ assert.equal(tab.getAttribute('aria-selected'),'true');
+ assert.equal(raw(p),checkpoint);assert.equal(p.state.calls,calls);
+}
 function checkFreeAgentBadge(p, id) {
  q(p,'#roster-stats-button').click();
  const rows=p.d.querySelectorAll(`#roster-groups [data-player-id="${id}"]`);
@@ -34,6 +50,7 @@ async function checks(){
  let p=await page(checkpoint);
  assert.equal(q(p,'#next-season').textContent,'Open free agency');q(p,'#next-season').click();
  await until(()=>Array.isArray(save(p).freeAgency));
+ checkMarketTab(p);
  assert.equal(q(p,'#free-agency').hidden,false);assert.match(q(p,'#fa-status').textContent,/Wave 1.*120%.*Cap space/);
  const before=raw(p);q(p,'#fa-sort').value='potential_rating';q(p,'#fa-sort').dispatchEvent(new p.w.Event('change'));
  const values=[...p.d.querySelectorAll('#fa-players tr')].map(row=>Number(row.children[4].textContent));assert.deepEqual(values,[...values].sort((a,b)=>b-a));assert.equal(raw(p),before);
@@ -45,6 +62,7 @@ async function checks(){
  assert.equal(save(p).freeAgency[0].player_id,id);assert.equal(q(p,`[data-fa-id="${id}"]`),null);assert.ok(q(p,`#roster-groups [data-player-id="${id}"]`));
  checkFreeAgentBadge(p,id);
  assert.match(q(p,'#fa-status').textContent,/Wave 2.*110%/);const signed=save(p);p.dom.window.close();p=await page(signed);
+ checkMarketTab(p);
  assert.match(q(p,'#fa-status').textContent,/Wave 2/);assert.ok(q(p,`#roster-groups [data-player-id="${id}"]`));checkFreeAgentBadge(p,id);
  q(p,'#fa-pass').click();await until(()=>save(p).freeAgency.length===2);assert.match(q(p,'#fa-status').textContent,/Wave 3.*105%/);
  q(p,'#fa-finish').click();await until(()=>save(p).season===2);
@@ -84,6 +102,7 @@ async function checks(){
  assert.ok(upcoming.cap>=204000000&&upcoming.cap<=220000000);
  assert.ok(upcoming.cap_growth_percent>=2&&upcoming.cap_growth_percent<=10);
  p=await page({...checkpoint,version:41,lineupRules:salaryRules,trainingCamp:false,draftChoices:seededDraft.manual_picks,dropped:[],rosterActions:[],freeAgency:[]});
+ checkMarketTab(p);
  const capLabel=`$${(upcoming.cap/1e6).toFixed(2)}M cap`;
  assert.ok(q(p,'#payroll-status').textContent.includes(capLabel));
  assert.ok(q(p,'#payroll-status').textContent.includes(`Cap growth +${upcoming.cap_growth_percent.toFixed(2)}%`));
@@ -100,6 +119,7 @@ async function checks(){
  p=await page({...seededSave,freeAgency:seededActions,preCampActions:pre,trainingCamp:true});
  checkRankings(p,seededCamp.profile);
  q(p,'#next-season').click();await until(()=>save(p).season===2);
+ assert.equal(q(p,'#view-free-agency').hidden,true);assert.equal(q(p,'#roster-fa-return').hidden,true);
  assert.equal(save(p).lineupRules,salaryRules);assert.equal(save(p).career[0].lineup_rules,salaryRules);checkRankings(p,seededCamp.profile);
  assert.ok(q(p,'#payroll-status').textContent.includes(capLabel));
  const seededNext=save(p);p.dom.window.close();p=await page(seededNext);
