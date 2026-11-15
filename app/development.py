@@ -200,7 +200,7 @@ def advance_context(context, run_seed, season, development_start=1, lineup_rules
     if rebuild_team is None and current_rules >= 3:
         rebuild_team = context.rebuild_team
     lineup_rules = lineup_rules if lineup_rules is not None else max(3, current_rules)
-    if lineup_rules not in (3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37) or current_rules > lineup_rules:
+    if lineup_rules not in (3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38) or current_rules > lineup_rules:
         raise ValueError('Invalid development rules')
     if not 1 <= development_start <= season <= 999:
         raise ValueError('Invalid development season')
@@ -220,6 +220,8 @@ def advance_context(context, run_seed, season, development_start=1, lineup_rules
         raise ValueError('Position salary anchors require a new career')
     if lineup_rules >= 37 and current_rules < 37 and context:
         raise ValueError('Soft salary tiers require a new career')
+    if lineup_rules >= 38 and current_rules < 38 and context:
+        raise ValueError('Weighted position ratings require a new career')
     rotation_growth = current_rules >= 5
     if current_rules < 3:
         if not context and lineup_rules >= 4:
