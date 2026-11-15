@@ -34,8 +34,13 @@ EXPANDED_ROSTER_RULES = {
 }
 
 
-def roster_rules(context=()):
+def roster_rules(context=(), owner=None):
     rules = context if isinstance(context, int) else getattr(context, 'lineup_rules', 1)
+    if rules >= 39 and owner is not None and owner != getattr(context, 'rebuild_team', None):
+        # CPU depth is an owner-specific requirement; user starter minimums
+        # and rating starter counts remain unchanged.
+        return {pos: (target, minimum + (pos != 'K'))
+                for pos, (target, minimum) in EXPANDED_ROSTER_RULES.items()}
     if rules >= 14:
         return EXPANDED_ROSTER_RULES
     return COMPACT_ROSTER_RULES if rules >= 11 else ROSTER_RULES
@@ -141,7 +146,7 @@ def team_ratings(team_id: str, run_seed: int = 0, roster_context: tuple = ()) ->
     )
 
 
-def validate_roster(players: list[Player], *, minimum_total=0, maximum_total=None) -> None:
+def validate_roster(players: list[Player], *, minimum_total=0, maximum_total=None, context=(), owner=None) -> None:
     """Enforce position minimums for roster management."""
     if len({player.id for player in players}) != len(players):
         raise ValueError("The roster contains duplicate player IDs")
@@ -153,7 +158,8 @@ def validate_roster(players: list[Player], *, minimum_total=0, maximum_total=Non
     unknown = set(counts) - set(ROSTER_RULES)
     if unknown:
         raise ValueError(f"Unknown roster position: {', '.join(sorted(unknown))}")
-    for position, (_, minimum) in ROSTER_RULES.items():
+    required = roster_rules(context,owner) if getattr(context,"lineup_rules",1)>=39 else ROSTER_RULES
+    for position, (_, minimum) in required.items():
         if counts[position] < minimum:
             raise ValueError(f"{position} needs at least {minimum} players")
 

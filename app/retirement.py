@@ -37,7 +37,7 @@ def fill_roster(players, owner, season, seed, excluded=(), context=(), identity_
     names = {p.name for p in remaining}
     counts = Counter(p.position for p in remaining)
     for minimum_only in (True, False):
-        for position,(target,minimum) in roster_rules(context).items():
+        for position,(target,minimum) in roster_rules(context,owner).items():
             needed = max(0,(minimum if minimum_only else target)-counts[position])
             if not minimum_only: needed = min(needed,max(0,fill_target-len(remaining)))
             for _ in range(needed):
