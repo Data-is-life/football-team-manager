@@ -74,7 +74,7 @@ async function checks() {
  assert.equal(q(p,'#gm-regular').textContent,`${regular.record.wins}–${regular.record.losses}–${regular.record.ties}`);assert.equal(q(p,'#gm-championships').textContent,'1');assert.equal(q(p,'#gm-playoffs').textContent,`${save(p).history[0].playoffWins}–0`);
  assert.equal(save(p).history.length,1);assert.equal(save(p).history[0].playoffFinish,'Champions');
  assert.deepEqual(save(p).history[0],{season:1,...regular.record,championId:id,playoffFinish:'Champions',playoffWins:final.rounds.reduce((sum,round)=>sum+round.games.filter(game=>game.winner.team.id===id).length,0),playoffLosses:0});
- assert.equal(q(p,'#season-history-rows').children.length,1);
+ assert.equal(q(p,'#season-history-rows').children.length,1);assert.equal(q(p,'#current-season-row').children.length,1);assert.match(q(p,'#current-season-row').textContent,/2 \(current\).*0–0–0.*Week 0/);
  assert.match(q(p,'#season-history-rows').textContent,/Champions/);
  q(p,'#roster-stats-button').click();assert.match(q(p,'#roster-stats-status').textContent,/0 team games/);
  q(p,'#roster-competition').value='playoffs';q(p,'#roster-competition').dispatchEvent(new p.w.Event('change'));
@@ -112,7 +112,7 @@ async function checks() {
  q(p,'#team-form').dispatchEvent(new p.w.Event('submit',{cancelable:true}));
  await until(()=>save(p).runSeed===5678);
  assert.equal(save(p).season,1);assert.deepEqual(save(p).history,[]);assert.deepEqual(save(p).priorStandings,{});
- assert.equal(q(p,'#season-history').hidden,true);assert.equal(q(p,'#gm-regular').textContent,'0–0–0');assert.equal(q(p,'#gm-appearances').textContent,'0');assert.equal(q(p,'#gm-playoffs').textContent,'0–0');assert.equal(q(p,'#gm-championships').textContent,'0');assert.equal(q(p,'#gm-legacy-note').hidden,true);p.dom.window.close();
+ assert.equal(q(p,'#season-history').hidden,false);assert.equal(q(p,'#current-season-row').children.length,1);assert.equal(q(p,'#gm-regular').textContent,'0–0–0');assert.equal(q(p,'#gm-appearances').textContent,'0');assert.equal(q(p,'#gm-playoffs').textContent,'0–0');assert.equal(q(p,'#gm-championships').textContent,'0');assert.equal(q(p,'#gm-legacy-note').hidden,true);p.dom.window.close();
  // Non-qualifiers and eliminated teams can continue once the league championship is complete.
  const teams=(await api('/api/teams')).teams;
  const nonqual=teams.find(t=>!final.field.some(f=>f.team.id===t.id)).id;
