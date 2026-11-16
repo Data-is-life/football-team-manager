@@ -756,7 +756,7 @@ document.querySelector("#welcome-help").addEventListener("click", () => activate
 function renderHelp() {
   const teamRatingGuide = document.querySelector("#team-rating-guide");
   teamRatingGuide.hidden = activeLineupRules < 38;
-  teamRatingGuide.textContent = "Position ratings use current ability in fixed depth slots. QB: 95/5%; WR: 40/30/20/10%; RB and TE: 75/25%; OL: starters average 85%, sixth 10%, seventh 5%; DL and LB: starters average 75%, next backup 20%, last backup 5%; CB: first two average 75%, third 20%, fourth 5%; S: first two average 75%, third 25%. Missing slots contribute zero, with no redistribution. Offense = (QB×1.20 + WR×0.90 + RB×0.90 + TE×0.80 + OL×1.20) ÷ 5. Defense = (CB + DL + LB + S) ÷ 4. Overall = (Offense + Defense) ÷ 2. K1 sets the separate kicking position rating. Games and ranking order use full precision; displayed team ratings round to two decimals. Positional interactions are reserved for the future drive engine.";
+  teamRatingGuide.textContent = "Position ratings use current ability in fixed depth slots. QB: 95/5%; WR: 40/30/20/10%; RB and TE: 75/25%; OL: starters average 85%, sixth 10%, seventh 5%; DL and LB: starters average 75%, next backup 20%, last backup 5%; CB: first two average 75%, third 20%, fourth 5%; S: first two average 75%, third 25%. Missing slots contribute zero, with no redistribution. Offense = (QB×1.20 + WR×0.90 + RB×0.90 + TE×0.80 + OL×1.20) ÷ 5. Defense = (CB + DL + LB + S) ÷ 4. Overall = (Offense + Defense) ÷ 2. K1 sets the separate kicking position rating. Games and ranking order use full precision; displayed team ratings round to the nearest whole number. Positional interactions are reserved for the future drive engine.";
   document.querySelector("#player-salary-guide").hidden = activeLineupRules < 15;
   document.querySelector("#salary-growth-guide").hidden = activeLineupRules < 17;
   document.querySelector("#salary-growth-guide").textContent=activeLineupRules>=31 ? "The payroll minimum is exactly 60% of the salary cap. Both limits are hard and must be resolved before training camp. Signed salaries plus retained rookie commitments count toward the minimum; dead cap only counts against the maximum. New free agents must fit remaining cap space even while the roster is above 38. Signed salaries and voluntary increases are guaranteed." : legacySalaryGuide;
@@ -783,7 +783,7 @@ function renderHelp() {
 }
 
 function ratingLabel(value) {
-  return Number(value.toFixed(2));
+  return Math.round(value);
 }
 
 function overallRating(ratings) {

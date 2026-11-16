@@ -38,8 +38,8 @@ function checkFreeAgentBadge(p, id) {
 function checkRankings(p,profile){
  const rows=[...p.d.querySelectorAll('#rankings-rows tr')];assert.equal(rows.length,30);
  const expected=new Map(profile.rankings.map(row=>[row.team.id,row.ratings]));
- for(const row of rows){const ratings=expected.get(row.dataset.teamId);assert.deepEqual([...row.children].slice(2).map(c=>c.textContent),[ratings.overall,ratings.offense,ratings.defense].map(v=>String(Number(v.toFixed(2)))));}
- assert.equal(q(p,'#overall-rating').textContent,String(Number(((profile.ratings.offense+profile.ratings.defense)/2).toFixed(2))));
+ for(const row of rows){const ratings=expected.get(row.dataset.teamId);assert.deepEqual([...row.children].slice(2).map(c=>c.textContent),[ratings.overall,ratings.offense,ratings.defense].map(v=>String(Math.round(v))));}
+ assert.equal(q(p,'#overall-rating').textContent,String(Math.round((profile.ratings.offense+profile.ratings.defense)/2)));
 }
 async function checks(){
  const request={season:1,run_seed:1234,lineup_rules:29,rebuild_team:'seattle',draft_rounds:6};

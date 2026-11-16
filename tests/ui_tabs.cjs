@@ -114,11 +114,11 @@ async function checkUI() {
    const rows=[...d.querySelectorAll('#rankings-rows tr')];assert.equal(rows.length,30);
    rows.forEach((row,i)=>{
     const entry=expected[i];assert.equal(row.dataset.teamId,entry.team.id);
-    assert.deepEqual([...row.children].map(c=>c.textContent),[String(i+1),entry.team.city,...[((entry.ratings.offense+entry.ratings.defense)/2),entry.ratings.offense,entry.ratings.defense].map(v=>String(Number(v.toFixed(2))))]);
+    assert.deepEqual([...row.children].map(c=>c.textContent),[String(i+1),entry.team.city,...[((entry.ratings.offense+entry.ratings.defense)/2),entry.ratings.offense,entry.ratings.defense].map(v=>String(Math.round(v)))]);
     assert.equal(row.classList.contains('selected-team'),entry.team.id===managedTeam);
     assert.equal(row.querySelector('.team-roster-link').dataset.teamId,entry.team.id);
    });
-   assert.equal(d.querySelector('#overall-rating').textContent,String(Number(((entries.find(e=>e.team.id===managedTeam).ratings.offense+entries.find(e=>e.team.id===managedTeam).ratings.defense)/2).toFixed(2))));
+   assert.equal(d.querySelector('#overall-rating').textContent,String(Math.round((entries.find(e=>e.team.id===managedTeam).ratings.offense+entries.find(e=>e.team.id===managedTeam).ratings.defense)/2)));
   }
   checkRankings(api.rankings,id);
   const views=['roster','game','schedule','standings','rankings','league','race','playoffs','gm','help'];
@@ -145,7 +145,7 @@ async function checkUI() {
   assert.equal(requests,0,'Switching views must not fetch or reset the season');
   const rankingsSave=w.localStorage.getItem('arcade-league-save');
   w.renderRankings([{team:{id:'z',city:'Zulu'},ratings:{offense:75,defense:76}},{team:{id:'a',city:'Alpha'},ratings:{offense:76,defense:75}}]);
-  assert.deepEqual([...d.querySelectorAll('#rankings-rows tr')].map(row=>[row.children[1].textContent,row.children[2].textContent]),[['Alpha','75.5'],['Zulu','75.5']]);
+  assert.deepEqual([...d.querySelectorAll('#rankings-rows tr')].map(row=>[row.children[1].textContent,row.children[2].textContent]),[['Alpha','76'],['Zulu','76']]);
   assert.equal(w.localStorage.getItem('arcade-league-save'),rankingsSave);
   w.renderRankings(api.rankings);checkRankings(api.rankings,id);
   for(const view of ['game','league','standings','race','playoffs']) assert.equal(d.querySelector(`#${view}-empty`).hidden,false);
@@ -283,7 +283,7 @@ async function checkUI() {
     checkView('standings');
     const profile=await (await fetch(base+`/api/team/${target.dataset.teamId}?run_seed=${fixtureSeed}`)).json();
     assert.equal(d.querySelector('#scout-title').textContent,`${profile.team.city} roster`);
-    assert.match(d.querySelector('#scout-status').textContent,new RegExp(`Offense ${profile.ratings.offense} · Defense ${profile.ratings.defense}`));
+    assert.match(d.querySelector('#scout-status').textContent,new RegExp(`Offense ${Math.round(profile.ratings.offense)} · Defense ${Math.round(profile.ratings.defense)}`));
     for(const player of profile.roster) {
      const row=d.querySelector(`#scout-groups [data-player-id="${player.id}"]`);
      assert.ok(row);
@@ -298,7 +298,7 @@ async function checkUI() {
     d.querySelector(`#rankings-rows button[data-team-id="${target.dataset.teamId}"]`).click();
     await until(()=>d.querySelectorAll('#scout-groups .roster-player').length===38);
     checkView('rankings');
-    assert.ok(d.querySelector('#scout-status').textContent.includes(`Overall ${(profile.ratings.offense+profile.ratings.defense)/2}`));
+    assert.ok(d.querySelector('#scout-status').textContent.includes(`Overall ${Math.round((profile.ratings.offense+profile.ratings.defense)/2)}`));
     d.querySelector('#scout-close').click();assert.equal(w.localStorage.getItem('arcade-league-save'),beforeRankingsScout);go('standings');
     // Failed inspection can retry without disturbing the managed team.
     const realFetch=w.fetch;
@@ -344,7 +344,7 @@ async function checkUI() {
      const ratings=ratingsByTeam.get(team.team.id),cells=rows[j].children;
      assert.equal(cells[1].querySelector('.team-roster-link').dataset.teamId,team.team.id);
      assert.ok(cells[1].textContent.startsWith(team.team.city));
-     assert.equal(cells[1].querySelector('.standings-team-ratings').textContent,`OVR ${(ratings.offense+ratings.defense)/2} · O ${ratings.offense} · D ${ratings.defense}`);
+     assert.equal(cells[1].querySelector('.standings-team-ratings').textContent,`OVR ${Math.round((ratings.offense+ratings.defense)/2)} · O ${Math.round(ratings.offense)} · D ${Math.round(ratings.defense)}`);
      assert.deepEqual([...cells].slice(2).map(cell=>cell.textContent),
       [team.wins,team.losses,team.ties,team.points_for,team.points_against,team.home_record,team.away_record,team.streak].map(String));
      const scroll=groupCards[i].querySelector('.mini-table-wrap');
@@ -537,8 +537,8 @@ async function checkUI() {
 
   assert.notDeepEqual(freshProfile.roster.map(player=>player.name),oldSeattle.roster.map(player=>player.name));
   assert.deepEqual([...d.querySelectorAll('#roster-groups .roster-player')].map(row=>row.children[1].firstChild.textContent),freshProfile.roster.map(player=>player.name));
-  assert.equal(d.querySelector('#offense-rating').textContent,String(Number(freshProfile.ratings.offense.toFixed(2))));
-  assert.equal(d.querySelector('#defense-rating').textContent,String(Number(freshProfile.ratings.defense.toFixed(2))));
+  assert.equal(d.querySelector('#offense-rating').textContent,String(Math.round(freshProfile.ratings.offense)));
+  assert.equal(d.querySelector('#defense-rating').textContent,String(Math.round(freshProfile.ratings.defense)));
   go('roster');
   // The new roster has Seattle IDs, so inspect zero totals directly after switching teams.
   d.querySelector('#roster-stats-button').click();
