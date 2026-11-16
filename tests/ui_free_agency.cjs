@@ -110,6 +110,32 @@ async function checks(){
  assert.ok(q(p,'#payroll-status').textContent.includes(`Cap growth +${upcoming.cap_growth_percent.toFixed(2)}%`));
  assert.match(q(p,'#salary-growth-guide').textContent,/2–10%.*6%/);
  assert.match(q(p,'#salary-growth-guide').textContent,/QB 21%.*LB 16%.*K 2.5%.*Wave pricing/);
+ if(salaryRules===41){
+  // Server-supplied affordability must block confirmation, not offer inspection.
+  const candidate=seededMarket.profile.roster.find(v=>v.renewal_offer&&v.renewal_offer.annual_change>1000000);assert.ok(candidate);
+  const before=raw(p),calls=p.state.calls,money=v=>`$${(v/1e6).toFixed(2)}M`;
+  q(p,'#fa-review-own').click();
+  for(const total of [upcoming.cap+1000000,upcoming.cap-1000000]){
+   const profile={...seededMarket.profile,payroll:{...upcoming,total,over_cap:Math.max(0,total-upcoming.cap),cap_space:upcoming.cap-total},roster:seededMarket.profile.roster.map(v=>v.id===candidate.id?{...v,renewal_offer:{...v.renewal_offer,affordable:false}}:v)};
+   p.w.renderTeamProfile(profile);p.w.renderCuts();
+   const button=q(p,`[data-resign-id="${candidate.id}"]`);assert.ok(button);assert.equal(button.disabled,false);button.click();
+   assert.equal(q(p,'#cut-confirmation').hidden,false);assert.equal(q(p,'#cut-impact').hidden,false);
+   const projected=total-candidate.contract.annual_salary+candidate.renewal_offer.annual_salary;
+   assert.ok(q(p,'#cut-confirm-text').textContent.includes(money(candidate.renewal_offer.annual_salary)+'/year'));
+   const impact=q(p,'#cut-impact').textContent;
+   assert.ok(impact.includes('Current payroll: '+money(total)));assert.ok(impact.includes('Payroll after re-signing: '+money(projected)));
+   assert.ok(impact.includes('Over cap after re-signing: '+money(projected-upcoming.cap)));assert.match(impact,/Clear cap space before confirming/);
+   if(total>upcoming.cap)assert.ok(impact.includes('Currently over cap: '+money(total-upcoming.cap)));
+   assert.equal(q(p,'#cut-confirm').disabled,true);assert.equal(p.d.activeElement.id,'cut-cancel');
+   q(p,'#cut-confirm').dispatchEvent(new p.w.Event('click',{bubbles:true}));
+   assert.equal(p.state.calls,calls);assert.equal(raw(p),before);
+   q(p,'#cut-cancel').click();assert.equal(q(p,'#cut-confirmation').hidden,true);assert.equal(raw(p),before);
+  }
+  p.w.renderTeamProfile(seededMarket.profile);p.w.renderCuts();
+  q(p,`[data-resign-id="${candidate.id}"]`).click();
+  assert.equal(q(p,'#cut-confirm').disabled,false);assert.match(q(p,'#cut-impact').textContent,/Cap space after re-signing:/);
+  q(p,'#cut-cancel').click();assert.equal(p.state.calls,calls);assert.equal(raw(p),before);
+ }
  const seededSave=save(p);p.dom.window.close();p=await page(seededSave);
  assert.ok(q(p,'#payroll-status').textContent.includes(capLabel));p.dom.window.close();
  const seededActions=seededMarket.profile.roster.filter(p=>p.renewal_offer||p.contract_offer).map(p=>({kind:'drop',player_id:p.id}));

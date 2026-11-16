@@ -2442,8 +2442,8 @@ function renderCuts() {
       if (player.renewal_offer) {
         const resign = document.createElement("button"); resign.type = "button";
         resign.className = "secondary-button"; resign.dataset.resignId = player.id;
-        resign.textContent = "Re-sign"; resign.disabled = cutBusy || advancingSeason || player.renewal_offer.affordable === false;
-        if (player.renewal_offer.affordable === false) resign.title = "Not enough cap space. Release unsigned rookies or expired contracts first; signed salaries remain guaranteed.";
+        resign.textContent = "Re-sign"; resign.disabled = tradeBusy || cutBusy || advancingSeason;
+        if (player.renewal_offer.affordable === false) resign.title = "Review the offer and projected cap overage. Clear cap space before confirming.";
         resign.setAttribute("aria-label", `Re-sign ${player.name}, ${player.position}`);
         cell.append(resign, document.createTextNode(" "));
       }
@@ -2474,22 +2474,37 @@ function openCuts() {
   renderCuts();
 }
 manageRoster.addEventListener("click", openCuts);
-function releaseBlocked() {
-  return pendingRosterKind === "drop" && rosterProfile?.roster.find(p => p.id === pendingCut)?.release_preview?.allowed === false;
+function rosterActionBlocked() {
+  const player = rosterProfile?.roster.find(p => p.id === pendingCut);
+  return pendingRosterKind === "resign" ? player?.renewal_offer?.affordable === false : player?.release_preview?.allowed === false;
 }
-function showReleaseImpact(player) {
+function showRosterActionImpact(player) {
   const area = document.querySelector("#cut-impact");
   area.replaceChildren();
   const preview = pendingRosterKind === "drop" ? player.release_preview : null;
-  area.hidden = !preview;
-  document.querySelector("#cut-confirm").disabled = preview?.allowed === false;
-  if (!preview) return;
+  area.hidden = pendingRosterKind === "resign" ? !rosterProfile?.payroll : !preview;
+  document.querySelector("#cut-confirm").disabled = rosterActionBlocked();
   const money = value => `${value < 0 ? "−" : ""}$${(Math.abs(value)/1e6).toFixed(2)}M`;
   const line = (label, value) => {
     const p = document.createElement("p");
     const strong = document.createElement("strong"); strong.textContent = label;
     p.append(strong, document.createTextNode(` ${value}`)); area.append(p);
   };
+  if (pendingRosterKind === "resign") {
+    const pay = rosterProfile?.payroll;
+    if (!pay) return;
+    // The current payroll includes this player's expired-contract hold.
+    const projected = pay.total - player.contract.annual_salary + player.renewal_offer.annual_salary;
+    const over = Math.max(0, projected - pay.cap);
+    line("Current payroll:", money(pay.total));
+    if (pay.total > pay.cap) line("Currently over cap:", money(pay.total - pay.cap));
+    line("Payroll after re-signing:", money(projected));
+    line("Salary cap:", money(pay.cap));
+    line(over ? "Over cap after re-signing:" : "Cap space after re-signing:", money(over || pay.cap - projected));
+    if (rosterActionBlocked()) line("Re-signing unavailable:", "Clear cap space before confirming. Signed salaries remain guaranteed.");
+    return;
+  }
+  if (!preview) return;
   line(`Season ${preview.season} new dead cap:`, money(preview.new_dead_cap));
   if (preview.cap_space_change !== undefined) {
     line(preview.cap_space_change >= 0 ? "Cap space freed:" : "Cap space change:", money(preview.cap_space_change));
@@ -2534,17 +2549,17 @@ document.querySelector("#roster-groups").addEventListener("click", event => {
   if (pendingRosterKind === "resign" && !player.renewal_offer) { pendingCut = null; return; }
   document.querySelector("#cut-confirm").textContent = pendingRosterKind === "resign" ? "Confirm re-sign" : "Confirm drop";
   document.querySelector("#cut-confirm-text").textContent = pendingRosterKind === "resign" ? `Re-sign ${player.name} (${player.position}) for $${(player.renewal_offer.annual_salary/1000000).toFixed(2)}M/year, ${player.renewal_offer.years} years, starting Season ${player.renewal_offer.starts_season}? Final payroll must fit the cap before continuing.` : `Drop ${player.name} (${player.position})? This removes the player from your next-season roster.${!player.release_preview && activeLineupRules >= 23 && player.contract?.years_remaining > 0 ? ` Remaining signed salary stays on the cap through Season ${player.contract.expires_after_season}.` : ""}${!player.release_preview && (capOverage() || activeLineupRules >= 23) ? ` Any vacancy receives a weak ${replacementPay()} replacement to preserve minimums.` : ""}`;
-  showReleaseImpact(player);
+  showRosterActionImpact(player);
   cutConfirmation.hidden = false;
   renderCuts();
   // Confirmation is now beside the chosen player, not above the whole roster.
-  document.querySelector(releaseBlocked() ? "#cut-cancel" : "#cut-confirm").focus({ preventScroll: true });
+  document.querySelector(rosterActionBlocked() ? "#cut-cancel" : "#cut-confirm").focus({ preventScroll: true });
   const bottom = cutConfirmation.getBoundingClientRect().bottom;
   if (bottom > window.innerHeight) window.scrollTo({ left: window.scrollX,
     top: window.scrollY + bottom - window.innerHeight + 16, behavior: "instant" });
 });
 document.querySelector("#cut-confirm").addEventListener("click", async () => {
-  if ((activeLineupRules<31 && activeFreeAgency !== null) || releaseBlocked() || careerEnded() || !pendingCut || cutBusy || advancingSeason || !draftState?.complete || (activeLineupRules >= 18 && activeLineupRules<31 && !activeTrainingCamp) || (pendingRosterKind === "drop" && rosterProfile.roster.length <= rosterMinimum() && !capOverage() && activeLineupRules < 23)) return;
+  if ((activeLineupRules<31 && activeFreeAgency !== null) || rosterActionBlocked() || careerEnded() || !pendingCut || cutBusy || advancingSeason || !draftState?.complete || (activeLineupRules >= 18 && activeLineupRules<31 && !activeTrainingCamp) || (pendingRosterKind === "drop" && rosterProfile.roster.length <= rosterMinimum() && !capOverage() && activeLineupRules < 23)) return;
   cutBusy = true;
   document.querySelector("#cut-confirm").disabled = true;
   document.querySelector("#cut-cancel").disabled = true;
@@ -2582,7 +2597,7 @@ document.querySelector("#cut-confirm").addEventListener("click", async () => {
     document.querySelector("#cut-error").hidden = false;
   } finally {
     cutBusy = false;
-    document.querySelector("#cut-confirm").disabled = releaseBlocked();
+    document.querySelector("#cut-confirm").disabled = rosterActionBlocked();
     document.querySelector("#cut-cancel").disabled = false;
     document.querySelector("#change-team-button").disabled = false;
     updateOffseasonActions();
