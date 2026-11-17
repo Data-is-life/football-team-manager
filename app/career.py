@@ -154,6 +154,67 @@ def prepare_free_agency(team_id, season, run_seed, choices, dropped, prior=(),
 
 
 @lru_cache(maxsize=32)
+def _replay_step(team_id, run_seed, step, lineup_rules, development_start,
+                 rebuild_team, context, previous):
+    """Reuse immutable completed offseasons when a saved career grows."""
+    season, prior, choices, dropped = step[:4]
+    rules = step[4] if len(step) > 4 else 1
+    context = lineup_context(context, run_seed, rules, season, development_start, rebuild_team)
+    if lineup_rules >= 15:
+        from .player_contracts import ensure_contracts
+        context = ensure_contracts(context,season)
+    context = with_starters(context, team_id, run_seed, step[5] if len(step) > 5 else ())
+    if season <= previous:
+        raise ValueError('Career offseason years must be in increasing order')
+    if rules>=42:
+        if dropped or (len(step)>7 and step[7]) or (len(step)>10 and step[10]):
+            raise ValueError('Simplified offseasons cannot contain legacy camp actions')
+        from .simple_offseason import run as simple_run
+        data,context=simple_run(team_id,season,run_seed,choices,prior,context,step[6],
+            step[12] if len(step)>12 else (),step[8],step[9],step[11] if len(step)>11 else ())
+        if not data['can_continue']: raise ValueError('Finish own-player signing, free agency and trading before the next season')
+        return context
+    if rules >= 31:
+        if dropped or (len(step)>7 and step[7]):
+            raise ValueError('New offseasons require ordered market and camp logs')
+        from .preseason import run
+        data, context = run(team_id,season,run_seed,choices,prior,context,
+            step[6] if len(step)>6 else 6,step[8] if len(step)>8 else (),
+            step[9] if len(step)>9 else (),True,step[10] if len(step)>10 else (),step[11] if len(step)>11 else ())
+        if not data['can_continue']:
+            raise ValueError('Complete training camp and resolve final roster and payroll before next season')
+        from .player_contracts import sign_retained_rookies
+        context=sign_retained_rookies(context,season+1)
+        return context
+    if rules >= 29:
+        from .free_agency import free_agency_order
+        market_order = free_agency_order(season,run_seed,prior,context)
+    board, context = offseason(team_id, season, run_seed, choices, dropped, prior, context, step[6] if len(step) > 6 else 4, step[7] if len(step)>7 else ())
+    if rules >= 29:
+        from .free_agency import free_agency
+        market, context = free_agency(team_id, season, request_seed=run_seed,
+            context=context, order=market_order,
+            actions=step[8] if len(step)>8 else ())
+        if not market['complete']:
+            raise ValueError('Finish free agency before starting the next season')
+    if lineup_rules >= 15:
+        from .player_contracts import attach_historical_draft_contracts
+        context = attach_historical_draft_contracts(context,board)
+    if not cap_ready(dict(context)[team_id],context,season+1,team_id):
+        raise ValueError(f'Clear ${ (cap_payroll(dict(context)[team_id],context,season+1,team_id)-salary_cap(season+1,context.lineup_rules, run_seed=run_seed))/1_000_000:.2f}M in cap space before starting the next season')
+    if len(dict(context)[team_id]) > roster_limit(context):
+        raise ValueError(f'Finalize each past roster at {roster_limit(context)} players or fewer')
+    if len(dict(context)[team_id]) < roster_minimum(context):
+        raise ValueError(f'Finalize each past roster with at least {roster_minimum(context)} players')
+    if pending_renewals(dict(context)[team_id],context):
+        raise ValueError('Re-sign or release all players with expired contracts before the next season')
+    if rules >= 19:
+        from .player_contracts import sign_retained_rookies
+        context = sign_retained_rookies(context,season+1)
+    return context
+
+
+@lru_cache(maxsize=32)
 def replay_career(team_id: str, run_seed: int, steps: tuple, lineup_rules: int = 1, season: int = 1, development_start: int = 1, rebuild_team: str | None = None) -> tuple:
     target_season = season
     if lineup_rules >= 15 and any((step[4] if len(step)>4 else 1) < 11 for step in steps):
@@ -161,61 +222,7 @@ def replay_career(team_id: str, run_seed: int, steps: tuple, lineup_rules: int =
     context = ()
     previous = 0
     for step in steps:
-        season, prior, choices, dropped = step[:4]
-        rules = step[4] if len(step) > 4 else 1
-        context = lineup_context(context, run_seed, rules, season, development_start, rebuild_team)
-        if lineup_rules >= 15:
-            from .player_contracts import ensure_contracts
-            context = ensure_contracts(context,season)
-        context = with_starters(context, team_id, run_seed, step[5] if len(step) > 5 else ())
-        if season <= previous:
-            raise ValueError('Career offseason years must be in increasing order')
-        if rules>=42:
-            if dropped or (len(step)>7 and step[7]) or (len(step)>10 and step[10]):
-                raise ValueError('Simplified offseasons cannot contain legacy camp actions')
-            from .simple_offseason import run as simple_run
-            data,context=simple_run(team_id,season,run_seed,choices,prior,context,step[6],
-                step[12] if len(step)>12 else (),step[8],step[9],step[11] if len(step)>11 else ())
-            if not data['can_continue']: raise ValueError('Finish own-player signing, free agency and trading before the next season')
-            previous=season
-            continue
-        if rules >= 31:
-            if dropped or (len(step)>7 and step[7]):
-                raise ValueError('New offseasons require ordered market and camp logs')
-            from .preseason import run
-            data, context = run(team_id,season,run_seed,choices,prior,context,
-                step[6] if len(step)>6 else 6,step[8] if len(step)>8 else (),
-                step[9] if len(step)>9 else (),True,step[10] if len(step)>10 else (),step[11] if len(step)>11 else ())
-            if not data['can_continue']:
-                raise ValueError('Complete training camp and resolve final roster and payroll before next season')
-            from .player_contracts import sign_retained_rookies
-            context=sign_retained_rookies(context,season+1)
-            previous=season
-            continue
-        if rules >= 29:
-            from .free_agency import free_agency_order
-            market_order = free_agency_order(season,run_seed,prior,context)
-        board, context = offseason(team_id, season, run_seed, choices, dropped, prior, context, step[6] if len(step) > 6 else 4, step[7] if len(step)>7 else ())
-        if rules >= 29:
-            from .free_agency import free_agency
-            market, context = free_agency(team_id, season, request_seed=run_seed,
-                context=context, order=market_order,
-                actions=step[8] if len(step)>8 else ())
-            if not market['complete']:
-                raise ValueError('Finish free agency before starting the next season')
-        if lineup_rules >= 15:
-            from .player_contracts import attach_historical_draft_contracts
-            context = attach_historical_draft_contracts(context,board)
-        if not cap_ready(dict(context)[team_id],context,season+1,team_id):
-            raise ValueError(f'Clear ${ (cap_payroll(dict(context)[team_id],context,season+1,team_id)-salary_cap(season+1,context.lineup_rules, run_seed=run_seed))/1_000_000:.2f}M in cap space before starting the next season')
-        if len(dict(context)[team_id]) > roster_limit(context):
-            raise ValueError(f'Finalize each past roster at {roster_limit(context)} players or fewer')
-        if len(dict(context)[team_id]) < roster_minimum(context):
-            raise ValueError(f'Finalize each past roster with at least {roster_minimum(context)} players')
-        if pending_renewals(dict(context)[team_id],context):
-            raise ValueError('Re-sign or release all players with expired contracts before the next season')
-        if rules >= 19:
-            from .player_contracts import sign_retained_rookies
-            context = sign_retained_rookies(context,season+1)
-        previous = season
+        context = _replay_step(team_id, run_seed, step, lineup_rules, development_start,
+                               rebuild_team, context, previous)
+        previous = step[0]
     return lineup_context(context, run_seed, lineup_rules, target_season, development_start, rebuild_team)
