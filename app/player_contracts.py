@@ -242,8 +242,8 @@ def salary_demand_rating(player, potential):
 def contract_potential(player, context, development_states=None):
     if context is None:
         raise ValueError('Salary demands require the player development context')
-    from .development import rating_view
-    return rating_view(player,context,development_states)['potential_rating']
+    from .development import player_state
+    return player_state(player,context,development_states).potential
 
 
 def veteran_contract(player, season, rules=15, potential=None, *, run_seed=0, context=None):

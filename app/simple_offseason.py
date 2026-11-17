@@ -24,22 +24,34 @@ def stamp_pool(context, year):
         free_agent_entries=tuple(sorted((p.id,entries.get(p.id,year)) for p in agents)))
 
 
+def _sign_automatic_offers(context, managed, *, emergency_only=False):
+    """Normalize provisional CPU/emergency deals only when something changes."""
+    changed = False
+    rosters = []
+    for owner, players in context:
+        updated = []
+        for player in players:
+            if player.rookie_offer and (player.id.startswith('replacement-')
+                                      or (not emergency_only and owner != managed)):
+                player = replace(player,contract=player.rookie_offer,rookie_offer=None)
+                changed = True
+            updated.append(player)
+        rosters.append((owner,tuple(updated)))
+    return replace_lineup_rosters(context,tuple(rosters)) if changed else context
+
+
 def run(team,season,seed,choices,prior,root,rounds,own_actions=(),market_actions=(),review_actions=(),trade_actions=()):
     from .free_agency import free_agency, free_agency_order, team_market_premiums
     root=expire_pool(root,season+1)
     raw,context=prepare(team,season,seed,choices,prior,root,rounds)
     board=json.loads(raw)
     # CPU own-player decisions already happened in prepare; commit their retained picks.
-    rosters=tuple((o,tuple(replace(p,contract=p.rookie_offer,rookie_offer=None)
-        if p.rookie_offer and (o!=team or p.id.startswith('replacement-')) else p for p in ps)) for o,ps in context)
-    context=replace_lineup_rosters(context,rosters)
+    context=_sign_automatic_offers(context,team)
     own_complete=False
     for kind,identity in own_actions:
         if own_complete: raise ValueError('Own-player signing is already finished')
         # Emergency minimum-roster placeholders are automatic, not draft decisions.
-        updated=tuple((o,tuple(replace(p,contract=p.rookie_offer,rookie_offer=None)
-            if p.rookie_offer and p.id.startswith('replacement-') else p for p in ps)) for o,ps in context)
-        context=replace_lineup_rosters(context,updated)
+        context=_sign_automatic_offers(context,team,emergency_only=True)
         players=dict(context)[team]
         if kind=='finish':
             if identity: raise ValueError('Finish signing cannot contain a player')
@@ -59,8 +71,7 @@ def run(team,season,seed,choices,prior,root,rounds,own_actions=(),market_actions
             context=replace_lineup_rosters(context,tuple((o,updated if o==team else ps) for o,ps in context))
         else: raise ValueError('Unknown own-player signing action')
     # Do not expose automatically supplied emergency contracts as rookie decisions.
-    context=replace_lineup_rosters(context,tuple((o,tuple(replace(p,contract=p.rookie_offer,rookie_offer=None)
-        if p.rookie_offer and p.id.startswith('replacement-') else p for p in ps)) for o,ps in context))
+    context=_sign_automatic_offers(context,team,emergency_only=True)
     context=stamp_pool(context,season+1)
     market=None;trading=None;development=[]
     if not own_complete:

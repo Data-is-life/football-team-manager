@@ -4,6 +4,7 @@ import hashlib
 from itertools import chain
 
 from .simulation import roster_for, ranked_players
+from .rules import DEVELOPMENT_RULES
 from .league import TEAMS
 
 # Development through, decline from, steep decline from, ordinary loss, steep loss.
@@ -87,11 +88,16 @@ def with_rosters(context, rosters):
     return replace(context, rosters=tuple(rosters), development=tuple(sorted(values.items())))
 
 
-def rating_view(player, context, development_states=None):
-    """Read one state; callers rendering a roster may reuse a single lookup."""
+def player_state(player, context, development_states=None):
+    """Read the same potential baseline for displays and contract calculations."""
     if development_states is None:
         development_states = dict(context.development)
-    state = development_states.get(player.id) or initial_state(player, context.run_seed, context.lineup_rules >= 9)
+    return development_states.get(player.id) or initial_state(player, context.run_seed, context.lineup_rules >= 9)
+
+
+def rating_view(player, context, development_states=None):
+    """Read one state; callers rendering a roster may reuse a single lookup."""
+    state = player_state(player,context,development_states)
     result = {'current_rating': player.rating, 'potential_rating': state.potential, 'rating_change': state.change}
     if context.lineup_rules >= 7:
         result['potential_change'] = state.potential_change
@@ -205,7 +211,7 @@ def advance_context(context, run_seed, season, development_start=1, lineup_rules
     if rebuild_team is None and current_rules >= 3:
         rebuild_team = context.rebuild_team
     lineup_rules = lineup_rules if lineup_rules is not None else max(3, current_rules)
-    if lineup_rules not in (3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44) or current_rules > lineup_rules:
+    if lineup_rules not in DEVELOPMENT_RULES or current_rules > lineup_rules:
         raise ValueError('Invalid development rules')
     if not 1 <= development_start <= season <= 999:
         raise ValueError('Invalid development season')
