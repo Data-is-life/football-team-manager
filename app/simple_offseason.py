@@ -81,7 +81,7 @@ def run(team,season,seed,choices,prior,root,rounds,own_actions=(),market_actions
             trading,context=replay(context,team,trade_actions)
             if trading['complete']:
                 # The only annual development pass. Previewing/signing/trading never ages anyone.
-                context=advance_context(replace(context,season=season),seed,season+1,lineup_rules=42)
+                context=advance_context(replace(context,season=season),seed,season+1,lineup_rules=context.lineup_rules)
                 from .draft import player_payload
                 development=[player_payload(p,context) for p in dict(context)[team]]
     context=stamp_pool(context,season+1)
