@@ -205,7 +205,7 @@ def advance_context(context, run_seed, season, development_start=1, lineup_rules
     if rebuild_team is None and current_rules >= 3:
         rebuild_team = context.rebuild_team
     lineup_rules = lineup_rules if lineup_rules is not None else max(3, current_rules)
-    if lineup_rules not in (3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43) or current_rules > lineup_rules:
+    if lineup_rules not in (3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44) or current_rules > lineup_rules:
         raise ValueError('Invalid development rules')
     if not 1 <= development_start <= season <= 999:
         raise ValueError('Invalid development season')
@@ -233,6 +233,8 @@ def advance_context(context, run_seed, season, development_start=1, lineup_rules
         raise ValueError('Draft age cap requires a new career')
     if lineup_rules >= 41 and current_rules < 41 and context:
         raise ValueError('Trading requires a new career')
+    if lineup_rules >= 44 and current_rules < 44 and context:
+        raise ValueError('CPU decision rules require a new career')
     if lineup_rules >= 43 and current_rules < 43 and context:
         raise ValueError('Start a new career to use the draft current ceiling')
     if lineup_rules >= 42 and current_rules < 42 and context:

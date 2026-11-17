@@ -3,6 +3,7 @@ from dataclasses import asdict, replace
 from functools import lru_cache
 import random
 
+from . import cpu_identity
 from .attributes import generate_attributes
 from .league import TEAMS, TEAM_BY_ID
 from .names import FIRST_NAMES, LAST_NAMES
@@ -88,7 +89,7 @@ def draft_value(player):
     return player.rating + DRAFT_POSITION_BONUS[player.position]
 
 
-def need_aware_pick(available, current, additions, context, *, prospect_ratings=None):
+def need_aware_pick(available, current, additions, context, *, prospect_ratings=None, owner=None):
     from .simulation import roster_rules
     groups = {position:[] for position in ROSTER_RULES}
     for player in current:
@@ -103,6 +104,7 @@ def need_aware_pick(available, current, additions, context, *, prospect_ratings=
     if shortages:
         available = shortages
     states = dict(context.development) if prospect_ratings is None else None
+    policy = cpu_identity.for_team(context,owner,context.season+1)
     def key(player):
         quality, weakest, slots = strength[player.position]
         gain = max(0, player.rating-weakest)/slots
@@ -112,14 +114,16 @@ def need_aware_pick(available, current, additions, context, *, prospect_ratings=
         # turn an excellent QB1 into an early-round need. Recompute after picks.
         gain_weight = .25 if player.position == 'K' else 1.5
         score = draft_value(player) - .6*quality + gain_weight*gain - 12*additions.get(player.position,0)
+        if policy is not None:
+            score += cpu_identity.draft_adjustment(policy,player,potential,context.run_seed,owner,context.season+1)
         return score, (player.rating+potential)/2, player.rating, player.id
     return max(available,key=key)
 
 
-def cpu_pick(available, current, additions, retirement_rules=False, *, context=None, prospect_ratings=None):
+def cpu_pick(available, current, additions, retirement_rules=False, *, context=None, prospect_ratings=None, owner=None):
     """Shared quality/need/repeat-position policy for CPU and user auto-picks."""
     if context is not None and context.lineup_rules >= 30:
-        return need_aware_pick(available,current,additions,context,prospect_ratings=prospect_ratings)
+        return need_aware_pick(available,current,additions,context,prospect_ratings=prospect_ratings,owner=owner)
     counts = dict.fromkeys(ROSTER_RULES, 0)
     totals = dict.fromkeys(ROSTER_RULES, 0)
     for player in current:
@@ -195,7 +199,8 @@ def build_draft(team_id: str, season: int, run_seed: int, choices: tuple[str, ..
             if owner == team_id and not auto_pick:
                 break
             if getattr(roster_context,'lineup_rules',1) >= 30:
-                prospect = cpu_pick(available.values(),rosters[owner],additions[owner],retirement_rules,context=roster_context,prospect_ratings=prospect_ratings)
+                policy_owner = {'owner':owner if owner != team_id else None} if roster_context.lineup_rules >= 44 else {}
+                prospect = cpu_pick(available.values(),rosters[owner],additions[owner],retirement_rules,context=roster_context,prospect_ratings=prospect_ratings,**policy_owner)
             else:
                 prospect = cpu_pick(available.values(),rosters[owner],additions[owner],retirement_rules)
             if owner == team_id:

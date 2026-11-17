@@ -1,4 +1,5 @@
 """Versioned, deterministic user-first free agency, replayed from saved turns."""
+from . import cpu_identity
 from collections import Counter
 from dataclasses import asdict, replace
 from decimal import Decimal, ROUND_HALF_UP
@@ -152,6 +153,7 @@ def free_agency(team_id, season, request_seed, context, order, actions=(), *, pr
             weakest = {}
             for player in players:
                 weakest[player.position] = min(weakest.get(player.position,player.rating),player.rating)
+            policy = cpu_identity.for_team(context,owner,context.season)
             candidates = []
             for player in pool.values():
                 target, floor = owner_rules[owner][player.position]
@@ -165,6 +167,8 @@ def free_agency(team_id, season, request_seed, context, order, actions=(), *, pr
                     continue
                 benefit = (100 if shortage else max(0,player.rating-baseline)) + .1*max(0,potential_for(player)-player.rating)
                 score = CPU_GROUP_IMPORTANCE[player.position]*benefit/max(1,deal.annual_salary/1_000_000)**.3
+                if policy is not None:
+                    score *= cpu_identity.market_factor(policy,player,potential_for(player),deal.annual_salary,context.run_seed,owner,context.season)
                 candidates.append((score,player.rating,player.id))
             if candidates:
                 _,_,identity = max(candidates)
