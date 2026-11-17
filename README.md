@@ -38,6 +38,7 @@ Open <http://127.0.0.1:8000>.
 | Read | For |
 | --- | --- |
 | [Quick start](QUICKSTART.md) | Playing your first season and offseason |
+| [Offseason rules](docs/offseason.md) | Signing, fixed-price free agency, trades, and development |
 | [Development](docs/development.md) | Setup, tests, deployment, and project layout |
 | [Rules and version history](docs/rules-reference.md) | Formulas, detailed mechanics, and older-save compatibility |
 | [Performance](docs/performance.md) · [Test timings](docs/test-performance.md) · [Career benchmarks](benchmarks/README.md) | Measurements and reproducible checks |

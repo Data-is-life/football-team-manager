@@ -22,19 +22,21 @@ simulates the action and shows the final scores and player stats.
 
 1. **Draft six players.** Compare current and potential ratings with your roster
    needs. New prospects enter at ages 21–23.
-2. **Open free agency.** Sign players and renew or release your own expiring
-   contracts before development. You act first in each wave, then the CPU teams.
-   Passing can lower future asking prices, but another team can sign your target.
-3. **Finish the market and review payroll.** Keep 31–38 players, satisfy every
-   position minimum, and stay between the 60% payroll floor and the salary cap.
-   Signings can temporarily take you above 38 during the market. Use
-   **Meet payroll minimum** if needed before camp, and review its proposed raise.
-4. **Start training camp.** Players develop or decline once. Make any final cuts
-   while preserving the roster and payroll limits.
-5. **Review Trades.** Preview 1-for-1 offers to see the CPU decision and cap impact,
-   then confirm any accepted offers. Receiving teams assume the full remaining
-   guaranteed contract. Current-year rookies and new free-agent signings cannot
-   be traded. Choose **Finish trading and start season** when ready.
+2. **Sign your own players.** Renew or release expiring veterans, and sign or
+   release each drafted rookie. Active contracts continue automatically. Resolve
+   cap issues before opening the market.
+3. **Use free agency.** Sign at fixed asking prices or end the market. There are
+   no waves, passes, or automatic discounts. CPU teams also compete for players.
+   The pool contains current-class UDFAs, players teams let go, and unsigned
+   players returning for their one allowed carryover season.
+4. **Review payroll and Trades.** Keep 31–38 players, satisfy position minimums,
+   and fit the 60% payroll floor and salary cap. Use **Meet payroll minimum** if
+   needed. Preview 1-for-1 trades and confirm accepted offers. Receiving teams
+   assume the full remaining guarantee; current-year rookies and new free-agent
+   signings cannot be traded.
+5. **Start the season.** Choose **Finish trading and start season**. Aging and
+   development run automatically once, with no training-camp step. Rookie outcomes
+   are 25% boom, 25% bust, and 50% regular development.
 
 Contracts are fully guaranteed: releasing a signed player leaves the remaining
 guarantee as dead cap. Check the release confirmation before committing.

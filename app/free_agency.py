@@ -59,7 +59,7 @@ def wave_contract(normal, season, rules, wave, *, premium_basis_points=0, run_se
     premium = premium_basis_points if rules >= 34 else 0
     if not 0 <= premium <= 2000:
         raise ValueError('Invalid destination premium')
-    amount = Decimal(normal.annual_salary) * wave_percent(wave) / 100 * (10_000 + premium) / 10_000
+    amount = Decimal(normal.annual_salary) * (100 if rules >= 42 else wave_percent(wave)) / 100 * (10_000 + premium) / 10_000
     rounded = int((amount / 10_000).quantize(Decimal('1'), rounding=ROUND_HALF_UP))*10_000
     return replace(normal, annual_salary=max(minimum_salary(season,rules, run_seed=run_seed),rounded),
                    category='free_agent')
@@ -67,6 +67,7 @@ def wave_contract(normal, season, rules, wave, *, premium_basis_points=0, run_se
 
 def free_agency(team_id, season, request_seed, context, order, actions=(), *, premiums=None):
     pre_camp = context.lineup_rules >= 31
+    fixed = context.lineup_rules >= 42
     if context.lineup_rules < 29 or context.season != season+1 or context.run_seed != request_seed:
         raise ValueError('Invalid free agency context')
     if set(order) != set(TEAM_BY_ID) or len(order) != len(TEAM_BY_ID):
@@ -140,7 +141,7 @@ def free_agency(team_id, season, request_seed, context, order, actions=(), *, pr
         budgets[owner] += deal.annual_salary
         rosters[owner].append(replace(player,contract=deal,rookie_offer=None))
         del pool[identity]
-        transactions.append({'wave':wave,'team':asdict(TEAM_BY_ID[owner]),
+        transactions.append({**({} if fixed else {'wave':wave}),'team':asdict(TEAM_BY_ID[owner]),
                              'player_id':identity,'name':player.name,'annual_salary':deal.annual_salary})
 
     def cpu_turns():
@@ -177,6 +178,8 @@ def free_agency(team_id, season, request_seed, context, order, actions=(), *, pr
     for kind,identity in actions:
         if complete:
             raise ValueError('Free agency has already finished')
+        if fixed and kind not in ('sign','finish'):
+            raise ValueError('Free agency only allows signing a player or ending the market')
         if pre_camp and kind in ('resign','drop'):
             if not identity: raise ValueError('Roster decisions require a player ID')
             if kind == 'resign':
@@ -204,15 +207,22 @@ def free_agency(team_id, season, request_seed, context, order, actions=(), *, pr
         cpu_turns()
         if kind == 'finish':
             # Resolve the league without returning control to the user.
-            for remaining_wave in range(wave+1,MAX_WAVES+1):
-                wave = remaining_wave
-                cpu_turns()
+            if fixed:
+                # Resolve CPU needs at the same fixed prices, stopping when no team signs.
+                for _ in range(len(pool)):
+                    before=len(pool)
+                    cpu_turns()
+                    if len(pool)==before: break
+            else:
+                for remaining_wave in range(wave+1,MAX_WAVES+1):
+                    wave = remaining_wave
+                    cpu_turns()
             complete = True
-        elif wave == MAX_WAVES:
+        elif not fixed and wave == MAX_WAVES:
             if pre_camp and pending_renewals(rosters[team_id],context):
                 raise ValueError('Resolve your expired contracts before the final wave ends')
             complete = True
-        else:
+        elif not fixed:
             wave += 1
     if complete:
         excluded = set(pool) | {p.id for players in rosters.values() for p in players}
@@ -235,7 +245,7 @@ def free_agency(team_id, season, request_seed, context, order, actions=(), *, pr
     premium_payload = {'destination_premium': {
         'strength_basis_points': premiums[team_id][0], 'record_basis_points': premiums[team_id][1],
         'basis_points': sum(premiums[team_id])}} if context.lineup_rules >= 34 else {}
-    return {**premium_payload, 'wave':wave,'percent':wave_percent(wave),'complete':complete,
+    return {**premium_payload, **({'fixed_prices':True} if fixed else {'wave':wave,'percent':wave_percent(wave)}),'complete':complete,
             'actions':[{'kind':kind,'player_id':identity} for kind,identity in actions],
             'order':[asdict(TEAM_BY_ID[owner]) for owner in order],
             'available':sorted(available,key=lambda p:(-p['current_rating'],p['id'])),
