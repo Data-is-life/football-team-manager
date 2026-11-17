@@ -1153,6 +1153,10 @@ New draft prospects enter at ages 21–23. A separate seeded age stream preserve
 
 ### Trading period (new careers, rules 41)
 
+Trading is temporarily paused in the interface. The rules below document legacy
+save replay; current gameplay proceeds from roster review directly to Start season.
+
+
 Offseason order is Draft → Free agency → Training camp → Trading period → Season starts. The Trades tab supports one signed player for one signed player. Preview shows a deterministic CPU decision, rejection reasons, both payroll changes and CPU value/overall change; confirming revalidates the offer. Finish trading starts the next season. Current draft-year rookies, players signed in that offseason’s free agency, unsigned/expired contracts and emergency replacements are ineligible. The receiving team assumes the entire unchanged remaining guaranteed contract; trading creates no dead cap. Both teams must satisfy cap, payroll floor and roster requirements, including CPU backup minimums.
 
 Every CPU uses the same initial valuation policy with its own roster fit. Talent value is `(max(0, current − 40)² + 20 × max(0, potential − current)) × age factor × position importance`. Age factor is `clamp(1 − (age − position decline age) × .06, .35, 1.10)`. Position importance matches offense weights (QB/OL 1.2, WR/RB .9, TE .8); defense uses 1 and K .25. Contract value multiplies talent by `clamp(1 + .25 × (normal annual demand − actual annual salary) / max(normal demand, minimum salary) × min(remaining years, 3), −.5, 1.5)`, using the existing frozen salary anchors.

@@ -29,12 +29,10 @@ simulates the action and shows the final scores and player stats.
    no waves, passes, or automatic discounts. CPU teams also compete for players.
    The pool contains current-class UDFAs, players teams let go, and unsigned
    players returning for their one allowed carryover season.
-4. **Review payroll and Trades.** Keep 31–38 players, satisfy position minimums,
+4. **Review your roster and payroll.** Keep 31–38 players, satisfy position minimums,
    and fit the 60% payroll floor and salary cap. Use **Meet payroll minimum** if
-   needed. Preview 1-for-1 trades and confirm accepted offers. Receiving teams
-   assume the full remaining guarantee; current-year rookies and new free-agent
-   signings cannot be traded.
-5. **Start the season.** Choose **Finish trading and start season**. Aging and
+   needed. Trading is temporarily paused.
+5. **Start the season.** Choose **Start season**. Aging and
    development run automatically once, with no training-camp step. Rookie outcomes
    are 25% boom, 25% bust, and 50% regular development.
 

@@ -12,7 +12,7 @@ contracts, and prepare your roster for the next season.
 
 - **30 teams**, six groups, a 17-game schedule, and 14 playoff places.
 - **Roster building** with current/potential ratings, development, retirement,
-  a six-round draft, free agency, trades, guaranteed contracts, and payroll limits.
+  a six-round draft, free agency, guaranteed contracts, and payroll limits.
 - **Franchise progress** with live standings, scouting, team rankings, player
   stats, GM records, and browser autosaves.
 
@@ -38,7 +38,7 @@ Open <http://127.0.0.1:8000>.
 | Read | For |
 | --- | --- |
 | [Quick start](QUICKSTART.md) | Playing your first season and offseason |
-| [Offseason rules](docs/offseason.md) | Signing, fixed-price free agency, trades, and development |
+| [Offseason rules](docs/offseason.md) | Signing, fixed-price free agency and development |
 | [Development](docs/development.md) | Setup, tests, deployment, and project layout |
 | [Rules and version history](docs/rules-reference.md) | Formulas, detailed mechanics, and older-save compatibility |
 | [Performance](docs/performance.md) · [Test timings](docs/test-performance.md) · [Career benchmarks](benchmarks/README.md) | Measurements and reproducible checks |

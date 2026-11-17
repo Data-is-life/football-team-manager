@@ -592,7 +592,7 @@ async function resumeProgress() {
     if (savedDraft) { draftSort = save.draftSort ?? (save.lineupRules >= 30 ? "value" : "current"); draftSortDirection = save.draftSortDirection ?? draftSortDefault(draftSort); document.querySelector("#draft-position").value = save.draftPosition ?? ""; applyDraft(savedDraft); }
     if (savedMarket) applyFreeAgency(savedMarket);
     if (freeAgencyState && !freeAgencyState.complete) activateView("free-agency");
-    if (tradingState && !tradingState.complete) activateView("trades");
+    if (tradingState) activateView("roster");
     else if(ownSigningState&&!ownSigningState.complete)activateView("roster");
     select.value = save.teamId;
     saveStatus.textContent = "Saved progress restored. Autosave is on in this browser.";
@@ -780,13 +780,12 @@ function renderHelp() {
     document.querySelector("#salary-curve-guide").textContent = "Veteran salaries interpolate between doubling tiers at 60, 70, 80, 90 and 100, with relative amounts 2, 4, 8, 16 and 32. A rating of 69 has weight 3.8; 71 has 4.4; 85 has 12. Amounts taper below 60 and minimum salaries still apply. Each position's leader sets the dollar scale using its cap share; wave pricing and team premiums apply afterward. Player ratings stop at 99; 100 is the curve endpoint.";
   }
   document.querySelector("#training-camp-guide").textContent=activeLineupRules>=31 ? "After the championship, draft first, then sign free agents and renew or release current players before development. Finish the market, resolve initial cuts and the hard 60% payroll minimum and salary cap, then start training camp. Development happens once; final cuts must preserve both financial limits before the season." : legacyCampGuide;
-  if(activeLineupRules>=41)document.querySelector("#training-camp-guide").textContent += " After camp and final cuts, use Trades for 1-for-1 offers. Finish trading to start the season. Current-year rookies, new free-agent signings and emergency replacements are ineligible. Contracts transfer unchanged; both teams must meet roster and payroll requirements.";
   if(activeLineupRules>=42){
     for(const id of ['salary-growth-guide','salary-demand-guide','salary-curve-guide','re-signing-guide']){
       const el=document.getElementById(id);el.textContent=el.textContent.replaceAll('before training camp','before the season').replaceAll('pre-camp market','own-player signing stage').replaceAll('pre-camp ratings','preseason ratings').replaceAll('market and camp','market').replaceAll('Wave pricing and destination premiums','Destination premiums').replaceAll('wave pricing and team premiums','team premiums').replaceAll('even while the roster is above 38','with an open roster spot');
     }
     document.querySelector('#rookie-contract-guide').textContent='Drafted rookies reserve their draft-slot salary. Sign or release each rookie during own-player signing before free agency. Signed contracts are fully guaranteed. Rookie outcomes are revealed when the season starts.';
-    document.querySelector('#training-camp-guide').textContent='Season ends → Draft → Sign your own players and drafted rookies → Free agency → Trade → Start season. Aging, development and rookie outcomes happen automatically once at the start of the new season. Rookie outcomes: 25% boom, 25% bust, 50% regular development. Free-agent prices are fixed. An unsigned player can return for one more season, then leaves the pool.';
+    document.querySelector('#training-camp-guide').textContent='Season ends → Draft → Sign your own players and drafted rookies → Free agency → Roster review → Start season. Aging, development and rookie outcomes happen automatically once at the start of the new season. Rookie outcomes: 25% boom, 25% bust, 50% regular development. Free-agent prices are fixed. An unsigned player can return for one more season, then leaves the pool.';
   }
   document.querySelector("#training-camp-guide").hidden = activeLineupRules < 18;
   document.querySelector("#rookie-contract-guide").hidden = activeLineupRules < 19;
@@ -829,7 +828,7 @@ function renderRankings(rows = teamRankings) {
 function activateView(id, { focus = false } = {}) {
   if (id === "draft" && !draftNavigationAvailable()) return;
   if (id === "free-agency" && (!freeAgencyState || freeAgencyState.complete)) return;
-  if (id === "trades" && (!tradingState || tradingState.complete)) return;
+  if (id === "trades") return; // Trading is temporarily paused in the interface.
   if (id === "help") renderHelp();
   for (const tab of viewTabs) {
     const selected = tab.id === `view-${id}`;
@@ -1994,12 +1993,12 @@ function updateOffseasonActions() {
     nextSeasonButton.disabled=freeAgencyBusy||campBusy||cutBusy||draftBusy||advancingSeason||!finished||!drafted
       || Boolean(freeAgencyState?.complete&&!rosterReady());
     nextSeasonButton.textContent=!ownSigningState?'Sign your own players':!ownSigningState.complete?'Finish own-player signing':
-      !freeAgencyState?.complete?'Open free agency':!tradingState?.complete?'Finish trading and start season':`Continue to Season ${activeSeason+1}`;
+      !freeAgencyState?.complete?'Open free agency':'Start season';
     return;
   }
   if (activeLineupRules>=31) {
     nextSeasonButton.disabled=freeAgencyBusy||campBusy||cutBusy||draftBusy||advancingSeason||!finished||!drafted||(activeTrainingCamp&&!rosterReady());
-    nextSeasonButton.textContent=activeLineupRules>=41&&activeTrainingCamp&&!tradingState?.complete?"Finish trading and start season":activeTrainingCamp?`Continue to Season ${activeSeason+1}`:"Open free agency";
+    nextSeasonButton.textContent=activeTrainingCamp?"Start season":"Open free agency";
     return;
   }
   nextSeasonButton.textContent = activeLineupRules >= 29 && drafted && !invalidRoster && !freeAgencyState?.complete ? "Open free agency" : !drafted ? "Finish rookie draft" : invalidRoster ? rosterCutStatus(rosterProfile.roster.length) : `Continue to Season ${activeSeason + 1}`;
@@ -2665,7 +2664,7 @@ campButton.addEventListener("click", async () => {
     saveProgress();
     activateView("roster", { focus: true });
     if (developmentRecap) developmentDialog.showModal();
-    if(tradingState&&!tradingState.complete) activateView("trades");
+    if(tradingState&&!tradingState.complete) activateView("roster");
   } catch (error) { showError(error.message); }
   finally {
     campBusy = false;
@@ -2681,7 +2680,7 @@ nextSeasonButton.addEventListener("click", async () => {
   if (activeLineupRules >= 29 && !freeAgencyState?.complete) { await loadFreeAgency(); return; }
   if (activeLineupRules>=31 && (!activeTrainingCamp || !rosterReady())) return;
   if (activeLineupRules>=41 && !tradingState?.complete) {
-    const done=await submitTrade('finish');if(!done)return;
+    const done=await finishLegacyTrading();if(!done)return;
   }
   advancingSeason = true;
   nextSeasonButton.disabled = true;
@@ -2832,7 +2831,7 @@ async function loadFreeAgency(kind=null, player_id='') {
     if (activeLineupRules>=31) {
       if (data.team?.id!==activeTeamId || data.run_seed!==activeRunSeed || data.season!==activeSeason || !data.free_agency) throw new Error("Free agency could not be loaded.");
       applyDraft(data); saveProgress();
-      if(data.free_agency.complete)activateView(activeLineupRules>=42?"trades":"roster",{focus:true});
+      if(data.free_agency.complete)activateView("roster",{focus:true});
       else if (enteringMarket) activateView("free-agency",{focus:true});
     } else { applyFreeAgency(data); saveProgress(); }
     if (activeLineupRules<31 && data.complete) { freeAgencyBusy = false; updateOffseasonActions(); nextSeasonButton.click(); }
@@ -2869,53 +2868,22 @@ async function loadOwnPlayers(kind=null){
 }
 document.querySelector('#own-signing-finish').addEventListener('click',()=>loadOwnPlayers('finish'));
 
-function tradeSelection() {
-  return {kind:'swap',other_team:document.querySelector('#trade-team').value,
-    give_id:document.querySelector('#trade-own').value,receive_id:document.querySelector('#trade-other').value};
-}
 function renderTrading() {
-  const available=activeLineupRules>=41&&activeTrainingCamp&&tradingState&&!tradingState.complete;
-  document.querySelector('#view-trades').hidden=!available;
-  if (!available) {
-    if(document.querySelector('#view-trades').getAttribute('aria-selected')==='true') activateView('roster');
-    return;
-  }
-  const options=(id,rows,label)=>{const el=document.querySelector(id),selected=el.value;el.replaceChildren(...rows.map(r=>{const o=document.createElement('option');o.value=r.id;o.textContent=label(r);return o;}));if(rows.some(r=>r.id===selected))el.value=selected;};
-  const label=p=>`${p.name} · ${p.position} · ${p.rating}/${p.potential} · age ${p.age} · ${faMoney(p.salary)}/year · ${p.years} years left`;
-  options('#trade-own',tradingState.own_players,label);
-  options('#trade-team',tradingState.teams,t=>t.city);
-  const other=tradingState.teams.find(t=>t.id===document.querySelector('#trade-team').value);
-  options('#trade-other',other?.players??[],label);
-  document.querySelector('#trade-preview').disabled=tradeBusy||!document.querySelector('#trade-own').value||!document.querySelector('#trade-other').value;
-  document.querySelector('#trade-confirm').hidden=!tradePreview?.accepted;
-  document.querySelector('#trade-confirm').disabled=tradeBusy;
-  document.querySelector('#trade-finish').disabled=tradeBusy||!rosterReady();
-  for(const id of ['trade-own','trade-team','trade-other']) document.querySelector('#'+id).disabled=tradeBusy;
-  document.querySelector('#trade-result').textContent=tradePreview ? tradePreview.reasons.join(' ') +
-    (tradePreview.payroll ? ` Your cap usage: ${faMoney(tradePreview.payroll[activeTeamId].before)} → ${faMoney(tradePreview.payroll[activeTeamId].after)}. Their cap usage: ${faMoney(tradePreview.payroll[tradeSelection().other_team].before)} → ${faMoney(tradePreview.payroll[tradeSelection().other_team].after)}. CPU overall change ${tradePreview.cpu_overall_change}. CPU value offered ${tradePreview.cpu_incoming_value}, requested ${tradePreview.cpu_outgoing_value}.` : '')
-    : 'Only eligible signed players are listed. Preview a proposed exchange to see the decision and cap impact.';
-  document.querySelector('#trade-log').replaceChildren(...tradingState.transactions.map(t=>{const li=document.createElement('li');li.textContent=`${t.team}: sent ${t.outgoing}; received ${t.incoming}.`;return li;}));
+  // Retain recorded trade state for legacy save replay; no trading stage is exposed.
+  document.querySelector('#view-trades').hidden=true;
+  document.querySelector('#panel-trades').hidden=true;
+  if(document.querySelector('#view-trades').getAttribute('aria-selected')==='true') activateView('roster');
 }
-async function submitTrade(kind) {
+async function finishLegacyTrading() {
+  // Close the saved trading stage without accepting any new offers.
   if(freeAgencyBusy||tradeBusy||campBusy||cutBusy||advancingSeason||!tradingState||tradingState.complete)return false;
-  const proposal=tradeSelection();
-  if(kind==='swap'&&!tradePreview?.accepted)return false;
   tradeBusy=true;campBusy=true;document.querySelector('#change-team-button').disabled=true;
-  document.querySelector('#trade-error').hidden=true;renderTrading();updateOffseasonActions();
+  renderTrading();updateOffseasonActions();
   try {
-    const extra={manual_picks:activeDraftChoices,training_camp:true};
-    if(kind==='preview')extra.trade_proposal=proposal;
-    else extra.trade_actions=[...activeTradeActions,kind==='finish'?{kind:'finish',other_team:'',give_id:'',receive_id:''}:proposal];
-    const data=await careerRequest('trades',extra);
-    if(data.team?.id!==activeTeamId||data.run_seed!==activeRunSeed||data.season!==activeSeason||!data.trading)throw new Error('The trade response could not be verified.');
-    if(kind==='preview') {if(typeof data.trade_preview?.accepted!=='boolean')throw new Error('The trade preview could not be verified.');tradePreview=data.trade_preview;}
-    else {applyDraft(data);saveProgress();}
-    return true;
-  } catch(error) {document.querySelector('#trade-error').textContent=error.message;document.querySelector('#trade-error').hidden=false;return false;}
+    const data=await careerRequest('trades',{manual_picks:activeDraftChoices,dropped:[],trade_actions:[...activeTradeActions,{kind:'finish',other_team:'',give_id:'',receive_id:''}]});
+    if(data.team?.id!==activeTeamId||data.run_seed!==activeRunSeed||data.season!==activeSeason||!data.trading?.complete)throw new Error('The season could not be started. Please try again.');
+    applyDraft(data);saveProgress();return true;
+  } catch(error) {showError(error.message);return false;}
   finally {tradeBusy=false;campBusy=false;document.querySelector('#change-team-button').disabled=false;renderTrading();updateOffseasonActions();renderCuts();}
 }
-document.querySelector('#trade-preview').addEventListener('click',()=>submitTrade('preview'));
-document.querySelector('#trade-confirm').addEventListener('click',()=>submitTrade('swap'));
-document.querySelector('#trade-finish').addEventListener('click',()=>nextSeasonButton.click());
-for(const id of ['trade-own','trade-team','trade-other'])document.querySelector('#'+id).addEventListener('change',()=>{tradePreview=null;renderTrading();});
 loadTeams();
