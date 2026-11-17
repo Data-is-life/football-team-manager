@@ -1,4 +1,5 @@
 """Fixed signed contracts and versioned annual salary/cap schedules."""
+from . import cpu_identity
 from dataclasses import asdict, dataclass, replace
 from decimal import Decimal, ROUND_HALF_UP
 from functools import lru_cache
@@ -592,8 +593,9 @@ CPU_GROUP_IMPORTANCE = {
 }
 
 
-def cpu_contract_priorities(players, context, year):
+def cpu_contract_priorities(players, context, year, *, owner=None):
     """Deterministic marginal roster value per salary for CPU retention."""
+    policy = cpu_identity.for_team(context,owner,year)
     development_states = dict(context.development)
     by_position = {}
     for p in players:
@@ -615,6 +617,8 @@ def cpu_contract_priorities(players, context, year):
             # backups routinely outrank indispensable starters.
             cost = max(1, salary/1_000_000)**.30
             priorities[player.id] = CPU_GROUP_IMPORTANCE[position]*slot*ability/cost
+            if policy is not None:
+                priorities[player.id] *= cpu_identity.retention_factor(policy,player,potential,context.run_seed,owner,year)
     return priorities
 
 
@@ -626,7 +630,7 @@ def smart_cpu_roster_cuts(players, context, year, *, priorities=None, owner=None
     remaining = list(players)
     minimums = {position: minimum for position, (_, minimum) in roster_rules(context,owner).items()}
     if priorities is None:
-        priorities = cpu_contract_priorities(remaining, context, year)
+        priorities = cpu_contract_priorities(remaining, context, year, owner=owner)
     # New offseasons leave three optional roster spots for the shared market.
     target = min(35, roster_limit(context)) if context.lineup_rules >= 29 else roster_limit(context)
     while len(remaining) > target:
@@ -649,7 +653,7 @@ def smart_cpu_offseason(players, owner, season, seed, context):
     """Prioritize valuable expiring players without breaking cap guarantees."""
     year = season+1
     original = tuple(players)
-    priorities = cpu_contract_priorities(original,context,year)
+    priorities = cpu_contract_priorities(original,context,year,owner=owner)
     remaining = smart_cpu_roster_cuts(players,context,year,priorities=priorities,owner=owner)
     retained_ids = {player.id for player in remaining}
     excluded = [player.id for player in original if player.id not in retained_ids]

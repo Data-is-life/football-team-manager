@@ -130,7 +130,7 @@ def cpu_review(context, team):
     for owner,original in tuple(context):
         if owner==team: continue
         players=list(original)
-        priorities=cpu_contract_priorities(players,context,context.season)
+        priorities=cpu_contract_priorities(players,context,context.season,owner=owner)
         while len(players)>roster_limit(context):
             counts=Counter(p.position for p in players)
             eligible=[p for p in players if counts[p.position]>roster_rules(context,owner)[p.position][1]]
