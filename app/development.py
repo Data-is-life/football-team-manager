@@ -66,6 +66,11 @@ class SalaryDevelopmentContext(DevelopmentContext):
     salary_anchors: tuple = ()
 
 
+@dataclass(frozen=True)
+class SimpleDevelopmentContext(SalaryDevelopmentContext):
+    free_agent_entries: tuple = ()
+
+
 def initial_state(player, seed, kicker_potential=False):
     if player.position == 'K' and not kicker_potential:
         return DevelopmentState(player.rating, player.rating)
@@ -98,12 +103,12 @@ def rating_view(player, context, development_states=None):
     return result
 
 
-def reveal_rookie(player, state, seed, preseason_growth=False, kicker_potential=False):
+def reveal_rookie(player, state, seed, preseason_growth=False, kicker_potential=False, balanced_outcomes=False):
     """One entry-season assessment; rules 8 add modest camp growth within potential."""
     if state.rookie_revealed:
         return player, state
     draw = number(seed, player.id, 'rookie-reveal-v2' if preseason_growth else 'rookie-reveal-v1') % 100
-    boom, bust = (20, 25) if preseason_growth else (15, 30)
+    boom, bust = (25, 50) if balanced_outcomes else (20, 25) if preseason_growth else (15, 30)
     outcome = 'boom' if draw < boom else 'bust' if draw < bust else 'normal'
     current, potential = player.rating, state.potential
     if outcome == 'boom':
@@ -124,7 +129,7 @@ def reveal_rookie(player, state, seed, preseason_growth=False, kicker_potential=
                             rookie_revealed=True, rookie_outcome=outcome)
 
 
-def next_player(player, state, seed, season, rotation_growth=False, rookie_reassessment=False, preseason_growth=False, kicker_potential=False):
+def next_player(player, state, seed, season, rotation_growth=False, rookie_reassessment=False, preseason_growth=False, kicker_potential=False, balanced_outcomes=False):
     # A drafted rookie's listed age is their age in the upcoming rookie season.
     entry = int(player.id.split('-')[-2]) if player.id.startswith('rookie-') else 1
     previous_potential = state.potential
@@ -134,7 +139,7 @@ def next_player(player, state, seed, season, rotation_growth=False, rookie_reass
         fresh = initial_state(replace(player, rating=state.baseline), seed, True)
         state = replace(state, potential=fresh.potential, kicker_development=True)
     if rookie_reassessment and player.id.startswith('rookie-') and season == entry:
-        updated, result = reveal_rookie(player, state, seed, preseason_growth, kicker_potential)
+        updated, result = reveal_rookie(player, state, seed, preseason_growth, kicker_potential, balanced_outcomes)
         return updated, replace(result, potential_change=result.potential-previous_potential) if initialize_kicker else result
 
     if season <= entry:
@@ -200,7 +205,7 @@ def advance_context(context, run_seed, season, development_start=1, lineup_rules
     if rebuild_team is None and current_rules >= 3:
         rebuild_team = context.rebuild_team
     lineup_rules = lineup_rules if lineup_rules is not None else max(3, current_rules)
-    if lineup_rules not in (3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41) or current_rules > lineup_rules:
+    if lineup_rules not in (3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42) or current_rules > lineup_rules:
         raise ValueError('Invalid development rules')
     if not 1 <= development_start <= season <= 999:
         raise ValueError('Invalid development season')
@@ -228,6 +233,8 @@ def advance_context(context, run_seed, season, development_start=1, lineup_rules
         raise ValueError('Draft age cap requires a new career')
     if lineup_rules >= 41 and current_rules < 41 and context:
         raise ValueError('Trading requires a new career')
+    if lineup_rules >= 42 and current_rules < 42 and context:
+        raise ValueError('Simplified offseason requires a new career')
     rotation_growth = current_rules >= 5
     if current_rules < 3:
         if not context and lineup_rules >= 4:
@@ -256,7 +263,7 @@ def advance_context(context, run_seed, season, development_start=1, lineup_rules
                 from .player_contracts import stagger_starting_expiries
                 rosters = stagger_starting_expiries(rosters,run_seed,development_start)
         states = tuple(sorted((p.id,initial_state(p,run_seed,lineup_rules >= 9)) for _,players in rosters for p in players))
-        context_type = SalaryDevelopmentContext if lineup_rules >= 36 else DevelopmentContext
+        context_type = SimpleDevelopmentContext if lineup_rules >= 42 else SalaryDevelopmentContext if lineup_rules >= 36 else DevelopmentContext
         context = context_type(rosters,max(1,development_start-1),run_seed,states,lineup_rules,rebuild_team)
         if lineup_rules >= 36:
             from .player_contracts import snapshot_salary_anchors
@@ -277,7 +284,7 @@ def advance_context(context, run_seed, season, development_start=1, lineup_rules
         for owner, players in context:
             updated = []
             for player in players:
-                player, state = next_player(player,states[player.id],run_seed,year,rotation_growth and player.position not in ('QB','K'), lineup_rules >= 7, lineup_rules >= 8, lineup_rules >= 9)
+                player, state = next_player(player,states[player.id],run_seed,year,rotation_growth and player.position not in ('QB','K'), lineup_rules >= 7, lineup_rules >= 8, lineup_rules >= 9, lineup_rules >= 42)
                 updated.append(player)
                 updated_states.append((player.id,state))
             rosters.append((owner,ranked_players(updated)))
@@ -288,7 +295,7 @@ def advance_context(context, run_seed, season, development_start=1, lineup_rules
                 if retiring(player, context):
                     continue
                 player, state = next_player(player, states[player.id], run_seed, year,
-                    False, True, True, True)
+                    False, True, True, True, lineup_rules >= 42)
                 agents.append(player)
                 updated_states.append((player.id, state))
         context = replace(context, rosters=tuple(rosters), season=year,

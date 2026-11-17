@@ -170,6 +170,15 @@ def replay_career(team_id: str, run_seed: int, steps: tuple, lineup_rules: int =
         context = with_starters(context, team_id, run_seed, step[5] if len(step) > 5 else ())
         if season <= previous:
             raise ValueError('Career offseason years must be in increasing order')
+        if rules>=42:
+            if dropped or (len(step)>7 and step[7]) or (len(step)>10 and step[10]):
+                raise ValueError('Simplified offseasons cannot contain legacy camp actions')
+            from .simple_offseason import run as simple_run
+            data,context=simple_run(team_id,season,run_seed,choices,prior,context,step[6],
+                step[12] if len(step)>12 else (),step[8],step[9],step[11] if len(step)>11 else ())
+            if not data['can_continue']: raise ValueError('Finish own-player signing, free agency and trading before the next season')
+            previous=season
+            continue
         if rules >= 31:
             if dropped or (len(step)>7 and step[7]):
                 raise ValueError('New offseasons require ordered market and camp logs')
