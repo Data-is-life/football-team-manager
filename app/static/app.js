@@ -1252,7 +1252,7 @@ function hasLineupContext(context = null) {
 
 function draftNavigationAvailable() {
   return Boolean(activeTeamId) && !careerEnded() && Boolean(playoffState?.postseason_complete)
-    && activeSeason < 999 && !activeTrainingCamp;
+    && activeSeason < 999 && !activeTrainingCamp && freeAgencyState === null;
 }
 
 function updatePhaseActions() {
