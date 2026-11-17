@@ -49,6 +49,14 @@ def draft_class(season: int, run_seed: int, lineup_rules: int = 1) -> tuple[Play
     return tuple(sorted(players, key=lambda player: (-player.rating, player.id)))
 
 
+def late_round_prospect(player, run_seed):
+    """Rounds 2–6 and UDFAs start at most 70 current; identity is permanent."""
+    if player.rating <= 70:
+        return player
+    return replace(player, rating=70,
+                   attributes=generate_attributes(player.id, player.position, 70, run_seed))
+
+
 def draft_order(season: int, run_seed: int, prior_standings: tuple = (), roster_context: tuple = ()) -> list[dict]:
     tables = standings_through_week(season, 17, run_seed, prior_standings, roster_context)
     rows = {row['team']['id']: row for group in tables['groups'] for row in group['teams']}
@@ -170,6 +178,12 @@ def build_draft(team_id: str, season: int, run_seed: int, choices: tuple[str, ..
     resolved_choices = list(choices)
     consumed = 0
     for overall in range(1, draft_rounds * len(order) + 1):
+        if overall == len(order)+1 and getattr(roster_context,'lineup_rules',1) >= 43:
+            available = {identity:late_round_prospect(player,run_seed)
+                         for identity,player in available.items()}
+            # Potential is fixed before the ceiling; only entry current changes.
+            prospect_ratings.update({identity:{**prospect_ratings[identity], 'current_rating':player.rating}
+                                     for identity,player in available.items()})
         owner = order[(overall - 1) % len(order)]['team']['id']
         if owner == team_id and consumed < len(choices):
             choice = choices[consumed]
@@ -210,7 +224,7 @@ def build_draft(team_id: str, season: int, run_seed: int, choices: tuple[str, ..
     return ({'season': season, 'draft_season': season + 1, 'run_seed': run_seed,
              'team': asdict(TEAM_BY_ID[team_id]), 'rounds': draft_rounds, 'total_picks': draft_rounds * len(order),
              'class_size': CLASS_SIZE, 'order': order, 'picks': picks,
-             'available': [{**payload(player), 'draft_value':draft_value(player)} for player in prospects if player.id in available],
+             'available': [{**payload(player), 'draft_value':draft_value(player)} for player in available.values()],
              'manual_picks': resolved_choices, 'complete': complete,
              **contract_preview,
              'next_pick': None if complete else len(picks) + 1,

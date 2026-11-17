@@ -1160,3 +1160,7 @@ Every CPU uses the same initial valuation policy with its own roster fit. Talent
 The CPU requires incoming value within `max(25, 10% of absolute outgoing value)`, no QB position loss above 3 and no overall loss beyond .25. It then requires either a value gain of `max(10, 2% of absolute outgoing value)` or at least .05 overall improvement. Thus approximately equal-value offers can pass when they improve positional fit; trivial rounding gains cannot. Decisions use full precision, with rounding only for display. These are initial game-balance parameters, not a claim of real-world trade pricing.
 
 Trade logs replay through saves and season history. New careers use save version 42; older careers retain their existing offseason order and gameplay. Multiple-player packages, draft picks, in-season trading and CPU-to-CPU trading are separate features.
+
+### Rules 43: late-round draft current ceiling
+
+New careers cap the current rating of prospects remaining after round one at 70, including undrafted rookies. Potential stays fixed; player attributes match the capped current rating. Existing careers keep their original draft rules and replay behavior. Rookie boom/bust and subsequent development still apply after entry.
