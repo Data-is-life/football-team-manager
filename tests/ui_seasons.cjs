@@ -61,7 +61,10 @@ async function checks() {
  p.state.failNext=false;
  let release;p.state.delayNext=new Promise(resolve=>release=resolve);
  const count=p.state.urls.length;q(p,'#next-season').click();q(p,'#next-season').click();
- assert.equal(p.state.urls.length,count+1);assert.equal(q(p,'#change-team-button').disabled,true);
+ assert.equal(p.state.urls.length,count+2);
+ assert.equal(p.state.urls.slice(count).filter(url=>url.startsWith('/api/schedule/')).length,1);
+ assert.equal(p.state.urls.slice(count).filter(url=>url.startsWith('/api/career/')).length,1);
+ assert.equal(save(p).season,1);assert.equal(q(p,'#change-team-button').disabled,true);
  release();await until(()=>save(p).season===2);
  assert.equal(q(p,'#season-display').textContent,'2');assert.equal(q(p,'#draft-recap').hidden,true);assert.equal(q(p,'#draft-recap-rows').children.length,0);
  assert.deepEqual([...p.d.querySelectorAll('.roster-player')].map(row=>[row.dataset.playerId,row.children[1].firstChild.textContent]).sort(),roster,'Player IDs and names survive offseason aging');

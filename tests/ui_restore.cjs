@@ -5,14 +5,16 @@ const html=fs.readFileSync(path.join(root,'app/static/index.html'),'utf8'),scrip
 const checkpoint=JSON.parse(fs.readFileSync(path.join(root,'benchmarks/year4.json'),'utf8'));
 async function until(check){for(let i=0;i<2000;i++){if(check())return;await new Promise(r=>setTimeout(r,10))}throw new Error('Restore UI state timed out')}
 const q=(p,s)=>p.d.querySelector(s),raw=p=>p.w.localStorage.getItem(key);
-function page({hold=false,fail=null}={}){
+function page({hold=false,holdWeek=false,fail=null}={}){
  const dom=new JSDOM(html,{url:base,runScripts:'outside-only'}),w=dom.window,d=w.document,state={actions:[],profileReady:false,fail};
  w.localStorage.setItem(key,JSON.stringify(checkpoint));w.HTMLElement.prototype.scrollIntoView=()=>{};
  w.HTMLDialogElement.prototype.close=function(){this.open=false};w.HTMLDialogElement.prototype.showModal=function(){this.open=true};
  let release;const gate=hold?new Promise(r=>release=r):Promise.resolve();state.release=release;
+ let releaseWeek;const weekGate=holdWeek?new Promise(r=>releaseWeek=r):Promise.resolve();state.releaseWeek=releaseWeek;
  w.fetch=async(url,init)=>{
   const action=init?JSON.parse(init.body).action:null;
   if(action){state.actions.push(action);if(action==='profile')await gate;else assert.equal(state.profileReady,true,'Dependent endpoints must wait for career reconstruction');}
+  if(action==='week')await weekGate;
   if(action&&state.fail===action)return {ok:false,json:async()=>({detail:'Injected restore failure'})};
   const response=await fetch(new URL(url,base),init);
   return {ok:response.ok,json:async()=>{const data=await response.json();if(action==='profile')state.profileReady=true;return data}};
@@ -26,7 +28,12 @@ async function checks(){
  p.state.release();await until(()=>/restored/.test(q(p,'#save-status').textContent));
  assert.deepEqual(p.state.actions,['profile','week','playoffs','cuts']);assert.equal(raw(p),JSON.stringify(checkpoint));
  const expected=snapshot(p);assert.equal(p.d.querySelectorAll('#roster-groups .roster-player').length,38);p.dom.window.close();
- for(const action of ['profile','week']){
+ p=page({holdWeek:true});await until(()=>p.state.actions.includes('cuts'));
+ assert.equal(/restored/.test(q(p,'#save-status').textContent),false);
+ assert.equal(raw(p),JSON.stringify(checkpoint));assert.equal(q(p,'#schedule-section').hidden,true);
+ p.state.releaseWeek();await until(()=>/restored/.test(q(p,'#save-status').textContent));
+ assert.deepEqual(snapshot(p),expected);p.dom.window.close();
+ for(const action of ['profile','week','cuts']){
   p=page({fail:action});await until(()=>/could not be loaded/.test(q(p,'#save-status').textContent));
   assert.equal(raw(p),JSON.stringify(checkpoint));assert.equal(q(p,'#schedule-section').hidden,true);assert.equal(q(p,'#resume-save').hidden,false);
   if(action==='profile')assert.deepEqual(p.state.actions,['profile'],'No dependent endpoint should start after a failed profile');

@@ -1,6 +1,7 @@
 """Rules 42: draft -> own contracts -> fixed-price market -> trades -> season."""
 import json
 from dataclasses import replace
+from functools import lru_cache
 from .lineups import replace_lineup_rosters
 from .player_contracts import (renew_player, pending_renewals, cap_ready,
     sign_retained_rookies)
@@ -40,11 +41,10 @@ def _sign_automatic_offers(context, managed, *, emergency_only=False):
     return replace_lineup_rosters(context,tuple(rosters)) if changed else context
 
 
-def run(team,season,seed,choices,prior,root,rounds,own_actions=(),market_actions=(),review_actions=(),trade_actions=()):
-    from .free_agency import free_agency, free_agency_order, team_market_premiums
-    root=expire_pool(root,season+1)
+@lru_cache(maxsize=8)
+def _own_phase(team, season, seed, choices, prior, root, rounds, own_actions):
+    """Cache the signing log separately from later market decisions."""
     raw,context=prepare(team,season,seed,choices,prior,root,rounds)
-    board=json.loads(raw)
     # CPU own-player decisions already happened in prepare; commit their retained picks.
     context=_sign_automatic_offers(context,team)
     own_complete=False
@@ -73,16 +73,34 @@ def run(team,season,seed,choices,prior,root,rounds,own_actions=(),market_actions
     # Do not expose automatically supplied emergency contracts as rookie decisions.
     context=_sign_automatic_offers(context,team,emergency_only=True)
     context=stamp_pool(context,season+1)
+    return raw, context, own_complete
+
+
+@lru_cache(maxsize=8)
+def _market_phase(team, season, seed, prior, root, context, market_actions):
+    """Keep only immutable data; each request decodes its own market response."""
+    from .free_agency import free_agency, free_agency_order, team_market_premiums
+    premiums = team_market_premiums(season, seed, prior, root)
+    market, context = free_agency(team, season, seed, context,
+        free_agency_order(season, seed, prior, root), market_actions, premiums=premiums)
+    if market['complete']:
+        context = cpu_review(context, team)
+    return json.dumps(market), context
+
+
+def run(team,season,seed,choices,prior,root,rounds,own_actions=(),market_actions=(),review_actions=(),trade_actions=()):
+    root = expire_pool(root, season+1)
+    raw, context, own_complete = _own_phase(team, season, seed, choices, prior, root, rounds, own_actions)
+    board = json.loads(raw)
     market=None;trading=None;development=[]
     if not own_complete:
         if market_actions or review_actions or trade_actions: raise ValueError('Finish own-player signing before free agency')
     else:
-        premiums=team_market_premiums(season,seed,prior,root)
-        market,context=free_agency(team,season,seed,context,free_agency_order(season,seed,prior,root),market_actions,premiums=premiums)
+        raw_market, context = _market_phase(team, season, seed, prior, root, context, market_actions)
+        market = json.loads(raw_market)
         if not market['complete']:
             if review_actions or trade_actions: raise ValueError('End free agency before trading')
         else:
-            context=cpu_review(context,team)
             for kind,identity in review_actions:
                 if kind=='drop': context=release_player(context,team,identity,final=True)
                 elif kind=='raise': context=raise_to_floor(context,team,identity)

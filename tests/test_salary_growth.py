@@ -90,12 +90,14 @@ class SalaryGrowthTests(TestCase):
         self.assertEqual((active['payroll']['season'],active['payroll']['cap']),(1,200_000_000))
 
     def test_next_year_cap_applies_to_cut_gate_cpu_and_history_not_current_cap(self):
+        from app.career import _replay_step
         # An exactly $210M roster is over this year's $200M, but legal for next year.
         context=replace_lineup_rosters(self.context,tuple((owner,tuple(replace(p,contract=replace(p.contract,annual_salary=6_000_000)) for p in players)) for owner,players in self.context))
         players=dict(context)['seattle']
         self.assertFalse(cap_ready(players,context));self.assertTrue(cap_ready(players,context,2))
         self.assertEqual(cpu_cap_cuts(players,'seattle',1,1234,context),list(players))
-        with patch('app.career.lineup_context',return_value=context),patch('app.career.offseason',return_value=({'picks':[],'draft_season':2},context)):
+        # Bypass both replay caches while injecting alternate salary contexts.
+        with patch('app.career._replay_step',_replay_step.__wrapped__),patch('app.career.lineup_context',return_value=context),patch('app.career.offseason',return_value=({'picks':[],'draft_season':2},context)):
             result=replay_career.__wrapped__('seattle',1234,((1,(),('a','b','c','d'),(),17,(),4),),17,2,1,'seattle')
             self.assertEqual(tuple(result),tuple(context))
         # One dollar over the upcoming cap still fails independent of frontend state.
@@ -103,7 +105,7 @@ class SalaryGrowthTests(TestCase):
         rosters=dict(context);rosters['seattle']=(expensive,*players[1:])
         over=replace_lineup_rosters(context,tuple(rosters.items()))
         self.assertFalse(cap_ready(dict(over)['seattle'],over,2))
-        with patch('app.career.lineup_context',return_value=over),patch('app.career.offseason',return_value=({'picks':[],'draft_season':2},over)):
+        with patch('app.career._replay_step',_replay_step.__wrapped__),patch('app.career.lineup_context',return_value=over),patch('app.career.offseason',return_value=({'picks':[],'draft_season':2},over)):
             with self.assertRaisesRegex(ValueError,'cap space'):
                 replay_career.__wrapped__('seattle',1234,((1,(),('a','b','c','d'),(),17,(),4),),17,2,1,'seattle')
 

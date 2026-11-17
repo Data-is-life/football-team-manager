@@ -1,0 +1,78 @@
+{
+  "baseline_commit": "88a5d6ac293331374a902e35e7703a9b3dc77351",
+  "trials": 3,
+  "scope": "Python endpoint calls, median milliseconds; excludes HTTP, hosting startup and browser rendering. Sequential first calls reuse earlier requests; reload cold clears all application caches.",
+  "sha256": {
+    "1-reload": "4875f0ad57916ff5bb73d1bfa1d4aed5bde9f924a95daa815a3113e99a680cb1",
+    "1-draft-complete": "cb623681a5d413209d2e8f48b43d0b834b64587ff65b09cb3d07b6ec604a9a7c",
+    "1-draft-to-own": "a0c04a3047752e1afd0f70d2a3cbaa4d60aec71351bd78ae6f2c27aac2986556",
+    "1-own-to-market": "fea5c85e7c0b61d0cf9644f9b74de7290d982dab9e4dc09ed8116c050cf6405c",
+    "1-market-finish": "7306e5446ad13176b769ce8c8142fd3c52e9627b9d8fc30c5e503d7200820eef",
+    "1-start-season": "90369d6b8e5e264035e8b06d8456f77a099376f3e9b051d2eefc2ce11503842a",
+    "2-reload": "90369d6b8e5e264035e8b06d8456f77a099376f3e9b051d2eefc2ce11503842a",
+    "2-draft-complete": "228bd4e5375b3fd81d091a90bbc4707df69a28b5f5dc84b24ea7a454b02ae630",
+    "2-draft-to-own": "8bf5a3da0b8fd00e38b47bece4d721563602762771c11b2f66b052ae2a71acfc",
+    "2-own-to-market": "609d310d3ec4e22b5d2c3fb1b5655f1341a35236d241e756e18e39d327785cea",
+    "2-market-finish": "c53501331016aa5449bf2ff4ca0178e8598b8ff8aff99e4e8cf67cc5e4e98df2",
+    "2-start-season": "debc55accbbb3cd1192fc19c60dc99b80a7f1a5202682c8418b8d32d028d77ae",
+    "3-reload": "debc55accbbb3cd1192fc19c60dc99b80a7f1a5202682c8418b8d32d028d77ae",
+    "3-draft-complete": "8f43e92efc0a7fd318271c420e65157c01a976fea7adc81b079b4cde3ff8da28",
+    "3-draft-to-own": "aeb889fdffd4141711c5182a95ed30fe3bc7b86703fc1432e595a0f98e978b6c",
+    "3-own-to-market": "30fc3f818af85db9c26c8459c615fc8b7002432bf29403116861a72a0c276031",
+    "3-market-finish": "7a16d04812f758523862d2149c654b27e0fb0bd288c789dfe8beb7ca2ce22372",
+    "3-start-season": "30718079f7cad5a09b93f148a8b71f75959d745fb6959f8cad9617e13077766b"
+  },
+  "before": {
+    "sequential_ms": {
+      "1-reload": 90.98,
+      "1-draft-complete": 268.29,
+      "1-draft-to-own": 87.38,
+      "1-own-to-market": 31.24,
+      "1-market-finish": 184.73,
+      "1-start-season": 249.2,
+      "2-reload": 1.95,
+      "2-draft-complete": 298.99,
+      "2-draft-to-own": 80.7,
+      "2-own-to-market": 36.28,
+      "2-market-finish": 280.22,
+      "2-start-season": 545.09,
+      "3-reload": 2.06,
+      "3-draft-complete": 307.51,
+      "3-draft-to-own": 175.74,
+      "3-own-to-market": 53.43,
+      "3-market-finish": 277.56,
+      "3-start-season": 835.63
+    },
+    "year3_reload_cold_ms": 1101.9,
+    "year3_reload_warm_ms": 1.92
+  },
+  "after": {
+    "sequential_ms": {
+      "1-reload": 93.47,
+      "1-draft-complete": 260.58,
+      "1-draft-to-own": 46.56,
+      "1-own-to-market": 32.98,
+      "1-market-finish": 175.26,
+      "1-start-season": 121.51,
+      "2-reload": 1.87,
+      "2-draft-complete": 270.2,
+      "2-draft-to-own": 49.5,
+      "2-own-to-market": 41.11,
+      "2-market-finish": 279.07,
+      "2-start-season": 68.77,
+      "3-reload": 1.96,
+      "3-draft-complete": 306.62,
+      "3-draft-to-own": 188.14,
+      "3-own-to-market": 58.55,
+      "3-market-finish": 261.29,
+      "3-start-season": 76.56
+    },
+    "year3_reload_cold_ms": 1135.98,
+    "year3_reload_warm_ms": 2.51
+  },
+  "memory_observation": {
+    "scope": "One fresh Python process per revision, one sequential three-year workload; peak resident set, not a worst-case cache-capacity bound.",
+    "before_peak_rss_mib": 56.3,
+    "after_peak_rss_mib": 58.5
+  }
+}

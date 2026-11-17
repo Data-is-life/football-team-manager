@@ -555,7 +555,7 @@ async function resumeProgress() {
     // Warm the shared career replay once before dependent endpoints request it.
     // lru_cache does not coalesce simultaneous misses in FastAPI's worker threads.
     const profileRequest = hasLineupContext(save) ? careerRequest("profile", {}, save) : null;
-    const payloads = await Promise.all(requests.map(async url => {
+    const payloadsRequest = Promise.all(requests.map(async url => {
       if (profileRequest) {
         if (url.startsWith("/api/team/")) return profileRequest;
         if (url.startsWith("/api/season/")) {
@@ -571,9 +571,15 @@ async function resumeProgress() {
       if (!response.ok) throw new Error("Restore failed");
       return response.json();
     }));
-    // Fetch/replay a saved draft before committing any restored UI state.
-    const savedDraft = save.draftChoices === null ? null : await fetchDraft(save.draftChoices, save);
-    const savedMarket = save.lineupRules>=31 || save.freeAgency === undefined ? null : await careerRequest("free_agency", {manual_picks:save.draftChoices, dropped:save.dropped, free_agency:save.freeAgency}, save);
+    // Share the initial replay, then load independent views together. Commit only
+    // after every saved phase has been validated, including failed restores.
+    const savedPhaseRequest = (async () => {
+      if (profileRequest) await profileRequest;
+      const savedDraft = save.draftChoices === null ? null : await fetchDraft(save.draftChoices, save);
+      const savedMarket = save.lineupRules>=31 || save.freeAgency === undefined ? null : await careerRequest("free_agency", {manual_picks:save.draftChoices, dropped:save.dropped, free_agency:save.freeAgency}, save);
+      return [savedDraft, savedMarket];
+    })();
+    const [payloads, [savedDraft, savedMarket]] = await Promise.all([payloadsRequest, savedPhaseRequest]);
     const [schedule, profile, regular, postseason] = payloads;
     if (profile.team.id !== save.teamId || profile.run_seed !== save.runSeed
         || schedule.team.id !== save.teamId || schedule.season !== save.season
@@ -2717,14 +2723,18 @@ nextSeasonButton.addEventListener("click", async () => {
       ...(activeLineupRules>=31 ? {pre_camp_actions:activePreCampActions,camp_actions:activeCampActions} : {}),
       ...(activeLineupChanges.length ? { lineup_changes: activeLineupChanges } : {}),
     }];
-    const response = await fetch(`/api/schedule/${activeTeamId}?season=${nextSeason}${priorStandingsQuery(ranks)}`);
-    if (!response.ok) throw new Error("The next season could not be loaded. Please try again.");
-    const schedule = await response.json();
-    if (schedule.team.id !== activeTeamId || schedule.season !== nextSeason) {
-      throw new Error("The next season could not be loaded. Please try again.");
-    }
+    const scheduleRequest = (async () => {
+      const response = await fetch(`/api/schedule/${activeTeamId}?season=${nextSeason}${priorStandingsQuery(ranks)}`);
+      if (!response.ok) throw new Error("The next season could not be loaded. Please try again.");
+      const schedule = await response.json();
+      if (schedule.team.id !== activeTeamId || schedule.season !== nextSeason) {
+        throw new Error("The next season could not be loaded. Please try again.");
+      }
+      return schedule;
+    })();
     const history = [...careerHistory, summary];
-    const profile = await careerRequest("profile", { season: nextSeason, career, lineup_rules: lineupRules, development_start: developmentStart, lineup_changes: lineupChanges });
+    const [schedule, profile] = await Promise.all([scheduleRequest,
+      careerRequest("profile", { season: nextSeason, career, lineup_rules: lineupRules, development_start: developmentStart, lineup_changes: lineupChanges })]);
     if (profile.team?.id !== activeTeamId || profile.run_seed !== activeRunSeed || profile.lineup_rules !== lineupRules) {
       throw new Error("The next season could not be loaded. Please try again.");
     }

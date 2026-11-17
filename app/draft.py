@@ -2,6 +2,7 @@
 from dataclasses import asdict, replace
 from functools import lru_cache
 import random
+import json
 
 from . import cpu_identity
 from .attributes import generate_attributes
@@ -140,7 +141,19 @@ def cpu_pick(available, current, additions, retirement_rules=False, *, context=N
 
 
 def build_draft(team_id: str, season: int, run_seed: int, choices: tuple[str, ...] = (),
-                prior_standings: tuple = (), roster_context: tuple = (), return_league: bool = False, auto_pick: bool = False, draft_rounds: int = 4) -> tuple[dict, list[Player]]:
+                prior_standings: tuple = (), roster_context: tuple = (), return_league: bool = False,
+                auto_pick: bool = False, draft_rounds: int = 4) -> tuple[dict, list[Player]]:
+    """Return fresh response/roster containers around immutable cached draft work."""
+    raw, rosters = _draft_result(team_id, season, run_seed, tuple(choices), prior_standings,
+                                 roster_context, auto_pick, draft_rounds)
+    players = ({owner: list(players) for owner, players in rosters} if return_league
+               else list(dict(rosters)[team_id]))
+    return json.loads(raw), players
+
+
+@lru_cache(maxsize=8)
+def _draft_result(team_id: str, season: int, run_seed: int, choices: tuple[str, ...] = (),
+                prior_standings: tuple = (), roster_context: tuple = (), auto_pick: bool = False, draft_rounds: int = 4) -> tuple[str, tuple]:
     """Auto-pick up to the user's next turn, or finish after their final pick.
 
     With auto_pick, fill remaining user turns using the same CPU policy and return
@@ -226,7 +239,7 @@ def build_draft(team_id: str, season: int, run_seed: int, choices: tuple[str, ..
             terms = rookie_contract(len(resolved_choices)+1,len(picks)+1,season+1,roster_context.lineup_rules, run_seed=run_seed)
             offer = rookie_offer_payload(terms) if roster_context.lineup_rules >= 19 else contract_payload(terms,season)
         contract_preview['next_contract'] = offer
-    return ({'season': season, 'draft_season': season + 1, 'run_seed': run_seed,
+    board = {'season': season, 'draft_season': season + 1, 'run_seed': run_seed,
              'team': asdict(TEAM_BY_ID[team_id]), 'rounds': draft_rounds, 'total_picks': draft_rounds * len(order),
              'class_size': CLASS_SIZE, 'order': order, 'picks': picks,
              'available': [{**payload(player), 'draft_value':draft_value(player)} for player in available.values()],
@@ -234,4 +247,5 @@ def build_draft(team_id: str, season: int, run_seed: int, choices: tuple[str, ..
              **contract_preview,
              'next_pick': None if complete else len(picks) + 1,
              'next_round': None if complete else len(resolved_choices) + 1,
-             **({'retirements':retired[team_id], 'replacements':[payload(p) for p in rosters[team_id] if p.id.startswith(f'replacement-{run_seed}-{season+1}-')]} if retirement_rules else {})}, rosters if return_league else rosters[team_id])
+             **({'retirements':retired[team_id], 'replacements':[payload(p) for p in rosters[team_id] if p.id.startswith(f'replacement-{run_seed}-{season+1}-')]} if retirement_rules else {})}
+    return json.dumps(board), tuple((owner, tuple(players)) for owner, players in rosters.items())
