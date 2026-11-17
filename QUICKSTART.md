@@ -21,7 +21,7 @@ simulates the action and shows the final scores and player stats.
 ## Build the next roster
 
 1. **Draft six players.** Compare current and potential ratings with your roster
-   needs. New prospects enter at ages 21–23.
+   needs. New prospects enter at ages 21–23. In new careers, prospects remaining after round one start at no more than 70 current rating, including UDFAs; their potential is preserved.
 2. **Sign your own players.** Renew or release expiring veterans, and sign or
    release each drafted rookie. Active contracts continue automatically. Resolve
    cap issues before opening the market.
