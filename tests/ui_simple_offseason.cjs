@@ -46,10 +46,11 @@ async function checks(){
  assert.ok(q(p,`#roster-groups [data-player-id="${id}"]`));
  const marketSave=save(p);p.dom.window.close();p=await page(marketSave);
  assert.equal(q(p,'#fa-pass').hidden,true);assert.match(q(p,'#fa-status').textContent,/Fixed asking prices/);
- q(p,'#fa-finish').click();await until(()=>save(p).freeAgency.at(-1)?.kind==='finish'&&!q(p,'#view-trades').hidden);
- assert.equal(q(p,'#training-camp-button').hidden,true);assert.equal(q(p,'#panel-trades').hidden,false);assert.equal(q(p,'#view-free-agency').hidden,true);
+ q(p,'#fa-finish').click();await until(()=>save(p).freeAgency.at(-1)?.kind==='finish'&&!q(p,'#panel-roster').hidden);
+ assert.equal(q(p,'#training-camp-button').hidden,true);assert.equal(q(p,'#panel-trades').hidden,true);assert.equal(q(p,'#view-free-agency').hidden,true);
  if(!q(p,'#meet-payroll-floor').hidden){q(p,'#meet-payroll-floor').click();q(p,'#floor-confirm').click();await until(()=>q(p,'#meet-payroll-floor').hidden);}
- const before=save(p);q(p,'#trade-finish').click();await until(()=>save(p).season===2);
+ assert.equal(q(p,'#view-trades').hidden,true);assert.equal(q(p,'#next-season').textContent,'Start season');
+ const before=save(p);q(p,'#next-season').click();await until(()=>save(p).season===2);
  assert.equal(save(p).lineupRules,draftRules);assert.equal(save(p).career[0].own_actions.at(-1).kind,'finish');assert.equal(save(p).career[0].trade_actions.at(-1).kind,'finish');
  assert.equal(q(p,'#training-camp-button').hidden,true);assert.equal(q(p,'#own-signing').hidden,true);assert.equal(q(p,'#view-trades').hidden,true);
  assert.equal(q(p,'#development-dialog').open,true);assert.ok(q(p,`#roster-groups [data-player-id="${id}"]`));

@@ -2,10 +2,10 @@
 
 [Quick start](../QUICKSTART.md) · [Project overview](../README.md)
 
-New careers use rules 42 and save version 43. Existing careers retain their
+New careers use rules 43 and save version 44. Existing careers retain their
 original rules and recorded offseason sequence.
 
-**Season ends → Draft → Sign your own players → Free agency → Trade → Start season**
+**Season ends → Draft → Sign your own players → Free agency → Roster review → Start season**
 
 ## Own-player signing
 
@@ -27,7 +27,7 @@ and the existing destination premium, remaining fixed within that offseason.
 CPU teams can sign after each user signing; ending the market resolves their
 remaining needs at those same prices. A signing must fit the cap and the reserved cost of filling minimum roster
 requirements. The roster may temporarily exceed 38 players; finalize cuts
-after the market closes, before finishing trading and starting the season.
+after the market closes, before starting the season.
 
 The pool consists of current-class undrafted rookies, players declined or
 released by teams, and eligible unsigned carryovers. Emergency minimum-roster
@@ -38,19 +38,17 @@ If still unsigned, that player leaves the pool before Year 4. Signing removes
 their free-agent entry record; a later release starts a new unsigned spell.
 Aging and retirement still apply to unsigned players.
 
-## Trading and starting the season
+## Roster review and starting the season
 
-Ending free agency opens Trades. Resolve the 60% payroll minimum, salary cap,
-31–38-player roster and position requirements before finishing. The existing
-payroll-minimum adjustment remains available for review and confirmation.
+Ending free agency returns to Roster. Resolve the 60% payroll minimum, salary
+cap, 31–38-player roster and position requirements. The payroll-minimum
+adjustment remains available for review and confirmation.
 
-Trading retains the deterministic 1-for-1 valuation policy, whole-contract
-transfers, CPU depth protections, and restrictions on current-year rookies and
-new free-agent signings. See the [trade valuation reference](rules-reference.md#trading-period-new-careers-rules-41).
+Trading is temporarily paused in the interface. Previously recorded trades stay
+in saved history and replay normally; no new offers can be made through the UI.
 
-Training camp is removed. Finishing trading starts the new season and runs
-aging, development and rookie reassessment exactly once. Rookie outcomes use
-seeded per-player probabilities: **25% boom, 25% bust, 50% regular development**.
-Actual counts vary by draft class. The existing outcome magnitudes and position
-curves remain in place. Assessments include UDFAs; signing and trade previews do
-not reveal or reroll outcomes. Reloads reconstruct the same decisions and results.
+Choose **Start season** after your roster and payroll are ready. Aging,
+development and rookie reassessment run exactly once. Rookie outcomes use seeded
+per-player probabilities: **25% boom, 25% bust, 50% regular development**.
+Actual counts vary by draft class. Assessments include UDFAs; reloads reconstruct
+the same decisions and results.
