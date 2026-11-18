@@ -24,6 +24,7 @@ let activeTeamId = null;
 let activeRunSeed = 0;
 let activeSeason = 1;
 let activeCareerStartWeek = 1;
+let activeGmExtensionRules = 2;
 let activeLineupRules = 46;
 const legacySalaryGuide=document.querySelector("#salary-growth-guide").textContent;
 const legacyCampGuide=document.querySelector("#training-camp-guide").textContent;
@@ -119,6 +120,7 @@ function rebuildOrigin(context) {
 function saveProgress() {
   if (!activeTeamId || restoring) return;
   const save = { version: activeLineupRules>=46 ? 47 : activeLineupRules>=45 ? 46 : activeLineupRules>=44 ? 45 : activeLineupRules>=43 ? 44 : activeLineupRules>=42 ? 43 : activeLineupRules>=41 ? 42 : 41, welcomeDismissed, ownerUpdateDismissed, draftRounds: activeDraftRounds, careerStartWeek: activeCareerStartWeek, lineupChanges: activeLineupChanges, contracts: activeContracts, teamId: activeTeamId, runSeed: activeRunSeed,
+    ...(activeGmExtensionRules >= 2 ? {gmExtensionRules:activeGmExtensionRules} : {}),
     season: activeSeason, week: currentWeek, lineupRules: activeLineupRules, developmentStart: activeDevelopmentStart, rebuildTeam: activeRebuildTeam,
     priorStandings: activePriorStandings, history: careerHistory,
     draftChoices: activeDraftChoices,
@@ -259,6 +261,9 @@ function readSave() {
         && knownTeam(entry.championId) && allowedFinishes.includes(entry.playoffFinish)
         && validPlayoffSummary(entry))
       || !validPriorStandings(save.priorStandings, save.season)) throw new Error("Invalid career save");
+  if (save.gmExtensionRules === undefined) save.gmExtensionRules = 1;
+  if (![1, 2].includes(save.gmExtensionRules)
+      || !save.history.every(entry => entry.gmExtensionRules === undefined || [1, 2].includes(entry.gmExtensionRules))) throw new Error("Invalid GM extension rules");
   if (save.version < 12) save.contracts = false;
   if (typeof save.contracts !== "boolean") throw new Error("Invalid contract save");
   if (save.version < 13) save.lineupChanges = [];
@@ -337,17 +342,39 @@ function currentPlayoffRecord() {
   return { wins, losses };
 }
 
+function playoffRoundReached(postseason, teamId) {
+  const entry = postseason?.field?.find(row => row.team.id === teamId);
+  if (!entry) return 0;
+  // A bye reaches the quarterfinals without requiring a Wild Card victory.
+  let reached = entry.seed <= 2 ? 2 : 1;
+  for (const round of postseason.rounds ?? []) {
+    const game = round.games.find(game => game.home.team.id === teamId || game.away.team.id === teamId);
+    if (game) reached = Math.max(reached, Math.min(4, round.number + (game.winner.team.id === teamId ? 1 : 0)));
+  }
+  return reached;
+}
+
+function gmExtensionReward(entry) {
+  const qualified = entry.qualified ?? entry.playoffFinish !== "Missed playoffs";
+  const champion = entry.champion ?? entry.playoffFinish === "Champions";
+  if (champion) return 5;
+  if (!qualified) return entry.wins > entry.losses ? 1 : 0;
+  if ((entry.gmExtensionRules ?? 1) === 1) return 2;
+  const milestones = {"Lost in Wild Card":1, "Lost in Quarterfinals":2,
+    "Lost in Semifinals":3, "Lost in Championship":4};
+  return Math.max(1, entry.playoffRoundReached ?? milestones[entry.playoffFinish] ?? 1);
+}
+
 // Contract state is derived from completed seasons, never incremented by a render or reload.
-function contractStatus(history, season, current = null, startSeason = 1) {
+function contractStatus(history, season, current = null, startSeason = 1, gmExtensionRules = 1) {
   let end = startSeason + 3, appeared = false, reward = 0, last = null;
   const completed = [...history];
-  if (current?.complete) completed.push({ season, ...current });
+  if (current?.complete) completed.push({ season, ...current, gmExtensionRules });
   for (const entry of completed) {
     if (entry.season < startSeason) continue;
     const qualified = entry.qualified ?? entry.playoffFinish !== "Missed playoffs";
-    const champion = entry.champion ?? entry.playoffFinish === "Champions";
     appeared ||= qualified;
-    reward = champion ? 5 : qualified ? 2 : entry.wins > entry.losses ? 1 : 0;
+    reward = gmExtensionReward(entry);
     // The opening playoff deadline takes priority over extensions earned for winning records.
     if (entry.season >= startSeason + 3 && !appeared) {
       return { end, remaining: 0, fired: true, reason: "deadline", reward: 0, last: entry };
@@ -366,8 +393,9 @@ function currentContract() {
   const qualified = complete && regularSnapshot.standings.playoff_race.some(row => row.team.id === activeTeamId);
   return contractStatus(careerHistory, activeSeason, complete ? {
     complete, qualified, champion: playoffState?.champion?.team.id === activeTeamId,
+    playoffRoundReached: playoffRoundReached(playoffState ?? {field:regularSnapshot.standings.playoff_race}, activeTeamId),
     ...regularSnapshot.record,
-  } : null, activeCareerStartWeek === 17 ? 2 : 1);
+  } : null, activeCareerStartWeek === 17 ? 2 : 1, activeGmExtensionRules);
 }
 
 function careerEnded() { return Boolean(currentContract()?.fired); }
@@ -382,6 +410,8 @@ function renderContract() {
   document.querySelector("#contract-rules").textContent = activeCareerStartWeek === 17
     ? "Season 1 is introductory: it uses no contract year and earns no extension. Reach the playoffs at least once in Seasons 2–5 or lose the job. Each full season earns only the highest reward: championship +5 years; otherwise playoffs +2; otherwise a winning record +1; otherwise no extension. Extensions add to the contract. After the opening deadline, an expired contract ends your career."
     : "Make the playoffs at least once in your first four seasons or lose the job, even if winning records earn extensions. Each season earns only the highest reward: championship +5 years; otherwise playoffs +2; otherwise a winning record +1; otherwise no extension. Extensions add to the contract. After the opening deadline, an expired contract ends your career.";
+  if (activeGmExtensionRules >= 2) document.querySelector("#contract-rules").textContent =
+    `${activeCareerStartWeek === 17 ? "Season 1 uses no contract year or extension. Reach the playoffs in Seasons 2–5." : "Reach the playoffs in your first four seasons."} Highest extension per season: winning record or playoffs +1 year; quarterfinals +2; semifinals +3; final +4; championship +5. Extensions add to the contract; an expired contract ends your career.`;
   const status = document.querySelector("#contract-status");
   const feedback = document.querySelector("#owner-feedback");
   status.textContent = state.fired ? "Fired · Career over"
@@ -408,12 +438,15 @@ function renderContract() {
   } else {
     const qualified = state.last.qualified ?? state.last.playoffFinish !== "Missed playoffs";
     const champion = state.last.champion ?? state.last.playoffFinish === "Champions";
-    const reward = state.reward ? ` Your ${champion ? "championship" : qualified ? "playoff appearance" : "winning record"} earned a ${state.reward}-year extension.` : " No contract extension was earned.";
+    const achievement = champion ? "championship" : !qualified ? "winning record"
+      : (state.last.gmExtensionRules ?? 1) >= 2
+        ? ({2:"quarterfinal appearance",3:"semifinal appearance",4:"final appearance"}[state.reward] ?? "playoff appearance") : "playoff appearance";
+    const reward = state.reward ? ` Your ${achievement} earned a ${state.reward}-year extension.` : " No contract extension was earned.";
     feedback.textContent = qualified
       ? `The owner is ${champion ? "delighted with the championship!" : "pleased you reached the playoffs."}${reward}`
       : `The owner is disappointed you missed the playoffs in Season ${state.last.season}. You will be monitored closely: do better next year.${reward}`;
-    if (regularSnapshot?.season_complete && qualified && !playoffState?.postseason_complete) {
-      feedback.textContent += " A championship would upgrade this season's extension to five years total.";
+    if (regularSnapshot?.season_complete && qualified && !playoffState?.eliminated && !playoffState?.postseason_complete) {
+      feedback.textContent += activeGmExtensionRules >= 2 ? " Further playoff progress can increase this season's extension." : " A championship would upgrade this season's extension to five years total.";
     }
   }
   renderOwnerUpdate(state, intro);
@@ -593,7 +626,7 @@ async function resumeProgress() {
       throw new Error("Restore failed");
     }
     renderTeamProfile(profile, save.season);
-    renderSchedule(schedule, save.runSeed, { priorStandings: save.priorStandings, history: save.history, career: save.career, lineupRules: save.lineupRules, developmentStart: save.developmentStart, rebuildTeam: save.rebuildTeam, contracts: save.contracts, lineupChanges: save.lineupChanges, careerStartWeek: save.careerStartWeek, draftRounds: save.draftRounds });
+    renderSchedule(schedule, save.runSeed, { priorStandings: save.priorStandings, history: save.history, career: save.career, lineupRules: save.lineupRules, developmentStart: save.developmentStart, rebuildTeam: save.rebuildTeam, contracts: save.contracts, gmExtensionRules:save.gmExtensionRules, lineupChanges: save.lineupChanges, careerStartWeek: save.careerStartWeek, draftRounds: save.draftRounds });
     ownerUpdateDismissed = save.ownerUpdateDismissed;
     welcomeDismissed = save.welcomeDismissed;
     renderWelcome();
@@ -1322,7 +1355,7 @@ function createRunSeed() {
   return candidate === activeRunSeed ? (candidate % 4294967295) + 1 : candidate;
 }
 
-function renderSchedule(data, runSeed, { priorStandings = {}, history = [], career = [], lineupRules = 46, developmentStart = 1, rebuildTeam = null, contracts = true, lineupChanges = [], careerStartWeek = 1, draftRounds = 6 } = {}) {
+function renderSchedule(data, runSeed, { priorStandings = {}, history = [], career = [], lineupRules = 46, developmentStart = 1, rebuildTeam = null, contracts = true, gmExtensionRules = 2, lineupChanges = [], careerStartWeek = 1, draftRounds = 6 } = {}) {
   closeSeasonConfirmation(false);
   simulationMore.open = false;
   clearLeaders();
@@ -1349,6 +1382,7 @@ function renderSchedule(data, runSeed, { priorStandings = {}, history = [], care
   activePriorStandings = priorStandings;
   careerHistory = history;
   activeContracts = contracts;
+  activeGmExtensionRules = gmExtensionRules;
   renderHelp();
   regularSnapshot = null;
   activeDraftChoices = null;
@@ -2713,6 +2747,7 @@ nextSeasonButton.addEventListener("click", async () => {
   const lastOwnRound = playoffState.rounds.filter(round => round.games.some(game =>
     game.home.team.id === activeTeamId || game.away.team.id === activeTeamId)).at(-1);
   const summary = { season: activeSeason, ...regularSnapshot.record,
+    ...(activeGmExtensionRules >= 2 ? {gmExtensionRules:activeGmExtensionRules} : {}),
     ...(activeCareerStartWeek === 17 && activeSeason === 1 ? { gmRecord: managedRecord(regularSnapshot) } : {}),
     championId: playoffState.champion.team.id,
     playoffWins: currentPlayoffRecord().wins, playoffLosses: currentPlayoffRecord().losses,
