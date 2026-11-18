@@ -1080,8 +1080,13 @@ version changes are needed for these additional display fields.
 
 Players on a free-agent contract show an F badge beside their name, matching
 the rookie R badge style. The marker appears in roster ratings, roster stats
-and scouting views and survives save/reload and season transitions. Undrafted
-rookies signed in free agency may show both R and F. Ordinary renewals replace
+and scouting views and survives save/reload and season transitions. During their
+rookie season, undrafted free-agent signings show UDFA alone. Rookies released
+by any team and then signed as free agents show R and F, including previously
+undrafted rookies who were signed and subsequently released. Drafted rookies
+retained by their drafting team keep R. The rookie/UDFA marker disappears after
+the rookie season; F continues to follow the current contract. Origin is
+reconstructed during replay for existing saves. Ordinary renewals replace
 the free-agent contract and clear F; a payroll-floor salary increase preserves
 its free-agent origin. Existing saves receive the marker without migration.
 
