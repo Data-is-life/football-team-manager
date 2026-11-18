@@ -245,6 +245,8 @@ def advance_context(context, run_seed, season, development_start=1, lineup_rules
         raise ValueError('Start a new career to use the draft current ceiling')
     if lineup_rules >= 42 and current_rules < 42 and context:
         raise ValueError('Simplified offseason requires a new career')
+    if lineup_rules >= 46 and current_rules < 46 and context:
+        raise ValueError('Draft class distribution requires a new career')
     rotation_growth = current_rules >= 5
     if current_rules < 3:
         if not context and lineup_rules >= 4:

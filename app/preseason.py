@@ -5,7 +5,7 @@ from functools import lru_cache
 import json
 
 from .development import initial_state, advance_context
-from .draft import build_draft, draft_class, late_round_prospect
+from .draft import build_draft, draft_class, draft_development_states, late_round_prospect
 from .lineups import replace_lineup_rosters
 from .player_contracts import (cap_payroll, salary_cap, payroll_floor, contract_expired,
     contract_terms, record_release, guaranteed_cpu_offseason, pending_renewals,
@@ -96,8 +96,8 @@ def prepare(team,season,seed,choices,prior,root,rounds):
     if root.lineup_rules >= 43:
         # Preserve the pre-ceiling potential for drafted and undrafted prospects.
         states=dict(root.development)
-        states.update({p.id:initial_state(p,seed,True) for p in draft_class(season,seed,root.lineup_rules)
-                       if p.id not in states})
+        states.update({identity:state for identity,state in draft_development_states(season,seed,root.lineup_rules).items()
+                       if identity not in states})
         root=replace(root,development=tuple(sorted(states.items())))
     # Relabel the upcoming financial year without running development.
     context=replace(getattr(root,'latest',root),season=season+1)
@@ -115,7 +115,7 @@ def prepare(team,season,seed,choices,prior,root,rounds):
     pool={p.id:p for p in root.free_agents if not retiring(p,root)}
     pool.update((p.id,p) for p in source if p.id not in retained)
     picked={p['player']['id'] for p in board['picks']}
-    pool.update((p.id,late_round_prospect(p,seed) if context.lineup_rules >= 43 else p)
+    pool.update((p.id,late_round_prospect(p,seed,context.lineup_rules) if context.lineup_rules >= 43 else p)
                 for p in draft_class(season,seed,context.lineup_rules) if p.id not in picked)
     states=dict(root.development)
     for p in pool.values():
