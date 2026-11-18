@@ -4,6 +4,7 @@ from hashlib import sha256
 import json
 from pathlib import Path
 from unittest import TestCase
+from snapshot_metadata import without_rookie_origin
 
 from app.career import offseason, training_camp
 from app.draft import build_draft
@@ -13,7 +14,8 @@ from app.player_contracts import contract_expired
 
 
 def digest(value):
-    return sha256(json.dumps(value,default=lambda x:asdict(x) if is_dataclass(x) else x,
+    encoded = json.dumps(value,default=lambda x:asdict(x) if is_dataclass(x) else x)
+    return sha256(json.dumps(json.loads(encoded,object_hook=without_rookie_origin),
                              sort_keys=True,separators=(',',':')).encode()).hexdigest()
 
 

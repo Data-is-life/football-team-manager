@@ -68,7 +68,8 @@ def release_player(context, owner, identity, *, final=False):
     if dead_cap_total(charged,owner,context.season)+payroll_floor(context.season,context.lineup_rules, run_seed=getattr(context,'run_seed',0))>salary_cap(context.season,context.lineup_rules, run_seed=getattr(context,'run_seed',0)):
         raise ValueError('This release would make the hard payroll minimum and maximum impossible to meet')
     pool={p.id:p for p in charged.free_agents}
-    pool[identity]=replace(player,contract=None,rookie_offer=None)
+    pool[identity]=replace(player,contract=None,rookie_offer=None,
+        rookie_origin="released" if player.id.startswith("rookie-") else player.rookie_origin)
     remaining=[p for p in players if p.id!=identity]
     excluded=set(pool)|{p.id for _,ps in context for p in ps}
     remaining=fill_roster(remaining,owner,context.season-1,context.run_seed,excluded,context=charged,
@@ -113,9 +114,11 @@ def prepare(team,season,seed,choices,prior,root,rounds):
             rosters[owner],context=guaranteed_cpu_offseason(rosters[owner],owner,season,seed,context)
     retained={p.id for ps in rosters.values() for p in ps}
     pool={p.id:p for p in root.free_agents if not retiring(p,root)}
-    pool.update((p.id,p) for p in source if p.id not in retained)
+    pool.update((p.id,replace(p,rookie_origin="released") if p.id.startswith("rookie-") else p)
+                for p in source if p.id not in retained)
     picked={p['player']['id'] for p in board['picks']}
-    pool.update((p.id,late_round_prospect(p,seed,context.lineup_rules) if context.lineup_rules >= 43 else p)
+    pool.update((p.id,replace(late_round_prospect(p,seed,context.lineup_rules) if context.lineup_rules >= 43 else p,
+                             rookie_origin="undrafted"))
                 for p in draft_class(season,seed,context.lineup_rules) if p.id not in picked)
     states=dict(root.development)
     for p in pool.values():

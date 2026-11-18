@@ -32,7 +32,7 @@ function checkFreeAgentBadge(p, id) {
  q(p,'#roster-stats-button').click();
  const rows=p.d.querySelectorAll(`#roster-groups [data-player-id="${id}"]`);
  assert.ok(rows.length>=2,'Rating and stats rows exist');
- for(const row of rows){const badge=row.querySelector('.free-agent-badge');assert.ok(badge);assert.equal(badge.textContent,'F');assert.equal(badge.getAttribute('aria-label'),'Free-agent signing');}
+ for(const row of rows){const badge=row.querySelector('.free-agent-badge');if(row.querySelector('.rookie-badge')?.textContent==='UDFA'){assert.equal(badge,null);}else{assert.ok(badge);assert.equal(badge.textContent,'F');assert.equal(badge.getAttribute('aria-label'),'Free-agent signing');}}
  q(p,'#roster-ratings-button').click();
 }
 function checkRankings(p,profile){
@@ -159,6 +159,10 @@ async function checks(){
  assert.deepEqual(badgeLabels({id:'veteran',contract_offer:{category:'replacement'}}),[]);
  assert.deepEqual(badgeLabels({id:'veteran',contract:{category:'free_agent'}}),['F']);
  assert.deepEqual(badgeLabels({id:'rookie-1234-2-999',contract:{category:'free_agent'}}),['R','F']);
+ assert.deepEqual(badgeLabels({id:'rookie-1234-2-999',rookie_origin:'undrafted',contract:{category:'free_agent'}}),['UDFA']);
+ assert.deepEqual(badgeLabels({id:'rookie-1234-2-999',rookie_origin:'released',contract:{category:'free_agent'}}),['R','F']);
+ assert.deepEqual(badgeLabels({id:'rookie-1234-2-999'}),['R']);
+ assert.deepEqual(badgeLabels({id:'rookie-1234-1-999',rookie_origin:'undrafted',contract:{category:'free_agent'}}),['F']);
  const cpuSigning=after.free_agency.transactions.find(t=>t.team.id!=='seattle');assert.ok(cpuSigning);
  const scouting=await api({...modernRequest,action:'free_agency',manual_picks:modernDraft.manual_picks,free_agency:modernSave.freeAgency,view_team:cpuSigning.team.id});
  const scout=badgesPage.d.createElement('div');scout.append(...badgesPage.w.createRosterGroups(scouting.profile,false));

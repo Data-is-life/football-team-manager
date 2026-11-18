@@ -942,14 +942,17 @@ function addRookieBadge(cell, player) {
   if (!match || Number(match[1]) !== rookieSeason) return;
   const badge = document.createElement("span");
   badge.className = "rookie-badge";
-  badge.textContent = "R";
-  badge.title = "Rookie · most recent draft class";
-  badge.setAttribute("aria-label", "Rookie");
+  const undrafted = player.rookie_origin === "undrafted";
+  badge.textContent = undrafted ? "UDFA" : "R";
+  badge.title = undrafted ? "Undrafted rookie free agent" : "Rookie · most recent draft class";
+  badge.setAttribute("aria-label", undrafted ? "Undrafted rookie free agent" : "Rookie");
   cell.append(document.createTextNode(" "), badge);
 }
 
 function addFreeAgentBadge(cell, player) {
   if (player.contract?.category !== "free_agent") return;
+  const match = /^rookie-\d+-(\d+)-\d+$/.exec(player.id);
+  if (match && Number(match[1]) === rookieSeason && player.rookie_origin === "undrafted") return;
   const badge = document.createElement("span");
   badge.className = "free-agent-badge";
   badge.textContent = "F";
