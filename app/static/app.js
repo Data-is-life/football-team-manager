@@ -1411,7 +1411,7 @@ function renderSchedule(data, runSeed, { priorStandings = {}, history = [], care
   draftPendingChoice = null;
   draftPendingAuto = false;
   draftButton.hidden = true;
-  draftButton.textContent = "Start rookie draft";
+  draftButton.textContent = "Start draft";
   document.querySelector("#draft-summary").hidden = true;
   document.querySelector("#draft-error").hidden = true;
   document.querySelector("#draft-retry").hidden = true;

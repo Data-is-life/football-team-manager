@@ -265,7 +265,7 @@ Save version 10 includes prior ranks, history summaries with exact playoff recor
 
 ## Six-round rookie draft
 
-After the league championship (including seasons where your team is eliminated or misses qualification), choose **Start rookie draft**. Drafting opens in the main app’s **Draft** tab, visible only during a playable offseason. **View roster** and **Back to draft** let you compare your team without a dialog or losing your place. **Back to schedule** returns to the normal schedule view. The draft is for the upcoming season and contains 200 rookies and six rounds of 30 picks: 180 total selections. Prospects have unique permanent player IDs, names, positions, ages 21–24, zero experience, current ratings 45–90, and potential ratings. Filter by position to compare prospects.
+After the league championship (including seasons where your team is eliminated or misses qualification), choose **Start draft**. Drafting opens in the main app’s **Draft** tab, visible only during a playable offseason. **View roster** and **Back to draft** let you compare your team without a dialog or losing your place. **Back to schedule** returns to the normal schedule view. The draft is for the upcoming season and contains 200 rookies and six rounds of 30 picks: 180 total selections. Prospects have unique permanent player IDs, names, positions, ages 21–24, zero experience, current ratings 45–90, and potential ratings. Filter by position to compare prospects.
 
 Non-playoff teams pick first, followed by teams eliminated in the Wild Card, Quarterfinals, Semifinals, and Championship. The champion picks last. Within each finish group, order is worst regular-season record, then lower point differential, fewer points scored, and a deterministic seeded draw. Every round uses the same order, without snaking or pick trades.
 
@@ -367,7 +367,7 @@ Rules 5 boxes include participation, and Season Stats adds Snaps for all positio
 
 ## Mandatory offseason draft
 
-After the league championship, **Start rookie draft** is the next step. The next-season button stays hidden until all six user picks and all 180 league picks are complete. A completed draft with more players than its limit shows a disabled **Roster limit: N** button; finish cuts in Roster to enable **Continue to Season N**. Position minimums remain enforced by the cut API.
+After the league championship, **Start draft** is the next step. The next-season button stays hidden until all six user picks and all 180 league picks are complete. A completed draft with more players than its limit shows a disabled **Roster limit: N** button; finish cuts in Roster to enable **Continue to Season N**. Position minimums remain enforced by the cut API.
 
 Closing the draft, reloading midway, or a failed first draft load cannot enable a season skip. The transition handler independently requires a completed draft matching its saved round count, even if button visibility is changed. A failed next-season load preserves the completed draft/cuts and allows retry. At season 999 no draft or transition is offered.
 
