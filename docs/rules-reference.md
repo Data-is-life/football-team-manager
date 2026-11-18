@@ -1190,3 +1190,19 @@ including unfinished own-player signing. An already-opened market keeps rules 44
 through its completion, so recorded availability and accepted offers replay
 exactly; its next season uses rules 45. Completed career steps retain their own
 rules. Earlier career formats retain their existing rules.
+
+
+### Rules 46: thirty ready prospects per draft class
+
+New careers use rules 46 / save version 47. Each 200-player class contains exactly
+30 prospects with draft-entry current ratings of at least 70, counting players
+rated exactly 70. The generated rating distribution shifts down so its thirtieth
+prospect reaches 70; ties across that boundary are split deterministically by ID.
+All other prospects start below 70. Names, ages, positions, identities and original
+potential ratings are preserved; attributes match the adjusted current ratings.
+
+After round one, every remaining prospect is capped at 69, including undrafted
+free agents. Rules 43–45 retain their historical 70 ceiling. These are entry
+ratings: rookie outcomes and later development can still raise current ability.
+Existing careers retain their saved draft generation and replay behavior; rules
+46 continue through season rollover and reload without upgrading older careers.

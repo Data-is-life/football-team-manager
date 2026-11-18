@@ -16,6 +16,7 @@ from .standings import standings_through_week
 
 ROUNDS = 6
 CLASS_SIZE = 200
+READY_PROSPECTS = 30
 
 
 def player_payload(player: Player, roster_context=(), *, rating_fields=None, development_states=None) -> dict:
@@ -28,6 +29,18 @@ def player_payload(player: Player, roster_context=(), *, rating_fields=None, dev
 @lru_cache(maxsize=32)
 def draft_class(season: int, run_seed: int, lineup_rules: int = 1) -> tuple[Player, ...]:
     """Independent of selections/order: every replay has the same permanent rookie IDs."""
+    if lineup_rules >= 46:
+        original = draft_class(season, run_seed, 45)
+        # Shift the whole distribution, then split ties at the 30-player boundary.
+        shift = max(0, original[READY_PROSPECTS - 1].rating - 70)
+        players = []
+        for index, player in enumerate(original):
+            rating = player.rating - shift
+            rating = max(70, rating) if index < READY_PROSPECTS else min(69, rating)
+            rating = max(45, min(90, rating))
+            players.append(replace(player, rating=rating,
+                attributes=generate_attributes(player.id, player.position, rating, run_seed)))
+        return tuple(sorted(players, key=lambda player: (-player.rating, player.id)))
     rng = random.Random(_run_number(f'draft-class:{season + 1}', run_seed))
     positions = [ROSTER_SLOTS[i % len(ROSTER_SLOTS)][0] for i in range(CLASS_SIZE)]
     rng.shuffle(positions)
@@ -51,12 +64,22 @@ def draft_class(season: int, run_seed: int, lineup_rules: int = 1) -> tuple[Play
     return tuple(sorted(players, key=lambda player: (-player.rating, player.id)))
 
 
-def late_round_prospect(player, run_seed):
-    """Rounds 2–6 and UDFAs start at most 70 current; identity is permanent."""
-    if player.rating <= 70:
+def draft_development_states(season, run_seed, lineup_rules):
+    """Preserve potential while using the adjusted class as development baseline."""
+    from .development import initial_state
+    players = draft_class(season, run_seed, lineup_rules)
+    original = {p.id:p for p in draft_class(season, run_seed, 45)} if lineup_rules >= 46 else {}
+    return {p.id:replace(initial_state(original.get(p.id,p),run_seed,True), baseline=p.rating)
+            for p in players}
+
+
+def late_round_prospect(player, run_seed, lineup_rules=43):
+    """Versioned entry ceiling for rounds 2–6 and undrafted rookies."""
+    ceiling = 69 if lineup_rules >= 46 else 70
+    if player.rating <= ceiling:
         return player
-    return replace(player, rating=70,
-                   attributes=generate_attributes(player.id, player.position, 70, run_seed))
+    return replace(player, rating=ceiling,
+                   attributes=generate_attributes(player.id, player.position, ceiling, run_seed))
 
 
 def draft_order(season: int, run_seed: int, prior_standings: tuple = (), roster_context: tuple = ()) -> list[dict]:
@@ -168,6 +191,8 @@ def _draft_result(team_id: str, season: int, run_seed: int, choices: tuple[str, 
         raise ValueError('A prospect cannot be selected twice')
     prospects = draft_class(season, run_seed, getattr(roster_context,"lineup_rules",1))
     states = dict(roster_context.development) if getattr(roster_context,'lineup_rules',1)>=3 else None
+    if getattr(roster_context,'lineup_rules',1) >= 46:
+        states.update(draft_development_states(season,run_seed,roster_context.lineup_rules))
     # Prospect metadata is fixed for this draft; only team needs change per pick.
     prospect_ratings = {p.id:rating_payload(p,roster_context,states) for p in prospects}
     def payload(player):
@@ -196,7 +221,7 @@ def _draft_result(team_id: str, season: int, run_seed: int, choices: tuple[str, 
     consumed = 0
     for overall in range(1, draft_rounds * len(order) + 1):
         if overall == len(order)+1 and getattr(roster_context,'lineup_rules',1) >= 43:
-            available = {identity:late_round_prospect(player,run_seed)
+            available = {identity:late_round_prospect(player,run_seed,roster_context.lineup_rules)
                          for identity,player in available.items()}
             # Potential is fixed before the ceiling; only entry current changes.
             prospect_ratings.update({identity:{**prospect_ratings[identity], 'current_rating':player.rating}
