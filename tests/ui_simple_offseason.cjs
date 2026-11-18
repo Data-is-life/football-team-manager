@@ -13,6 +13,9 @@ async function page(checkpoint){
  w.fetch=async(url,init)=>{const b=init&&JSON.parse(init.body);if(b)state.calls.push(b);if(state.fail&&b?.action==='own_players')return {ok:false,json:async()=>({detail:'Temporary signing failure'})};const r=await fetch(new URL(url,base),init);if(!r.ok)console.error('API:',b?.action,await r.clone().text());return r;};
  w.eval(script);const p={dom,w,d,state};await until(()=>/restored|could not/.test(q(p,'#save-status').textContent));assert.match(q(p,'#save-status').textContent,/restored/);return p;
 }
+function assertDraftNavigation(p, visible){
+ for(const selector of ['#draft-button','#roster-draft-return','#view-draft'])assert.equal(q(p,selector).hidden,!visible,selector);
+}
 async function checks(){
  const draftCheckpoint={...fixture.checkpoint};delete draftCheckpoint.freeAgency;delete draftCheckpoint.ownActions;
  let p=await page(draftCheckpoint);
@@ -33,9 +36,9 @@ async function checks(){
   assert.equal(save(p).ownActions.at(-1).kind,a.kind);
  }
  const ownSave=save(p);p.dom.window.close();p=await page(ownSave);
- assert.equal(q(p,'#own-signing').hidden,false);assert.equal(q(p,'#own-signing-finish').disabled,false);
+ assert.equal(q(p,'#own-signing').hidden,false);assert.equal(q(p,'#own-signing-finish').disabled,false);assertDraftNavigation(p,true);
  q(p,'#own-signing-finish').click();q(p,'#own-signing-finish').click();await until(()=>save(p).ownActions.at(-1).kind==='finish'&&!q(p,'#panel-free-agency').hidden&&!q(p,'#fa-finish').disabled);
- assert.equal(q(p,'#own-signing').hidden,true);assert.equal(q(p,'#training-camp-button').hidden,true);
+ assert.equal(q(p,'#own-signing').hidden,true);assert.equal(q(p,'#training-camp-button').hidden,true);assertDraftNavigation(p,false);
  assert.equal(q(p,'#fa-pass').hidden,true);assert.equal(q(p,'#fa-review-own').hidden,true);assert.equal(q(p,'#fa-pricing-guide').hidden,true);
  assert.match(q(p,'#fa-status').textContent,/Fixed asking prices/);assert.doesNotMatch(q(p,'#fa-status').textContent,/Wave|undefined/);
  const prices=new Map([...p.d.querySelectorAll('#fa-players tr')].map(r=>[r.querySelector('[data-fa-id]').dataset.faId,r.children[5].textContent]));
@@ -45,9 +48,9 @@ async function checks(){
  for(const row of p.d.querySelectorAll('#fa-players tr'))assert.equal(row.children[5].textContent,prices.get(row.querySelector('[data-fa-id]').dataset.faId));
  assert.ok(q(p,`#roster-groups [data-player-id="${id}"]`));
  const marketSave=save(p);p.dom.window.close();p=await page(marketSave);
- assert.equal(q(p,'#fa-pass').hidden,true);assert.match(q(p,'#fa-status').textContent,/Fixed asking prices/);
+ assert.equal(q(p,'#fa-pass').hidden,true);assert.match(q(p,'#fa-status').textContent,/Fixed asking prices/);assertDraftNavigation(p,false);
  q(p,'#fa-finish').click();await until(()=>save(p).freeAgency.at(-1)?.kind==='finish'&&!q(p,'#panel-roster').hidden);
- assert.equal(q(p,'#training-camp-button').hidden,true);assert.equal(q(p,'#panel-trades').hidden,true);assert.equal(q(p,'#view-free-agency').hidden,true);
+ assertDraftNavigation(p,false);assert.equal(q(p,'#training-camp-button').hidden,true);assert.equal(q(p,'#panel-trades').hidden,true);assert.equal(q(p,'#view-free-agency').hidden,true);
  if(!q(p,'#meet-payroll-floor').hidden){q(p,'#meet-payroll-floor').click();q(p,'#floor-confirm').click();await until(()=>q(p,'#meet-payroll-floor').hidden);}
  assert.equal(q(p,'#view-trades').hidden,true);assert.equal(q(p,'#next-season').textContent,'Start season');
  const before=save(p);q(p,'#next-season').click();await until(()=>save(p).season===2);
