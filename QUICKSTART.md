@@ -43,8 +43,8 @@ guarantee as dead cap. Check the release confirmation before committing.
 
 - Reach the playoffs at least once in your first four full seasons (Seasons 2–5
   for a new late-start career). The introductory season is a grace period.
-- Each full season earns only its highest extension: championship +5 years,
-  playoff appearance +2, or a winning record +1. Follow owner feedback in GM Records.
+- Each full season earns only its highest extension: winning season or playoff berth +1, quarterfinals +2, semifinals +3,
+  final +4, or championship +5. Follow owner feedback in GM Records.
 - Progress autosaves in the same browser and site address. Refresh to resume;
   starting a new career replaces the existing save after loading successfully.
 
