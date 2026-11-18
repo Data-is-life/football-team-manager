@@ -1168,3 +1168,25 @@ Trade logs replay through saves and season history. New careers use save version
 ### Rules 43: late-round draft current ceiling
 
 New careers cap the current rating of prospects remaining after round one at 70, including undrafted rookies. Potential stays fixed; player attributes match the capped current rating. Existing careers keep their original draft rules and replay behavior. Rookie boom/bust and subsequent development still apply after entry.
+
+### Rules 45: unsigned offers do not reserve cap space
+
+New careers use rules 45 / save version 46. Cap usage and available space count
+only signed, unexpired salaries plus active guaranteed dead cap. Unsigned rookie
+quotes and expired contracts contribute zero to cap usage, committed salary and
+the payroll floor. Accepting a rookie or renewal offer adds its full new salary;
+the server rechecks the cap, and confirmation shows the same projected payroll.
+Contract quotes remain visible on the roster. The payroll breakdown contains
+signed salaries and dead cap, without unsigned-hold categories.
+
+Every retained rookie and expired contract must still be signed or released
+before free agency. CPU planning separately budgets for intended rookie signings
+and minimum replacements for unresolved expiries, so removing user holds does not
+let CPU teams commit beyond the cap. Guaranteed release obligations, required
+replacement costs, position/bench minimums and the hard payroll floor remain.
+
+Rules-44 saves adopt this change on reload before their current market has opened,
+including unfinished own-player signing. An already-opened market keeps rules 44
+through its completion, so recorded availability and accepted offers replay
+exactly; its next season uses rules 45. Completed career steps retain their own
+rules. Earlier career formats retain their existing rules.

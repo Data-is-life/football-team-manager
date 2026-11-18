@@ -16,7 +16,8 @@ from .simulation import ranked_players, roster_rules, roster_limit, roster_minim
 
 def floor_payroll(players, context):
     return sum(contract_terms(p).annual_salary for p in players
-               if p.rookie_offer is not None or (p.contract is not None and not contract_expired(p,context.season)))
+               if (context.lineup_rules<45 and p.rookie_offer is not None)
+               or (p.contract is not None and not contract_expired(p,context.season)))
 
 
 def financial_ready(players, context, owner):
@@ -29,7 +30,7 @@ def raise_plan(players, context, owner):
     deficit=max(0,payroll_floor(context.season,context.lineup_rules, run_seed=getattr(context,'run_seed',0))-floor_payroll(players,context))
     if not deficit:
         return None
-    eligible=[p for p in players if p.rookie_offer is not None or (p.contract and not contract_expired(p,context.season))]
+    eligible=[p for p in players if (context.lineup_rules<45 and p.rookie_offer is not None) or (p.contract and not contract_expired(p,context.season))]
     if not eligible:
         return None
     player=max(eligible,key=lambda p:(p.rating,p.id))

@@ -143,7 +143,14 @@ def dead_cap_total(context, owner, season):
 def cap_payroll(players, context, season=None, owner=None):
     year=context.season if season is None else season
     dead=dead_cap_total(context,payroll_owner(players,context,owner),year) if getattr(context,'lineup_rules',1)>=23 else 0
-    return payroll(players)+dead
+    active = committed_payroll(players, year) if getattr(context,'lineup_rules',1)>=45 else payroll(players)
+    return active+dead
+
+
+def committed_payroll(players, season):
+    """Only signed, unexpired contracts create current salary obligations."""
+    return sum(p.contract.annual_salary for p in players
+               if p.contract is not None and not contract_expired(p,season))
 
 
 @dataclass(frozen=True)
@@ -381,7 +388,7 @@ def public_player_fields(player, context=(), *, development_states=None, renewal
             owner=renewal_owner if renewal_owner is not None else payroll_owner([player],context)
             amount=(renewal_payroll if renewal_payroll is not None
                     else cap_payroll(dict(context)[owner],context,owner=owner))
-            result['renewal_offer']['affordable']=amount+offer.annual_salary-player.contract.annual_salary<=salary_cap(context.season,context.lineup_rules, run_seed=getattr(context,'run_seed',0))
+            result['renewal_offer']['affordable']=amount+offer.annual_salary-(player.contract.annual_salary if context.lineup_rules<45 else 0)<=salary_cap(context.season,context.lineup_rules, run_seed=getattr(context,'run_seed',0))
     return result
 
 
@@ -430,14 +437,14 @@ def payroll_payload(players, context, season=None, owner=None):
         return {}
     season = context.season if season is None else season
     rules = context.lineup_rules
-    roster_total=payroll(players)
+    roster_total=committed_payroll(players,season) if rules>=45 else payroll(players)
     dead=dead_cap_total(context,payroll_owner(players,context,owner),season) if rules>=23 else 0
     total, cap, floor = roster_total+dead, salary_cap(season,rules, run_seed=getattr(context,'run_seed',0)), payroll_floor(season,rules, run_seed=getattr(context,'run_seed',0))
     committed = sum(p.contract.annual_salary for p in players if p.contract is not None
                     and (rules < 20 or not contract_expired(p,season)))
-    rookie_holds = sum(p.rookie_offer.annual_salary for p in players if p.rookie_offer is not None)
+    rookie_holds = 0 if rules>=45 else sum(p.rookie_offer.annual_salary for p in players if p.rookie_offer is not None)
     expired_holds = roster_total-committed-rookie_holds if rules >= 20 else 0
-    floor_payroll = committed+rookie_holds if rules >= 31 else committed if rules >= 19 else total
+    floor_payroll = committed if rules>=45 else committed+rookie_holds if rules >= 31 else committed if rules >= 19 else total
     return {'payroll': {'total':total,'cap':cap,'floor':floor,
             'cap_space':cap-total,'over_cap':max(0,total-cap),
             'below_floor':max(0,floor-floor_payroll),'floor_enforced':rules>=31,
@@ -455,8 +462,11 @@ def payroll_breakdown(players, context, season=None, owner=None):
         return {}
     year = context.season if season is None else season
     owner = payroll_owner(players,context,owner)
-    categories = {key: [] for key in ('signed','rookie_holds','expired_holds','dead_cap')}
+    keys = ('signed','dead_cap') if context.lineup_rules>=45 else ('signed','rookie_holds','expired_holds','dead_cap')
+    categories = {key: [] for key in keys}
     for player in players:
+        if context.lineup_rules>=45 and (player.contract is None or contract_expired(player,year)):
+            continue
         terms = contract_terms(player)
         kind = ('rookie_holds' if player.rookie_offer is not None else
                 'expired_holds' if context.lineup_rules>=20 and contract_expired(player,year) else 'signed')
@@ -471,7 +481,7 @@ def payroll_breakdown(players, context, season=None, owner=None):
     groups = [{'kind':key,'total':sum(p['amount'] for p in rows),
                'players':sorted(rows,key=lambda p:(-p['amount'],p['name'],p['player_id']))}
               for key,rows in categories.items()]
-    floor_payroll = groups[0]['total']+groups[1]['total'] if context.lineup_rules>=31 else groups[0]['total'] if context.lineup_rules>=19 else sum(g['total'] for g in groups)
+    floor_payroll = groups[0]['total'] if context.lineup_rules>=45 else groups[0]['total']+groups[1]['total'] if context.lineup_rules>=31 else groups[0]['total'] if context.lineup_rules>=19 else sum(g['total'] for g in groups)
     return {'payroll_breakdown':{'season':year,'floor_payroll':floor_payroll,'categories':groups}}
 
 
@@ -560,7 +570,7 @@ def pending_renewals(players, context):
     return sum(contract_expired(p,context.season) for p in players) if getattr(context,'lineup_rules',1)>=20 else 0
 
 
-def renew_player(players, identity, season, rules, context=None, owner=None):
+def renew_player(players, identity, season, rules, context=None, owner=None, *, reserved_salary=0):
     player = next((p for p in players if p.id==identity),None)
     if player is None: raise ValueError('Player is not on this roster')
     if not contract_expired(player,season):
@@ -568,8 +578,11 @@ def renew_player(players, identity, season, rules, context=None, owner=None):
     potential=contract_potential(player,context) if rules>=26 else None
     deal = veteran_contract(player,season,rules,potential, run_seed=getattr(context,'run_seed',0), context=context)
     updated=[replace(p,contract=deal) if p.id==identity else p for p in players]
-    if rules>=23 and context is not None and not cap_ready(updated,context,season,owner):
-        raise ValueError('Re-signing would exceed the salary cap. Release unsigned rookies or expired contracts first; signed salaries are fully guaranteed.')
+    if rules>=23 and context is not None:
+        if cap_payroll(updated,context,season,owner)+reserved_salary>salary_cap(season,rules,run_seed=getattr(context,'run_seed',0)):
+            if rules>=45:
+                raise ValueError('Re-signing would exceed the salary cap; signed salaries are fully guaranteed.')
+            raise ValueError('Re-signing would exceed the salary cap. Release unsigned rookies or expired contracts first; signed salaries are fully guaranteed.')
     return updated
 
 
@@ -667,10 +680,16 @@ def smart_cpu_offseason(players, owner, season, seed, context):
         remaining = cap_release(remaining,player.id,owner,season,seed,context,excluded)
         context = record_release(context,owner,player,year)
 
-    # Only unsigned/expired holds provide relief; releasing a guaranteed deal
-    # merely converts its salary to dead cap and should not be a budget tactic.
+    # CPU planning funds retained rookies and minimum replacements for undecided
+    # expiries. These estimates are not holds on the managed team's cap room.
     minimum = minimum_salary(year, context.lineup_rules, run_seed=seed)
-    while not cap_ready(remaining,context,year,owner):
+    def planned_salary(exclude_expiry=None):
+        if context.lineup_rules<45:
+            return 0
+        return (sum(p.rookie_offer.annual_salary for p in remaining if p.rookie_offer)
+                + minimum*sum(contract_expired(p,year) and p.id!=exclude_expiry for p in remaining))
+
+    while cap_payroll(remaining,context,year,owner)+planned_salary()>salary_cap(year,context.lineup_rules,run_seed=seed):
         eligible = [p for p in remaining if
                     (p.contract is None or contract_expired(p,year))
                     and contract_terms(p).annual_salary > minimum]
@@ -685,7 +704,8 @@ def smart_cpu_offseason(players, owner, season, seed, context):
             continue
         while True:
             try:
-                remaining = renew_player(remaining,target.id,year,context.lineup_rules,context,owner)
+                remaining = renew_player(remaining,target.id,year,context.lineup_rules,context,owner,
+                    reserved_salary=planned_salary(target.id))
                 break
             except ValueError:
                 # Give a valuable starter first claim on available cap before
