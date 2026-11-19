@@ -16,7 +16,7 @@ const row=(p,id,scope='#roster-groups')=>q(p,`${scope} [data-player-id="${id}"]`
 function snapshot(p){return q(p,'#roster-groups').textContent}
 function body(checkpoint,action='profile',extra={}){return {action,run_seed:checkpoint.runSeed,season:checkpoint.season,lineup_rules:checkpoint.lineupRules,development_start:checkpoint.developmentStart,rebuild_team:checkpoint.rebuildTeam,career:checkpoint.career,prior_standings:checkpoint.priorStandings,...extra}}
 function checkDevelopment(p, profile, all=false) {
- assert.equal(q(p,'#development-recap-button').hidden,save(p).week>0&&!save(p).trainingCamp);
+ assert.equal(q(p,'#development-recap-button'),null);
  const expected=profile.roster.filter(x=>all||x.rating_change||x.potential_change||['boom','bust'].includes(x.rookie_outcome));
  const rows=[...p.d.querySelectorAll('#development-recap-rows tr')];
  assert.deepEqual(rows.map(r=>r.dataset.playerId),expected.map(x=>x.id));
@@ -40,7 +40,7 @@ async function checks(){
  }
  board=await api('/api/draft/seattle',{season:1,run_seed:1234,lineup_rules:6,rebuild_team:'seattle',manual_picks:picks});assert.equal(board.complete,true);
  const checkpoint={version:14,careerStartWeek:1,contracts:false,lineupChanges:[],teamId:'seattle',runSeed:1234,season:1,week:17,playoffRound:4,lineupRules:6,developmentStart:1,rebuildTeam:'seattle',priorStandings:{},history:[],career:[],draftChoices:picks,dropped:[]};
- let p=await restore(checkpoint);assert.equal(q(p,'#development-recap-button').hidden,true);
+ let p=await restore(checkpoint);assert.equal(q(p,'#development-recap-button'),null);
  for(const player of estimates){assert.equal(row(p,player.id).children[3].textContent,String(player.current_rating));assert.equal(row(p,player.id).children[4].textContent,String(player.potential_rating));assert.equal(row(p,player.id).querySelector('.potential-change'),null)}
  // Keep the four sampled rookies while making legal cuts before seeing their outcomes.
  q(p,'#manage-roster').click();
@@ -61,19 +61,19 @@ async function checks(){
   const arrow=view.querySelector('.potential-change');
   if(delta){assert.ok(arrow);assert.equal(arrow.classList.contains(delta>0?'improved':'declined'),true);assert.match(arrow.textContent,new RegExp(delta>0?'↑ \\+'+delta:'↓ '+delta));assert.match(arrow.getAttribute('aria-label'),/Potential.*from.*to/);assert.match(arrow.title,/draft estimate/)}else assert.equal(arrow,null);
  }
- const recorded=snapshot(p),entered=save(p);p.dom.window.close();p=await restore(entered);assert.equal(snapshot(p),recorded);assert.equal(q(p,'#development-dialog').open,false);checkDevelopment(p,current);q(p,'#development-recap-button').click();assert.equal(q(p,'#development-dialog').open,true);q(p,'#development-close').click();assert.equal(q(p,'#development-recap-rows').textContent,recap);
- // A failed first game leaves preseason recap access intact.
+ const recorded=snapshot(p),entered=save(p);p.dom.window.close();p=await restore(entered);assert.equal(snapshot(p),recorded);assert.equal(q(p,'#development-dialog').open,false);checkDevelopment(p,current);assert.equal(q(p,'#development-recap-rows').textContent,recap);
+ // A failed first game preserves the saved preseason snapshot.
  const beforeGame=raw(p),realFetch=p.w.fetch;
  p.w.fetch=(url,init)=>url.startsWith('/api/season/')||(init&&JSON.parse(init.body).action==='week')?Promise.resolve({ok:false,json:async()=>({detail:'Week temporarily unavailable'})}):realFetch(url,init);
  q(p,'#simulate-button').click();await until(()=>!q(p,'#error').hidden&&!q(p,'#simulate-button').disabled);
- assert.equal(raw(p),beforeGame);assert.equal(q(p,'#development-recap-button').hidden,false);p.w.fetch=realFetch;
- q(p,'#development-recap-button').click();assert.equal(q(p,'#development-dialog').open,true);
+ assert.equal(raw(p),beforeGame);assert.equal(q(p,'#development-recap-button'),null);p.w.fetch=realFetch;
+
  q(p,'#simulate-button').click();await until(()=>save(p).week===1&&!q(p,'#simulate-button').disabled);assert.equal(snapshot(p),recorded);
- assert.equal(q(p,'#development-recap-button').hidden,true);assert.equal(q(p,'#development-dialog').open,false);
+ assert.equal(q(p,'#development-recap-button'),null);assert.equal(q(p,'#development-dialog').open,false);
  const playedCheckpoint=raw(p),playedSave=save(p);p.dom.window.close();p=await restore(playedSave);
- assert.equal(raw(p),playedCheckpoint);assert.equal(q(p,'#development-recap-button').hidden,true);assert.equal(q(p,'#development-dialog').open,false);
- q(p,'#development-recap-button').hidden=false;q(p,'#development-recap-button').click();assert.equal(q(p,'#development-dialog').open,false,'Forced clicks cannot reopen an in-season recap');
- p.w.updateDevelopmentRecapVisibility();assert.equal(q(p,'#development-recap-button').hidden,true);
+ assert.equal(raw(p),playedCheckpoint);assert.equal(q(p,'#development-recap-button'),null);assert.equal(q(p,'#development-dialog').open,false);
+ assert.equal(q(p,'#development-recap-button'),null,'No recap reopening control exists');
+ p.w.updateDevelopmentRecapVisibility();assert.equal(q(p,'#development-recap-button'),null);
  const after=await api('/api/career/seattle',body(save(p)));assert.deepEqual(after,current,'Playing cannot reroll ability or potential');checkDevelopment(p,current);
  // Scouting shares potential arrows and cannot mutate the managed career.
  let other,profile;for(const button of p.d.querySelectorAll('.team-roster-link')){if(button.dataset.teamId==='seattle')continue;const candidate=await api('/api/career/seattle',body(save(p),'profile',{view_team:button.dataset.teamId}));if(candidate.roster.some(player=>player.potential_change)){other=button;profile=candidate;break}}
@@ -89,7 +89,7 @@ async function checks(){
  await finishOffseason(p,until);q(p,'#next-season').click();await until(()=>save(p).season===3);
  assert.equal(q(p,'#development-dialog').open,true);assert.match(q(p,'#development-recap-title').textContent,/Season 3/);assert.equal(q(p,'#development-show-unchanged').checked,false);
  q(p,'#development-close').click();q(p,'#change-team-button').click();q(p,'#team-select').value='seattle';q(p,'#team-form').dispatchEvent(new p.w.Event('submit',{cancelable:true}));await until(()=>save(p).season===1&&save(p).careerStartWeek===17);
- assert.equal(q(p,'#development-recap-button').hidden,true);assert.equal(q(p,'#development-dialog').open,false);assert.equal(q(p,'#development-recap-rows').children.length,0);
+ assert.equal(q(p,'#development-recap-button'),null);assert.equal(q(p,'#development-dialog').open,false);assert.equal(q(p,'#development-recap-rows').children.length,0);
  // Edge cases: unchanged, potential-only changes, and capped zero-change booms.
  const untouched=raw(p),sample={id:'sample',name:'<b>Sample</b>',position:'WR',current_rating:70,potential_rating:80,rating_change:0,potential_change:0};
  p.w.setDevelopmentRecap({lineup_rules:7,roster:[sample]},2);assert.equal(q(p,'#development-recap-empty').hidden,false);assert.equal(q(p,'#development-recap-scroll').hidden,true);
@@ -98,6 +98,6 @@ async function checks(){
  p.dom.window.close();
  // Replaying the prior offseason still gives the original draft estimates, with no leaked state.
  const replay=await api('/api/draft/seattle',{season:1,run_seed:1234,lineup_rules:6,rebuild_team:'seattle',manual_picks:picks});assert.deepEqual(replay,board);
- console.log('Rookie reveal UI checks passed: unrevealed draft/cuts/reload, legacy-to-new rules transition, seeded boom/bust/normal current and potential changes, positive/negative accessible arrows, rookies stay age/experience unchanged, reload/weekly idempotence, read-only scouting arrows, frozen future/past draft estimates, and development recap with exact deltas, rookie labels, changed/all filter, transition opening, read-only reopening, reloads, weekly/scout stability.');
+ console.log('Rookie reveal UI checks passed: unrevealed draft/cuts/reload, legacy-to-new rules transition, seeded boom/bust/normal current and potential changes, positive/negative accessible arrows, rookies stay age/experience unchanged, reload/weekly idempotence, read-only scouting arrows, frozen future/past draft estimates, and development recap with exact deltas, rookie labels, changed/all filter, transition opening, removed reopening button, reloads, weekly/scout stability.');
 }
 (async()=>{const server=spawn(process.env.PYTHON||'python',['-m','uvicorn','app.main:app','--host','127.0.0.1','--port','8780'],{cwd:root,stdio:['ignore','pipe','pipe']});let logs='';server.stdout.on('data',d=>logs+=d);server.stderr.on('data',d=>logs+=d);try{for(let i=0;;i++){if(server.exitCode!==null)throw new Error(logs);try{if((await fetch(base+'/api/teams')).ok)break}catch{}if(i===100)throw new Error(logs);await new Promise(r=>setTimeout(r,100))}await checks()}finally{server.kill()}})().catch(e=>{console.error(e);process.exitCode=1});
