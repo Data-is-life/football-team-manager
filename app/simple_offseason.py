@@ -59,7 +59,7 @@ def _own_phase(team, season, seed, choices, prior, root, rounds, own_actions):
                 raise ValueError('Sign or release every expired player and drafted rookie first')
             if not cap_ready(players,context,context.season,team): raise ValueError('Resolve the salary cap before free agency')
             own_complete=True
-        elif kind=='drop': context=release_player(context,team,identity)
+        elif kind=='drop': context=release_player(context,team,identity,flexible=root.lineup_rules>=48)
         elif kind=='resign':
             updated=renew_player(players,identity,context.season,context.lineup_rules,context,team)
             context=replace_lineup_rosters(context,tuple((o,tuple(updated) if o==team else ps) for o,ps in context))
@@ -83,12 +83,14 @@ def _market_phase(team, season, seed, prior, root, context, market_actions):
     premiums = team_market_premiums(season, seed, prior, root)
     market, context = free_agency(team, season, seed, context,
         free_agency_order(season, seed, prior, root), market_actions, premiums=premiums)
-    if market['complete']:
+    if market['complete'] and root.lineup_rules < 48:
         context = cpu_review(context, team)
     return json.dumps(market), context
 
 
 def run(team,season,seed,choices,prior,root,rounds,own_actions=(),market_actions=(),review_actions=(),trade_actions=()):
+    if root.lineup_rules >= 48 and review_actions:
+        raise ValueError('Record roster review decisions in the market action log')
     root = expire_pool(root, season+1)
     raw, context, own_complete = _own_phase(team, season, seed, choices, prior, root, rounds, own_actions)
     board = json.loads(raw)

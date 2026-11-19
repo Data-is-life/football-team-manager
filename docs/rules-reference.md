@@ -1222,3 +1222,26 @@ roster-building decisions. Ownership timing remains seeded and staggered, with
 20–25-year eras. Existing careers retain their saved CPU rules and replay
 behavior. These changes add no visible ownership labels, ratings, countdowns,
 or screens. Contracts, cap/floor requirements and roster minimums remain enforced.
+
+
+### Rules 48: flexible managed-team offseason roster
+
+New careers use rules 48 / save version 49. During own-player signing, free
+agency and roster review, the managed team may release players below the total
+or position minimums. Releases do not automatically fill the resulting vacancies.
+Signing, renewal and release controls remain available subject to real contract
+and cap obligations. Signed guarantees and the hard payroll floor remain binding.
+
+Ending free agency does not fill managed-team vacancies or prevent further
+signings. The market remains reachable from roster review; signing or releasing
+a player reopens it. Ending it again preserves prior CPU decisions. Review drops
+and voluntary floor raises are recorded in the ordered market log so reopening,
+reloads and career replay reproduce the same contracts and available players.
+CPU roster finalization occurs at each recorded market close; managed-team
+minimums, position coverage, maximum roster size and both payroll limits are
+validated at Start season before development or season advance. The UI shows
+missing players or positions and disables season start until repaired.
+
+Existing careers retain their recorded refill and market-finalization rules.
+CPU teams retain their own roster safeguards. These rules do not change the
+regular-season roster minimum (31), maximum (38), or starter-position minimums.

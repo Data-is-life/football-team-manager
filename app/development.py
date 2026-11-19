@@ -249,6 +249,8 @@ def advance_context(context, run_seed, season, development_start=1, lineup_rules
         raise ValueError('Draft class distribution requires a new career')
     if lineup_rules >= 47 and current_rules < 47 and context:
         raise ValueError('Redefined CPU ownership requires a new career')
+    if lineup_rules >= 48 and current_rules < 48 and context:
+        raise ValueError('Flexible offseason rosters require a new career')
     rotation_growth = current_rules >= 5
     if current_rules < 3:
         if not context and lineup_rules >= 4:

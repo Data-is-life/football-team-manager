@@ -227,12 +227,12 @@ class RosterAction(BaseModel):
 
 
 class FreeAgencyAction(BaseModel):
-    kind: Literal['sign', 'pass', 'finish', 'resign', 'drop']
+    kind: Literal['sign', 'pass', 'finish', 'resign', 'drop', 'raise']
     player_id: str = Field(default='', max_length=100)
 
     @model_validator(mode='after')
     def valid_target(self):
-        if (self.kind in ('sign','resign','drop')) != bool(self.player_id):
+        if (self.kind in ('sign','resign','drop','raise')) != bool(self.player_id):
             raise ValueError('Signings, renewals and releases require a player ID')
         return self
 

@@ -9,7 +9,7 @@ from .draft import build_draft, draft_class, draft_development_states, late_roun
 from .lineups import replace_lineup_rosters
 from .player_contracts import (cap_payroll, salary_cap, payroll_floor, contract_expired,
     contract_terms, record_release, guaranteed_cpu_offseason, pending_renewals,
-    cpu_contract_priorities, dead_cap_total, sign_retained_rookies)
+    cpu_contract_priorities, dead_cap_total, sign_retained_rookies, minimum_roster_reserve)
 from .retirement import retiring, fill_roster
 from .simulation import ranked_players, roster_rules, roster_limit, roster_minimum, validate_roster
 
@@ -60,7 +60,7 @@ def raise_to_floor(context, owner, identity):
     return replace_lineup_rosters(context,tuple(rosters.items()))
 
 
-def release_player(context, owner, identity, *, final=False):
+def release_player(context, owner, identity, *, final=False, flexible=False):
     rosters=dict(context); players=list(rosters[owner]); player=next((p for p in players if p.id==identity),None)
     if player is None:
         raise ValueError('Player is not on this roster')
@@ -72,16 +72,19 @@ def release_player(context, owner, identity, *, final=False):
         rookie_origin="released" if player.id.startswith("rookie-") else player.rookie_origin)
     remaining=[p for p in players if p.id!=identity]
     excluded=set(pool)|{p.id for _,ps in context for p in ps}
-    remaining=fill_roster(remaining,owner,context.season-1,context.run_seed,excluded,context=charged,
-                          identity_suffix='-review')
+    if not flexible:
+        remaining=fill_roster(remaining,owner,context.season-1,context.run_seed,excluded,context=charged,
+                              identity_suffix='-review')
     rosters[owner]=tuple(remaining)
     charged=replace(charged,free_agents=tuple(pool[k] for k in sorted(pool)))
     charged=replace_lineup_rosters(charged,tuple(rosters.items()))
     guaranteed=sum(p.contract.annual_salary for p in remaining if p.contract and not contract_expired(p,charged.season))
     required=sum(p.rookie_offer.annual_salary for p in remaining if p.rookie_offer and p.rookie_offer.category=='replacement')
+    if flexible and guaranteed+dead_cap_total(charged,owner,charged.season)+minimum_roster_reserve(remaining,charged,owner)>salary_cap(charged.season,charged.lineup_rules,run_seed=charged.run_seed):
+        raise ValueError('This release leaves no cap space to restore roster minimums')
     if guaranteed+required+dead_cap_total(charged,owner,charged.season)>salary_cap(charged.season,charged.lineup_rules, run_seed=getattr(context,'run_seed',0)):
         raise ValueError('This release cannot fit its guarantee and required replacements under the cap')
-    if final and not financial_ready(remaining,charged,owner):
+    if final and not flexible and not financial_ready(remaining,charged,owner):
         raise ValueError('Final cuts must preserve the hard payroll minimum and maximum')
     return charged
 

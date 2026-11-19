@@ -504,6 +504,15 @@ def cap_release(players, identity, owner, season, seed, context, excluded):
                        excluded,context=context)
 
 
+def minimum_roster_reserve(players, context, owner):
+    """Future minimum-pay repair cost; never a committed salary or offer hold."""
+    from collections import Counter
+    from .simulation import roster_rules, roster_minimum
+    counts = Counter(p.position for p in players)
+    gaps = sum(max(0,minimum-counts[position]) for position,(_,minimum) in roster_rules(context,owner).items())
+    return minimum_salary(context.season,context.lineup_rules,run_seed=context.run_seed)*max(gaps,roster_minimum(context)-len(players),0)
+
+
 def release_preview(players, player, owner, season, seed, context):
     """Read-only projection using the same release/refill and cap rules as cuts.
 
@@ -526,7 +535,11 @@ def release_preview(players, player, owner, season, seed, context):
                'payroll_before': before['total'], 'cap_space_before': before['cap_space'],
                'cap': before['cap']}
     try:
-        if context.lineup_rules >= 23 or not cap_ready(players,context,season,owner):
+        if context.lineup_rules >= 48 and dead_cap_total(charged,owner,season)+payroll_floor(season,context.lineup_rules,run_seed=seed)>salary_cap(season,context.lineup_rules,run_seed=seed):
+            raise ValueError('This release would make the hard payroll minimum and maximum impossible to meet')
+        if context.lineup_rules >= 48:
+            remaining = [p for p in players if p.id != player.id]
+        elif context.lineup_rules >= 23 or not cap_ready(players,context,season,owner):
             remaining = cap_release(players,player.id,owner,season-1,seed,context,(player.id,))
         else:
             remaining = drop_players(players,(player.id,),roster_minimum(context))
@@ -541,6 +554,8 @@ def release_preview(players, player, owner, season, seed, context):
                        replacement_cost=sum(p['annual_salary'] for p in replacements))
         emergency_holds = sum(p.rookie_offer.annual_salary for p in remaining
                               if p.rookie_offer is not None and p.rookie_offer.category == 'replacement')
+        if context.lineup_rules >= 48 and after['committed']+after['dead_cap']+minimum_roster_reserve(remaining,context,owner)>after['cap']:
+            raise ValueError('This release leaves no cap space to restore roster minimums')
         if context.lineup_rules >= 23 and after['committed']+after['dead_cap']+emergency_holds > after['cap']:
             raise ValueError('This release cannot fit its guaranteed salary plus required replacement under the cap')
     except ValueError as error:
