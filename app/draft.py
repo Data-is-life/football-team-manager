@@ -115,6 +115,14 @@ def draft_value(player):
 
 def need_aware_pick(available, current, additions, context, *, prospect_ratings=None, owner=None):
     from .simulation import roster_rules
+    policy = cpu_identity.for_team(context,owner,context.season+1)
+    if policy is not None and policy.kind == 'talent_hoarder':
+        states = dict(context.development) if prospect_ratings is None else None
+        def talent_key(p):
+            potential = (prospect_ratings[p.id] if prospect_ratings is not None else rating_payload(p,context,states))['potential_rating']
+            return p.rating, potential, p.id
+        available = tuple(available)
+        return max(available,key=talent_key)
     groups = {position:[] for position in ROSTER_RULES}
     for player in current:
         groups[player.position].append(player.rating)
@@ -128,7 +136,6 @@ def need_aware_pick(available, current, additions, context, *, prospect_ratings=
     if shortages:
         available = shortages
     states = dict(context.development) if prospect_ratings is None else None
-    policy = cpu_identity.for_team(context,owner,context.season+1)
     def key(player):
         quality, weakest, slots = strength[player.position]
         gain = max(0, player.rating-weakest)/slots
@@ -138,7 +145,7 @@ def need_aware_pick(available, current, additions, context, *, prospect_ratings=
         # turn an excellent QB1 into an early-round need. Recompute after picks.
         gain_weight = .25 if player.position == 'K' else 1.5
         score = draft_value(player) - .6*quality + gain_weight*gain - 12*additions.get(player.position,0)
-        if policy is not None:
+        if policy is not None and policy.kind != 'expensive_peaks':
             score += cpu_identity.draft_adjustment(policy,player,potential,context.run_seed,owner,context.season+1)
         return score, (player.rating+potential)/2, player.rating, player.id
     return max(available,key=key)

@@ -1213,3 +1213,12 @@ free agents. Rules 43–45 retain their historical 70 ceiling. These are entry
 ratings: rookie outcomes and later development can still raise current ability.
 Existing careers retain their saved draft generation and replay behavior; rules
 46 continue through season rollover and reload without upgrading older careers.
+
+
+### Rules 47: revised private CPU decisions
+
+New careers use rules 47 / save version 48, including revised private CPU
+roster-building decisions. Ownership timing remains seeded and staggered, with
+20–25-year eras. Existing careers retain their saved CPU rules and replay
+behavior. These changes add no visible ownership labels, ratings, countdowns,
+or screens. Contracts, cap/floor requirements and roster minimums remain enforced.

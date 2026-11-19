@@ -3,7 +3,7 @@
 Ownership changes are derived from seed/team/year, independent of wins or losses.
 Initial owners are partway through their eras so transitions are staggered.
 """
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from functools import lru_cache
 import hashlib
 import math
@@ -60,7 +60,10 @@ def for_team(context, owner, year):
     managed = getattr(context, 'rebuild_team', None)
     if getattr(context, 'lineup_rules', 1) < 44 or owner is None or owner == managed:
         return None
-    return identity(context.run_seed, managed, owner, year)
+    policy = identity(context.run_seed, managed, owner, year)
+    if context.lineup_rules >= 47:
+        policy = replace(policy,kind={'reactive':'expensive_peaks','gambler':'talent_hoarder'}.get(policy.kind,policy.kind))
+    return policy
 
 
 def direction(policy, position):
@@ -110,3 +113,14 @@ def market_factor(policy, player, potential, salary, seed, owner, year):
         cost = max(1, salary / 1_000_000)
         factor *= cost ** (.3 if policy.push else -.2)
     return factor
+
+
+# Rules 47 target the final prime/first decline years, without exposing policy metadata.
+def peak_age(position):
+    from .development import CURVES, KICKER_CURVE
+
+    return 27 if position == 'RB' else (KICKER_CURVE if position == 'K' else CURVES[position])[1]-1
+
+
+def peak_window(player):
+    return abs(player.age-peak_age(player.position)) <= 1
