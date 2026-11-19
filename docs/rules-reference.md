@@ -1245,3 +1245,19 @@ missing players or positions and disables season start until repaired.
 Existing careers retain their recorded refill and market-finalization rules.
 CPU teams retain their own roster safeguards. These rules do not change the
 regular-season roster minimum (31), maximum (38), or starter-position minimums.
+
+
+### Rules 49: bounded home and road streaks
+
+New careers use rules 49 / save version 50. No team has more than two
+consecutive home games or two consecutive road games in the regular season.
+Every team still plays 17 games, with 8 or 9 home games, the existing opponent
+rotation, and one home/one away game against each group opponent.
+
+Venue assignment is deterministic from the season and prior standings. It uses
+a bounded search over venue flips; paired group games flip together. If an
+assignment fails, schedule generation retries a different weekly arrangement
+instead of returning a schedule that violates the limits. The existing cache
+reuses completed schedules. Schedule displays, scores and full game simulation
+use the same rule version. Existing saves keep their original calendars and
+results, including when replaying historical seasons.

@@ -139,7 +139,7 @@ def team_schedule(
         raise HTTPException(status_code=404, detail="Team not found")
     team = TEAM_BY_ID[team_id]
     games = generate_schedule(team_id=team_id, season=season,
-                              standings=dict(parse_prior_standings(prior_standings)) or None)
+                              standings=dict(parse_prior_standings(prior_standings)) or None,lineup_rules=lineup_rules)
     return {
         "team": {"id": team.id, "city": team.city, "group": team.group},
         "season": season,

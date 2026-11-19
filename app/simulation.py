@@ -556,10 +556,10 @@ def simulate_game(
     }
 
 
-def _league_week_matchups(season, week, prior_standings):
+def _league_week_matchups(season, week, prior_standings, lineup_rules=1):
     if week < 1 or week > 17:
         raise ValueError("Week must be between 1 and 17")
-    for league_game in generate_league_schedule(season=season, standings=dict(prior_standings) or None):
+    for league_game in generate_league_schedule(season=season, standings=dict(prior_standings) or None,lineup_rules=lineup_rules):
         if league_game.week != week:
             continue
         away = TEAM_BY_ID[league_game.away_id]
@@ -573,7 +573,7 @@ def simulate_league_week(season: int, week: int, run_seed: int = 0,
                          prior_standings: tuple[tuple[str, int], ...] = (), roster_context: tuple = ()) -> list[dict[str, object]]:
     return [simulate_game(home_id, game, season, run_seed=run_seed,
                           include_defense_and_blocking=include_defense_and_blocking, roster_context=roster_context)
-            for home_id, game in _league_week_matchups(season, week, prior_standings)]
+            for home_id, game in _league_week_matchups(season, week, prior_standings,getattr(roster_context,'lineup_rules',1))]
 
 
 @lru_cache(maxsize=128)
@@ -585,7 +585,7 @@ def league_week_scores(season: int, week: int, run_seed: int = 0,
     independent statistical streams. Retain complete immutable context cache keys.
     """
     scores = []
-    for home_id, game in _league_week_matchups(season, week, prior_standings):
+    for home_id, game in _league_week_matchups(season, week, prior_standings,getattr(roster_context,'lineup_rules',1)):
         home, away, _, _ = _scoring_boxes(home_id, game, season, run_seed=run_seed, roster_context=roster_context)
         scores.append((home['team']['id'], away['team']['id'], home['score'], away['score']))
     return tuple(scores)
@@ -594,7 +594,7 @@ def league_week_scores(season: int, week: int, run_seed: int = 0,
 def simulate_through_week(team_id: str, season: int, week: int, run_seed: int = 0,
                           prior_standings: tuple[tuple[str, int], ...] = (), roster_context: tuple = ()) -> dict[str, object]:
     from .starter_choices import context_for_week
-    schedule = generate_schedule(team_id=team_id, season=season, standings=dict(prior_standings) or None)
+    schedule = generate_schedule(team_id=team_id, season=season, standings=dict(prior_standings) or None,lineup_rules=getattr(roster_context,'lineup_rules',1))
     if week < 1 or week > len(schedule):
         raise ValueError(f"Week must be between 1 and {len(schedule)}")
     results = [simulate_game(team_id, game, season, run_seed=run_seed, roster_context=roster_context) for game in schedule[:week]]

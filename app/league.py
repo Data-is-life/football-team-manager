@@ -182,6 +182,7 @@ def _orient_schedule(weeks: list[list[tuple[str, str, str]]]) -> list[LeagueGame
 def _generate_league_schedule_cached(
     season: int,
     standings_items: tuple[tuple[str, int], ...],
+    bounded_venues: bool = False,
 ) -> tuple[LeagueGame, ...]:
     standings = dict(standings_items)
     counts, reasons = _required_matchups(season, standings)
@@ -205,10 +206,17 @@ def _generate_league_schedule_cached(
                 edge = tuple(sorted((left, right)))
                 remaining[edge] -= 1
                 games.append((left, right, reasons[edge]))
+            if bounded_venues:
+                games = sorted((min(a,b),max(a,b),r) for a,b,r in games)
             weeks.append(games)
 
         if len(weeks) == 17 and sum(remaining.values()) == 0:
-            return tuple(_orient_schedule(weeks))
+            oriented = _orient_schedule(weeks)
+            if bounded_venues:
+                from .schedule_balance import balance_venues
+                oriented = balance_venues(oriented,f'venues:{season}:{standings_items}:{attempt}')
+                if oriented is None: continue
+            return tuple(oriented)
 
     raise RuntimeError("Could not arrange the required matchups into 17 complete weeks")
 
@@ -216,12 +224,13 @@ def _generate_league_schedule_cached(
 def generate_league_schedule(
     season: int = 1,
     standings: dict[str, int] | None = None,
+    lineup_rules: int = 1,
 ) -> list[LeagueGame]:
     if season < 1:
         raise ValueError("Season must be 1 or greater")
     standings = standings or default_standings()
     validate_standings(standings)
-    return list(_generate_league_schedule_cached(season, tuple(sorted(standings.items()))))
+    return list(_generate_league_schedule_cached(season, tuple(sorted(standings.items())),lineup_rules>=49))
 
 
 def generate_schedule(
@@ -229,13 +238,14 @@ def generate_schedule(
     season: int = 1,
     standings: dict[str, int] | None = None,
     seed: int | None = None,
+    lineup_rules: int = 1,
 ) -> list[ScheduledGame]:
     """Return one team's view of the coherent 17-week league schedule."""
     del seed  # Retained for compatibility with the original public function.
     if team_id not in TEAM_BY_ID:
         raise KeyError(f"Unknown team: {team_id}")
     games: list[ScheduledGame] = []
-    for league_game in generate_league_schedule(season=season, standings=standings):
+    for league_game in generate_league_schedule(season=season, standings=standings,lineup_rules=lineup_rules):
         if team_id not in (league_game.home_id, league_game.away_id):
             continue
         is_home = league_game.home_id == team_id
