@@ -632,7 +632,12 @@ def cpu_contract_priorities(players, context, year, *, owner=None):
             # backups routinely outrank indispensable starters.
             cost = max(1, salary/1_000_000)**.30
             priorities[player.id] = CPU_GROUP_IMPORTANCE[position]*slot*ability/cost
-            if policy is not None:
+            if policy is not None and policy.kind in ('expensive_peaks','talent_hoarder'):
+                # Strong talent can remain valuable even as an expensive backup.
+                priorities[player.id] = player.rating + .2*upside
+                if policy.kind == 'expensive_peaks':
+                    priorities[player.id] += 30 if cpu_identity.peak_window(player) else -5*abs(player.age-cpu_identity.peak_age(player.position))
+            elif policy is not None:
                 priorities[player.id] *= cpu_identity.retention_factor(policy,player,potential,context.run_seed,owner,year)
     return priorities
 

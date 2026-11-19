@@ -1,5 +1,6 @@
 """Versioned, deterministic user-first free agency, replayed from saved turns."""
 from . import cpu_identity
+import math
 from collections import Counter
 from dataclasses import asdict, replace
 from decimal import Decimal, ROUND_HALF_UP
@@ -160,17 +161,25 @@ def free_agency(team_id, season, request_seed, context, order, actions=(), *, pr
                 count = counts[owner][player.position]
                 shortage = count < floor
                 baseline = weakest.get(player.position,40)
-                if not shortage and count >= target and player.rating <= baseline+3:
+                if (policy is None or policy.kind not in ('expensive_peaks','talent_hoarder')) and not shortage and count >= target and player.rating <= baseline+3:
                     continue
                 deal = demand(owner, player)
                 if not can_sign(owner,player,deal):
                     continue
                 benefit = (100 if shortage else max(0,player.rating-baseline)) + .1*max(0,potential_for(player)-player.rating)
                 score = CPU_GROUP_IMPORTANCE[player.position]*benefit/max(1,deal.annual_salary/1_000_000)**.3
-                if policy is not None:
+                if policy is not None and policy.kind == 'talent_hoarder':
+                    score = player.rating
+                elif policy is not None and policy.kind == 'expensive_peaks':
+                    score = player.rating + 8*math.log(max(1,deal.annual_salary/minimum))
+                elif policy is not None:
                     score *= cpu_identity.market_factor(policy,player,potential_for(player),deal.annual_salary,context.run_seed,owner,context.season)
                 candidates.append((score,player.rating,player.id))
             if candidates:
+                if policy is not None and policy.kind == 'expensive_peaks':
+                    preferred = [c for c in candidates if cpu_identity.peak_window(pool[c[2]])]
+                    if preferred:
+                        candidates = preferred
                 _,_,identity = max(candidates)
                 sign(owner,identity)
 
