@@ -140,7 +140,7 @@ async function checkUI() {
    assert.equal(d.querySelector('#playoff-simulate').closest('[role="tabpanel"]'),null);
   }
   function go(id) {d.querySelector(`#view-${id}`).click();checkView(id)}
-  checkView('schedule');
+  checkView('roster');
   for(const view of views) go(view);
   assert.equal(requests,0,'Switching views must not fetch or reset the season');
   const rankingsSave=w.localStorage.getItem('arcade-league-save');
@@ -330,7 +330,8 @@ async function checkUI() {
    else{
     const seed=weekData.standings.playoff_race.find(entry=>entry.team.id===id);
     assert.equal(qualification.dataset.outcome,seed?'win':'loss');
-    assert.match(qualification.textContent,seed?/Congratulations!.*qualified/:/Sorry!.*missed/);
+    assert.match(qualification.textContent,seed?/Congratulations!.*qualified/:/missed/);
+    assert.doesNotMatch(qualification.textContent,/Sorry/);
     assert.match(qualification.textContent,new RegExp(`Final record: ${weekData.record.wins}–${weekData.record.losses}${weekData.record.ties?'–'+weekData.record.ties:''}`));
     if(seed){assert.ok(qualification.textContent.includes(`seed #${seed.seed} (${seed.qualification})`));assert.equal(qualification.textContent.includes('first-round bye'),seed.bye);}
    }

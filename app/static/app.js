@@ -631,7 +631,7 @@ async function resumeProgress() {
     welcomeDismissed = save.welcomeDismissed;
     renderWelcome();
     setDevelopmentRecap(profile, save.season);
-    if (regular) renderResult(regular);
+    if (regular) { renderResult(regular); activateView("schedule"); }
     if (postseason) { renderPostseason(postseason); activateView("playoffs"); }
     if (savedDraft) { draftSort = save.draftSort ?? (save.lineupRules >= 30 ? "value" : "current"); draftSortDirection = save.draftSortDirection ?? draftSortDefault(draftSort); document.querySelector("#draft-position").value = save.draftPosition ?? ""; applyDraft(savedDraft); }
     if (savedMarket) applyFreeAgency(savedMarket);
@@ -1443,7 +1443,7 @@ function renderSchedule(data, runSeed, { priorStandings = {}, history = [], care
   document.querySelector("#playoffs-empty p").textContent = "Playoffs begin after Week 17.";
   document.querySelector("#postseason-status").textContent = "";
   document.querySelector("#postseason-status").dataset.outcome = "neutral";
-  activateView("schedule");
+  activateView("roster");
   document.querySelector("#team-group").textContent = data.team.group;
   document.querySelector("#team-name").textContent = data.team.city;
   document.querySelector("#rotation-note").textContent =
@@ -1533,7 +1533,7 @@ function renderQualification(data) {
   status.dataset.outcome = entry ? "win" : "loss";
   status.textContent = entry
     ? `Congratulations! ${data.team.city} qualified for the Season ${data.season} playoffs as seed #${entry.seed} (${entry.qualification}). Final record: ${record}.${entry.bye ? " You earned a first-round bye." : ""}`
-    : `Sorry! ${data.team.city} missed the Season ${data.season} playoffs. Final record: ${record}.`;
+    : `${data.team.city} missed the Season ${data.season} playoffs. Final record: ${record}.`;
 }
 
 function renderResult(data) {
@@ -2298,6 +2298,7 @@ function renderDraftRecap() {
 function renderDraft() {
   if (!draftState) return;
   renderDraftRecap();
+  document.querySelector("#draft-close").hidden = draftState.complete;
   autoDraftButton.hidden = !AUTO_DRAFT_ENABLED;
   autoDraftButton.disabled = !AUTO_DRAFT_ENABLED || draftBusy || draftState.complete;
   document.querySelector("#draft-position").disabled = draftBusy;
