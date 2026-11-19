@@ -73,7 +73,7 @@ async function checks(){
  for(const [position,count]of Object.entries(sizes))assert.equal(p.d.querySelectorAll(`#roster-groups [data-position="${position}"] .roster-player`).length,count);
  assert.match(q(p,'#roster-limit-note').textContent,/Every team starts with 35 players.*roster: 35–38/);assert.match(q(p,'#draft-format').textContent,/roster range is 35–38/);
 
- assert.equal(save(p).version,31);assert.equal(q(p,'#development-recap-button').hidden,true);assert.equal(q(p,'#development-dialog').open,false);assert.equal(q(p,'#development-recap-rows').children.length,0);assert.equal(save(p).careerStartWeek,17);assert.deepEqual(p.state.weeks,[]);assert.equal(q(p,'#simulate-button').textContent,'Simulate Week 17');
+ assert.equal(save(p).version,31);assert.equal(q(p,'#development-recap-button'),null);assert.equal(q(p,'#development-dialog').open,false);assert.equal(q(p,'#development-recap-rows').children.length,0);assert.equal(save(p).careerStartWeek,17);assert.deepEqual(p.state.weeks,[]);assert.equal(q(p,'#simulate-button').textContent,'Simulate Week 17');
  assert.equal(p.d.querySelectorAll('#schedule .completed').length,16);assert.equal(q(p,'#gm-regular').textContent,'0–0–0');assert.equal(q(p,'#gm-appearances').textContent,'0');assert.equal(q(p,'#career-start-note').hidden,false);assert.equal(q(p,'#gm-tenure-note').hidden,false);
  assert.match(q(p,'#result-week').textContent,/Before your hiring/);assert.match(q(p,'#owner-feedback').textContent,/four-year contract covering Seasons 2–5/);assert.match(q(p,'#contract-status').textContent,/4 years remaining.*Season 5/);
  q(p,'#welcome-dismiss').click();assert.equal(save(p).welcomeDismissed,true);

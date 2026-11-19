@@ -1087,7 +1087,6 @@ function createRosterGroups(profile, includeStats = true) {
 function clearDevelopmentRecap() {
   developmentRecap = null;
   if (developmentDialog.open) developmentDialog.close();
-  document.querySelector("#development-recap-button").hidden = true;
   document.querySelector("#development-recap-rows").replaceChildren();
   document.querySelector("#development-recap-summary").textContent = "";
   document.querySelector("#development-show-unchanged").checked = false;
@@ -1101,7 +1100,6 @@ function developmentRecapAvailable() {
 
 function updateDevelopmentRecapVisibility() {
   const available = developmentRecapAvailable();
-  document.querySelector("#development-recap-button").hidden = !available;
   if (!available && developmentDialog.open) developmentDialog.close();
 }
 
@@ -1153,9 +1151,6 @@ function renderDevelopmentRecap() {
   document.querySelector("#development-recap-scroll").hidden = rows.length === 0;
 }
 
-document.querySelector("#development-recap-button").addEventListener("click", () => {
-  if (developmentRecapAvailable() && !developmentDialog.open) developmentDialog.showModal();
-});
 document.querySelector("#development-close").addEventListener("click", () => developmentDialog.close());
 document.querySelector("#development-show-unchanged").addEventListener("change", renderDevelopmentRecap);
 

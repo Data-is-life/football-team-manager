@@ -38,7 +38,7 @@ async function checks(){
  q(p,'#simulate-button').click();await until(()=>save(p).week===1);
  const after=await api('/api/career/seattle',{action:'profile',run_seed:1234,lineup_rules:10,season:2,development_start:2,career:save(p).career});assert.deepEqual(current,after,'Playing/retrying a week cannot age players again');
  const legacySeason={...save(p),lineupRules:3};p.dom.window.close();p=await restore(JSON.stringify(legacySeason));
- assert.equal(q(p,'#development-recap-button').hidden,true);assert.equal(q(p,'#development-recap-legacy').hidden,false);q(p,'#development-show-unchanged').checked=true;q(p,'#development-show-unchanged').dispatchEvent(new p.w.Event('change'));assert.ok([...p.d.querySelectorAll('#development-recap-rows tr')].every(row=>row.cells[4].textContent.includes('change unavailable')));
+ assert.equal(q(p,'#development-recap-button'),null);assert.equal(q(p,'#development-recap-legacy').hidden,false);q(p,'#development-show-unchanged').checked=true;q(p,'#development-show-unchanged').dispatchEvent(new p.w.Event('change'));assert.ok([...p.d.querySelectorAll('#development-recap-rows tr')].every(row=>row.cells[4].textContent.includes('change unavailable')));
  p.dom.window.close();
  const invalid=await fetch(base+'/api/team/seattle?lineup_rules=3&season=2&development_start=3');assert.equal(invalid.status,422);
  // Save-17/rules-8 kickers retain the old seasonal-form ceiling until rollover.
@@ -54,7 +54,7 @@ async function checks(){
  p=await restore(JSON.stringify(v6));
  const v3=await api('/api/team/seattle?run_seed=1234&lineup_rules=3');
  assert.deepEqual([...p.d.querySelectorAll('#roster-groups .roster-player')].map(row=>row.dataset.playerId),v3.roster.map(player=>player.id));
- assert.equal(q(p,'#development-recap-button').hidden,true);
+ assert.equal(q(p,'#development-recap-button'),null);
  for(const player of v3.roster)assert.equal(q(p,`#roster-groups [data-player-id="${player.id}"]`).children[3].textContent,String(player.current_rating));
  q(p,'#simulate-button').click();await until(()=>save(p).week===1);
  assert.equal(save(p).version,41);assert.equal(save(p).lineupRules,3,'Saving an existing career must not adopt initial hierarchy');
