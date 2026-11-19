@@ -66,6 +66,7 @@ async function checks() {
  assert.equal(p.state.urls.slice(count).filter(url=>url.startsWith('/api/career/')).length,1);
  assert.equal(save(p).season,1);assert.equal(q(p,'#change-team-button').disabled,true);
  release();await until(()=>save(p).season===2);
+ assert.equal(q(p,'#view-roster').getAttribute('aria-selected'),'true','A new season opens on Roster');
  assert.equal(q(p,'#season-display').textContent,'2');assert.equal(q(p,'#draft-recap').hidden,true);assert.equal(q(p,'#draft-recap-rows').children.length,0);
  assert.deepEqual([...p.d.querySelectorAll('.roster-player')].map(row=>[row.dataset.playerId,row.children[1].firstChild.textContent]).sort(),roster,'Player IDs and names survive offseason aging');
  assert.equal(save(p).runSeed,1234);assert.deepEqual(save(p).priorStandings,ranks);
@@ -107,6 +108,7 @@ async function checks() {
  assert.equal(q(p,'#next-season').hidden,true);await finishOffseason(p,until);assert.equal(q(p,'#next-season').textContent,'Continue to Season 3');
  q(p,'#next-season').click();await until(()=>save(p).season===3);
  assert.deepEqual(save(p).priorStandings,ranksOf(expected));
+ assert.equal(q(p,'#view-roster').getAttribute('aria-selected'),'true','Each subsequent season opens on Roster');
  assert.equal(save(p).history.length,2);assert.deepEqual(save(p).history[0],history[0]);
  assert.equal(save(p).history[1].season,2);assert.equal(save(p).week,0);
  raw=rawSave(p);p.dom.window.close();p=await restore(raw);assert.equal(q(p,'#season-history-rows').children.length,2);
@@ -114,6 +116,7 @@ async function checks() {
  q(p,'#change-team-button').click();q(p,'#team-select').value='seattle';
  q(p,'#team-form').dispatchEvent(new p.w.Event('submit',{cancelable:true}));
  await until(()=>save(p).runSeed===5678);
+ assert.equal(q(p,'#view-roster').getAttribute('aria-selected'),'true','A new career opens on Roster');
  assert.equal(save(p).season,1);assert.deepEqual(save(p).history,[]);assert.deepEqual(save(p).priorStandings,{});
  assert.equal(q(p,'#season-history').hidden,false);assert.equal(q(p,'#current-season-row').children.length,1);assert.equal(q(p,'#gm-regular').textContent,'0–0–0');assert.equal(q(p,'#gm-appearances').textContent,'0');assert.equal(q(p,'#gm-playoffs').textContent,'0–0');assert.equal(q(p,'#gm-championships').textContent,'0');assert.equal(q(p,'#gm-legacy-note').hidden,true);p.dom.window.close();
  // Non-qualifiers and eliminated teams can continue once the league championship is complete.

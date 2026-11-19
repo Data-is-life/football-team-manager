@@ -85,6 +85,7 @@ async function checks(){
  assert.equal(raw(p),legacy,'Failed start does not erase the saved season');assert.equal(q(p,'#draft-recap').hidden,true);assert.equal(q(p,'#next-season').disabled,true);assert.equal(q(p,'#next-season').hidden,true);
  p.state.fail=false;q(p,'#draft-retry').click();await until(()=>save(p).draftChoices?.length===0);
  checkDraftNotices(p);await checkNoAutoDraft(p);
+ assert.equal(q(p,'#draft-close').hidden,false,'Schedule navigation remains available during the draft');
  const started=raw(p);q(p,'#draft-close').click();checkDraftNotices(p);assert.equal(raw(p),started);
  q(p,'#draft-button').click();await until(()=>!q(p,'#draft-button').disabled);checkDraftNotices(p);
  assert.equal(p.state.last.class_size,200);assert.equal(p.state.last.order.length,30);
@@ -110,6 +111,7 @@ async function checks(){
   }else{const count=p.state.calls;buttons[0].click();buttons[0].click();assert.equal(p.state.calls,count+1,'Double click cannot pick twice')}
   await until(()=>save(p).draftChoices?.length===turn);
   checkDraftNotices(p);checkRecap(p,p.state.last.picks);
+  assert.equal(q(p,'#draft-close').hidden,turn===6);
   assert.equal(q(p,'#draft-prospect-list').scrollTop,0);assert.equal(q(p,'#draft-prospect-list').scrollLeft,0);
   assert.equal(p.d.activeElement.id,turn===6?'draft-title':'draft-prospect-list');
   assert.equal(q(p,'#draft-position').disabled,false);assert.equal(q(p,'#panel-draft').getAttribute('aria-busy'),'false');
@@ -136,7 +138,9 @@ async function checks(){
  assert.equal(p.state.last.complete,true);assert.equal(p.state.last.picks.length,180);assert.equal(p.state.last.available.length,20);
  assert.equal(q(p,'#draft-board').hidden,true);assert.equal(q(p,'#draft-picks').children.length,180);
  assert.equal(p.d.querySelectorAll('.your-draft-pick').length,6);assert.match(q(p,'#draft-summary').textContent,/44\/38 players/);assert.match(q(p,'#draft-summary').textContent,/Drop 6 more players to continue/);
- const complete=raw(p);q(p,'#draft-close').click();
+ assert.equal(q(p,'#draft-close').hidden,true,'Completed draft hides Back to schedule after reload');
+ assert.equal(q(p,'#draft-roster').hidden,false);
+ const complete=raw(p);q(p,'#view-schedule').click();
  const other=p.state.last.picks.find(pick=>pick.team.id!==owner).team.id;
  q(p,`.team-roster-link[data-team-id="${other}"]`).click();await until(()=>q(p,'#scout-status').textContent.includes('44 players'));
  assert.equal(p.d.querySelectorAll('#scout-groups .roster-player').length,44);assert.equal(p.d.querySelectorAll('#scout-groups .rookie-badge').length,6);
@@ -147,7 +151,7 @@ async function checks(){
  await until(()=>save(p).dropped.length===1);assert.equal(q(p,`#roster-groups [data-player-id="${signedId}"]`),null);
  checkRecap(p,completedPicks);const cutCheckpoint=raw(p);p.dom.window.close();p=await restore(cutCheckpoint);
  checkRecap(p,completedPicks);q(p,'#draft-button').click();assert.equal(q(p,'#panel-draft').hidden,false);assert.equal(raw(p),cutCheckpoint);
- q(p,'#draft-close').click();
+ q(p,'#draft-roster').click();
  q(p,'#change-team-button').click();q(p,'#team-select').value='seattle';
  q(p,'#team-form').dispatchEvent(new p.w.Event('submit',{cancelable:true}));await until(()=>save(p).runSeed===5678);
  assert.equal(save(p).draftChoices,null);assert.equal(q(p,'#draft-recap').hidden,true);assert.equal(q(p,'#draft-recap-rows').children.length,0);assert.equal(p.d.querySelectorAll('#roster-groups .rookie-badge').length,0);assert.equal(q(p,'#draft-button').hidden,true);assert.equal(q(p,'#draft-button').textContent,'Start draft');assert.equal(q(p,'#draft-picks').children.length,0);

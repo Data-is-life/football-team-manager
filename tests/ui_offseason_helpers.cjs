@@ -19,7 +19,7 @@ async function finishOffseason(page, until) {
   q('#draft-prospects [data-draft-id]:not([disabled])').click();
   await until(()=>save().draftChoices.length===count+1);
  }
- q('#draft-close').click();
+ q('#draft-roster').click();
  if(!q('#training-camp-button').hidden){
   q('#training-camp-button').click();await until(()=>save().trainingCamp===true);
   if(q('#development-dialog').open)q('#development-close').click();
