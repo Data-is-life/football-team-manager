@@ -135,6 +135,12 @@
             <div><label for="fa-cap-space">Cap space</label>
               <select id="fa-cap-space"><option value="">All players</option><option value="fits">Fits cap space</option></select></div>
           </div>
+          <section id="fa-confirmation" class="empty-state" aria-labelledby="fa-confirm-text" hidden>
+            <p id="fa-confirm-text"></p>
+            <div id="fa-impact" class="release-impact"></div>
+            <button id="fa-confirm" type="button">Confirm signing</button>
+            <button id="fa-cancel" class="secondary-button" type="button">Cancel</button>
+          </section>
           <div class="table-wrap" tabindex="0" role="region" aria-label="Available free agents"><table>
             <caption>Available players · Annual salary demands</caption>
             <thead><tr><th>Name</th><th>Position</th><th>Age</th><th>Current</th><th>Potential</th><th>Salary/year</th><th>Term</th><th>Action</th></tr></thead>

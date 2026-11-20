@@ -26,7 +26,7 @@ async function checks(){
  for(const [origin,id] of Object.entries(fixture.targets)){
   let p=await page(fixture.checkpoint);
   const expected=origin==='undrafted'?['UDFA']:['R','F'];
-  const button=q(p,`#fa-players [data-fa-id="${id}"]`);assert.ok(button);assert.equal(button.disabled,false);button.click();
+  const button=q(p,`#fa-players [data-fa-id="${id}"]`);assert.ok(button);assert.equal(button.disabled,false);button.click();q(p,'#fa-confirm').click();
   await until(()=>save(p).freeAgency.length===1&&!q(p,'#fa-finish').disabled);
   checkBadges(p,id,expected);
   const checkpoint=save(p);p.dom.window.close();p=await page(checkpoint);checkBadges(p,id,expected);

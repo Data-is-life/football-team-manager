@@ -23,8 +23,8 @@ async function checks(){
  q(p,'#next-season').click();await until(()=>Array.isArray(save(p).freeAgency));assert.equal(save(p).trainingCamp,undefined);assert.equal(q(p,'#training-camp-button').hidden,true);assert.match(q(p,'#fa-flow-guide').textContent,/above 38/);
  const initial=new Map(p.state.last.profile.roster.map(p=>[p.id,{rating:p.current_rating,age:p.age,salary:(p.contract??p.contract_offer)?.annual_salary}]));
  const candidates=p.state.last.free_agency.available.filter(p=>p.affordable).sort((a,b)=>a.annual_salary-b.annual_salary);assert.ok(candidates.length);const target=candidates[0];
- const unchanged=raw(p);p.state.failMarket=true;q(p,`[data-fa-id="${target.id}"]`).click();await until(()=>!q(p,'#fa-error').hidden);assert.equal(raw(p),unchanged);p.state.failMarket=false;
- q(p,`[data-fa-id="${target.id}"]`).click();q(p,`[data-fa-id="${target.id}"]`).click();await until(()=>save(p).freeAgency.length===1);
+ const unchanged=raw(p);p.state.failMarket=true;q(p,`[data-fa-id="${target.id}"]`).click();q(p,'#fa-confirm').click();await until(()=>!q(p,'#fa-error').hidden);assert.equal(raw(p),unchanged);p.state.failMarket=false;
+ q(p,'#fa-confirm').click();q(p,'#fa-confirm').click();await until(()=>save(p).freeAgency.length===1);
  assert.ok(p.state.last.profile.roster.length>38);assert.equal(p.state.last.profile.roster.find(p=>p.id===target.id).contract.annual_salary,target.annual_salary);
  q(p,'#fa-finish').click();await until(()=>save(p).freeAgency.at(-1)?.kind==='finish');assert.equal(save(p).season,1);assert.equal(save(p).trainingCamp,undefined);assert.equal(q(p,'#training-camp-button').hidden,false);assert.equal(q(p,'#training-camp-button').disabled,true);
  q(p,'#view-roster').click();q(p,'#roster-ratings-button').click();

@@ -73,7 +73,7 @@ async function checks(){
  assert.match(q(p,'#fa-status').textContent,/Fixed asking prices/);assert.doesNotMatch(q(p,'#fa-status').textContent,/Wave|undefined/);
  const prices=new Map([...p.d.querySelectorAll('#fa-players tr')].map(r=>[r.querySelector('[data-fa-id]').dataset.faId,r.children[5].textContent]));
  const sign=q(p,'#fa-players button:not([disabled])');assert.ok(sign);const id=sign.dataset.faId;
- sign.click();sign.click();await until(()=>save(p).freeAgency.length===1&&!q(p,'#fa-finish').disabled);
+ sign.click();q(p,'#fa-confirm').click();q(p,'#fa-confirm').click();await until(()=>save(p).freeAgency.length===1&&!q(p,'#fa-finish').disabled);
  assert.equal(save(p).freeAgency[0].player_id,id);
  for(const row of p.d.querySelectorAll('#fa-players tr'))assert.equal(row.children[5].textContent,prices.get(row.querySelector('[data-fa-id]').dataset.faId));
  assert.ok(q(p,`#roster-groups [data-player-id="${id}"]`));
