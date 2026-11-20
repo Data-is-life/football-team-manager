@@ -5,6 +5,7 @@ from functools import lru_cache
 from .league import TEAMS, TEAM_BY_ID
 from .simulation import roster_for, simulate_league_week
 from .starter_choices import context_for_week
+from .season_drops import statistical_roster
 
 METRICS = (
     ('passing', 'Passing yards', 'passing', 'yards'),
@@ -20,10 +21,9 @@ def _season_totals(season, week, run_seed, prior_standings, roster_context):
     """Cache compact immutable totals, never mutable responses or full game boxes."""
     if not 1 <= week <= 17:
         raise ValueError('Leader cutoff must be between Week 1 and Week 17')
-    current = context_for_week(roster_context, week)
     totals = {}
     for team in TEAMS:
-        for player in roster_for(team.id, run_seed, current).values():
+        for player in statistical_roster(roster_context,team.id,run_seed,week):
             totals[player.id] = [player.name, player.position, team.id, [0] * len(METRICS)]
     for played_week in range(1, week + 1):
         for game in simulate_league_week(season, played_week, run_seed,

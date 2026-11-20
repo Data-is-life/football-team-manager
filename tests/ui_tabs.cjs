@@ -93,10 +93,10 @@ async function checkUI() {
   function checkRatings(profile) {
    for (const rule of profile.roster_rules) {
     const group=d.querySelector(`#roster-groups .roster-group[data-position="${rule.position}"]`);
-    const headings=[...group.querySelectorAll('.roster-rating-wrap th')].map(cell=>cell.textContent);
+    const headings=[...group.querySelectorAll('.roster-rating-wrap th:not(.roster-cut-action)')].map(cell=>cell.textContent);
     assert.deepEqual(headings,['Depth','Player','Age','Current','Potential',...(profile.lineup_rules>=15?['Salary / term']:[])]);
     for(const player of profile.roster.filter(player=>player.position===rule.position)) {
-     const cells=group.querySelector(`.roster-player[data-player-id="${player.id}"]`).children;
+     const cells=[...group.querySelector(`.roster-player[data-player-id="${player.id}"]`).children].filter(cell=>!cell.classList.contains('roster-cut-action'));
      assert.deepEqual([...cells].map((cell,index)=>index===1?cell.firstChild.textContent:cell.textContent),[`${player.position}${player.depth}`,player.name,String(player.age),String(player.current_rating),String(player.potential_rating),...(player.contract?[`$${(player.contract.annual_salary/1000000).toFixed(2)}M/yr · ${player.contract.years_remaining} ${player.contract.years_remaining===1?'yr':'yrs'} left`]:[])]);
      assert.equal(group.querySelector(`.roster-player[data-player-id="${player.id}"]`).dataset.starter,String(player.depth<=rule.minimum));
      assert.equal(player.current_rating,player.rating);

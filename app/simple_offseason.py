@@ -12,6 +12,9 @@ from .simulation import roster_limit, roster_minimum, validate_roster
 
 def expire_pool(context, year):
     """One carryover: first listed in Y remains through Y+1, never Y+2."""
+    from .season_drops import SeasonDropPlan
+    if isinstance(context, SeasonDropPlan):
+        return replace(context,base=expire_pool(context.base,year),latest=expire_pool(context.latest,year))
     entries=dict(context.free_agent_entries)
     agents=tuple(p for p in context.free_agents if year-entries.get(p.id,year)<=1)
     ids={p.id for p in agents}

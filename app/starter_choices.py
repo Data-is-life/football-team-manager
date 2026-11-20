@@ -81,6 +81,9 @@ def _with_starters(base, owner, seed, changes):
 
 
 def context_for_week(context, week):
+    from .season_drops import SeasonDropPlan, drop_context_for_week
+    if isinstance(context, SeasonDropPlan):
+        return drop_context_for_week(context, week)
     if not isinstance(context, StarterPlan):
         return context
     return _planned_context_for_week(context, week)

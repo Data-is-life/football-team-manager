@@ -165,6 +165,8 @@ def _replay_step(team_id, run_seed, step, lineup_rules, development_start,
         from .player_contracts import ensure_contracts
         context = ensure_contracts(context,season)
     context = with_starters(context, team_id, run_seed, step[5] if len(step) > 5 else ())
+    from .season_drops import with_season_drops
+    context = with_season_drops(context, team_id, step[13] if len(step)>13 else ())
     if season <= previous:
         raise ValueError('Career offseason years must be in increasing order')
     if rules>=42:

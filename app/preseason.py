@@ -102,7 +102,7 @@ def prepare(team,season,seed,choices,prior,root,rounds):
         states=dict(root.development)
         states.update({identity:state for identity,state in draft_development_states(season,seed,root.lineup_rules).items()
                        if identity not in states})
-        root=replace(root,development=tuple(sorted(states.items())))
+        root=replace(getattr(root,'latest',root),development=tuple(sorted(states.items())))
     # Relabel the upcoming financial year without running development.
     context=replace(getattr(root,'latest',root),season=season+1)
     context=replace_lineup_rosters(context,tuple((o,tuple(ps)) for o,ps in rosters.items()))

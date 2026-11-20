@@ -593,6 +593,7 @@ def league_week_scores(season: int, week: int, run_seed: int = 0,
 
 def simulate_through_week(team_id: str, season: int, week: int, run_seed: int = 0,
                           prior_standings: tuple[tuple[str, int], ...] = (), roster_context: tuple = ()) -> dict[str, object]:
+    from .season_drops import statistical_roster
     from .starter_choices import context_for_week
     schedule = generate_schedule(team_id=team_id, season=season, standings=dict(prior_standings) or None,lineup_rules=getattr(roster_context,'lineup_rules',1))
     if week < 1 or week > len(schedule):
@@ -634,7 +635,7 @@ def simulate_through_week(team_id: str, season: int, week: int, run_seed: int = 
         "record": {"wins": wins, "losses": losses, "ties": ties},
         "result": current,
         "game_results": game_results,
-        "roster_stats": aggregate_player_stats(roster_for(team_id, run_seed, context_for_week(roster_context, week)).values(),
+        "roster_stats": aggregate_player_stats(statistical_roster(roster_context, team_id, run_seed, week),
             (result["home"] if result["home"]["team"]["id"] == team_id else result["away"]
              for result in results)),
         "league_results": other_results,
