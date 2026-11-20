@@ -264,7 +264,13 @@ class TradeAction(BaseModel):
         return self
 
 
+class SeasonDrop(BaseModel):
+    week: StrictInt = Field(ge=1, le=22)
+    player_id: str = Field(min_length=1, max_length=200)
+
+
 class CareerStep(BaseModel):
+    season_drops: list[SeasonDrop] = Field(default_factory=list, max_length=44)
     own_actions: list[OwnPlayerAction] = Field(default_factory=list,max_length=256)
     trade_actions: list[TradeAction] = Field(default_factory=list,max_length=65)
     pre_camp_actions: list[RosterAction] = Field(default_factory=list,max_length=128)
@@ -281,6 +287,8 @@ class CareerStep(BaseModel):
 
     @model_validator(mode='after')
     def complete_draft(self):
+        if self.season_drops and self.lineup_rules<42:
+            raise ValueError('In-season releases require current career rules')
         if self.own_actions and self.lineup_rules<42:
             raise ValueError('Own-player signing requires the simplified offseason')
         if self.lineup_rules>=42 and self.camp_actions:
@@ -303,6 +311,7 @@ class CareerStep(BaseModel):
 
 
 class CareerRequest(BaseModel):
+    season_drops: list[SeasonDrop] = Field(default_factory=list, max_length=44)
     own_actions: list[OwnPlayerAction] = Field(default_factory=list,max_length=256)
     trade_actions: list[TradeAction] = Field(default_factory=list,max_length=65)
     trade_proposal: TradeAction | None = None
@@ -312,7 +321,7 @@ class CareerRequest(BaseModel):
     roster_actions: list[RosterAction] = Field(default_factory=list,max_length=132)
     draft_rounds: Literal[4, 6] = 4
     lineup_changes: list[LineupChange] = Field(default_factory=list, max_length=21)
-    action: Literal['profile', 'week', 'playoffs', 'draft', 'camp', 'cuts', 'resign', 'leaders', 'free_agency', 'trades', 'own_players']
+    action: Literal['profile', 'week', 'playoffs', 'draft', 'camp', 'cuts', 'resign', 'leaders', 'free_agency', 'trades', 'own_players', 'season_drop']
     training_camp: StrictBool = False
     season: int = Field(default=1, ge=1, le=1099)
     run_seed: int = Field(default=0, ge=0, le=4294967295)
@@ -363,10 +372,20 @@ def career_action(team_id: str, request: CareerRequest) -> dict:
         if any(step.season >= request.season for step in request.career):
             raise ValueError('Past offseasons must precede the current season')
         steps = tuple((step.season, ranks_context(step.prior_standings), tuple(step.manual_picks), tuple(step.dropped), step.lineup_rules, tuple((change.week, tuple(change.starters)) for change in step.lineup_changes), step.draft_rounds, tuple((action.kind,action.player_id) for action in step.roster_actions), tuple((a.kind,a.player_id) for a in step.free_agency), tuple((a.kind,a.player_id) for a in step.pre_camp_actions), tuple((a.kind,a.player_id) for a in step.camp_actions)) + ((tuple((a.kind,a.other_team,a.give_id,a.receive_id) for a in step.trade_actions),) if step.lineup_rules>=41 else ()) + ((tuple((a.kind,a.player_id) for a in step.own_actions),) if step.lineup_rules>=42 else ())
+                      + ((tuple((d.week,d.player_id) for d in step.season_drops),) if step.lineup_rules>=42 else ())
                       for step in request.career)
         context = replay_career(team_id, request.run_seed, steps, request.lineup_rules,request.season,request.development_start,request.rebuild_team)
         changes = tuple((change.week, tuple(change.starters)) for change in request.lineup_changes)
         context = with_starters(context, team_id, request.run_seed, changes)
+        from .season_drops import with_season_drops
+        context = with_season_drops(context, team_id, tuple((d.week,d.player_id) for d in request.season_drops))
+        if request.action == 'season_drop':
+            if request.manual_picks or request.own_actions or request.free_agency or not request.season_drops:
+                raise ValueError('Use offseason releases once the draft starts')
+            expected = request.week if request.round_number == 0 else 18 + request.round_number
+            if request.season_drops[-1].week != expected:
+                raise ValueError('Release must take effect before the next unplayed game')
+            return profile_payload(team_id, list(dict(context)[team_id]), request.run_seed, context)
         prior = ranks_context(request.prior_standings)
         viewed = request.view_team or team_id
         if request.lineup_rules < 31 and (request.pre_camp_actions or request.camp_actions or len(request.free_agency)>24 or any(a.kind in ('drop','resign') for a in request.free_agency)):

@@ -3,6 +3,7 @@ from functools import lru_cache
 
 from .league import TEAM_BY_ID, ScheduledGame
 from .simulation import roster_for, simulate_game
+from .season_drops import statistical_roster
 from .player_stats import aggregate_player_stats
 from .standings import standings_through_week
 
@@ -97,5 +98,5 @@ def playoffs_through_round(team_id: str, season: int, round_number: int, run_see
         "next_round": round_number + 1 if round_number < 4 else None,
         "postseason_complete": round_number == 4,
         "qualified": qualified, "eliminated": qualified and not alive,
-        "roster_stats": aggregate_player_stats(roster_for(team_id, run_seed, context_for_week(roster_context, 17 + round_number)).values(), boxes),
+        "roster_stats": aggregate_player_stats(statistical_roster(roster_context, team_id, run_seed, 17 + round_number), boxes),
     }
