@@ -9,7 +9,7 @@ async function page(checkpoint){
  const dom=new JSDOM(html,{url:base,runScripts:'outside-only'}),w=dom.window,d=w.document,state={fail:false,calls:0};
  w.localStorage.setItem(key,JSON.stringify(checkpoint));w.HTMLElement.prototype.scrollIntoView=()=>{};w.scrollTo=()=>{};
  w.HTMLDialogElement.prototype.close=function(){this.open=false};w.HTMLDialogElement.prototype.showModal=function(){this.open=true};
- w.fetch=async(url,init)=>{const body=init&&JSON.parse(init.body);if(body?.action==='free_agency'){state.calls++;if(state.fail)return {ok:false,json:async()=>({detail:'Market temporarily unavailable'})};}const response=await fetch(new URL(url,base),init);if(!response.ok) console.error('Free agency test API error:',url,await response.clone().text());return response;};
+ w.fetch=async(url,init)=>{const body=init&&JSON.parse(init.body);if(body?.action==='free_agency'){state.calls++;if(state.fail)return {ok:false,json:async()=>({detail:'Market temporarily unavailable'})};}const response=await fetch(new URL(url,base),init);if(!response.ok) console.error('Free agency test API error:',url,await response.clone().text());if(response.ok&&body?.action==='free_agency')state.market=await response.clone().json();return response;};
  w.eval(script);const p={dom,w,d,state};await until(()=>/restored|could not/.test(q(p,'#save-status').textContent));assert.match(q(p,'#save-status').textContent,/restored/);return p;
 }
 function checkMarketTab(p) {
@@ -56,6 +56,16 @@ async function checks(){
  const values=[...p.d.querySelectorAll('#fa-players tr')].map(row=>Number(row.children[4].textContent));assert.deepEqual(values,[...values].sort((a,b)=>b-a));assert.equal(raw(p),before);
  q(p,'#fa-position').value='QB';q(p,'#fa-position').dispatchEvent(new p.w.Event('change'));assert.ok([...p.d.querySelectorAll('#fa-players tr')].every(row=>row.children[1].textContent==='QB'));
  q(p,'#fa-position').value='';q(p,'#fa-position').dispatchEvent(new p.w.Event('change'));
+ const filterSave=raw(p),filterCalls=p.state.calls;
+ const pool=p.state.market.free_agency??p.state.market;
+ const age=pool.available[0].age;
+ for(const id of ['fa-age-min','fa-age-max']){q(p,'#'+id).value=String(age);q(p,'#'+id).dispatchEvent(new p.w.Event('input'));}
+ q(p,'#fa-cap-space').value='fits';q(p,'#fa-cap-space').dispatchEvent(new p.w.Event('change'));
+ const expected=pool.available.filter(player=>player.age===age&&player.annual_salary<=pool.profile.payroll.cap_space).map(player=>player.id).sort();
+ assert.deepEqual([...p.d.querySelectorAll('#fa-players [data-fa-id]')].map(button=>button.dataset.faId).sort(),expected);
+ assert.equal(raw(p),filterSave);assert.equal(p.state.calls,filterCalls);
+ for(const id of ['fa-age-min','fa-age-max']){q(p,'#'+id).value='';q(p,'#'+id).dispatchEvent(new p.w.Event('input'));}
+ q(p,'#fa-cap-space').value='';q(p,'#fa-cap-space').dispatchEvent(new p.w.Event('change'));
  const button=q(p,'#fa-players button:not([disabled])');assert.ok(button);const id=button.dataset.faId;
  p.state.fail=true;button.click();await until(()=>!q(p,'#fa-error').hidden);assert.equal(raw(p),before);
  p.state.fail=false;q(p,`[data-fa-id="${id}"]`).click();q(p,`[data-fa-id="${id}"]`).click();await until(()=>save(p).freeAgency.length===1);
