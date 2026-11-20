@@ -330,12 +330,11 @@ tr.selected-team td { color: var(--cyan); background: rgba(72,230,210,0.07); }
 .leaders-category .table-wrap:focus-visible { outline: 2px solid var(--cyan); outline-offset: 3px; }
 
 /* Keep release confirmation in the same position group without widening tables. */
-.cut-confirmation-row > td { white-space: normal; text-align: left; }
-.cut-confirmation-row .empty-state { margin: 0; }
-.cut-confirmation-row p { overflow-wrap: anywhere; }
+:is(.cut-confirmation-row, #free-agency .fa-confirmation-row) > td { white-space: normal; text-align: left; }
+:is(.cut-confirmation-row, .fa-confirmation-row) .empty-state { margin: 0; max-width: min(36rem, calc(100vw - 5rem)); }
+:is(.cut-confirmation-row, .fa-confirmation-row) p { overflow-wrap: anywhere; }
 
 #roster-groups { overflow-anchor: none; }
-.cut-confirmation-row .empty-state { max-width: min(36rem, calc(100vw - 5rem)); }
 
 /* Readable guidance is confined to How to Play. */
 #help-topics { max-width: 65ch; }

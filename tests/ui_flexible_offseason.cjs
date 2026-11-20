@@ -33,13 +33,13 @@ async function checks(){
  q(p,'#view-roster').click();q(p,'#next-season').click();await until(()=>!q(p,'#panel-free-agency').hidden);
  // Failed signing preserves the full finish/drop history and allows retry.
  const available=[...p.d.querySelectorAll('#fa-players tr')].filter(row=>row.children[1].textContent==='K'&&!row.querySelector('button').disabled).sort((a,b)=>Number(a.children[5].textContent.replace(/[^0-9.]/g,''))-Number(b.children[5].textContent.replace(/[^0-9.]/g,'')))[0];assert.ok(available);
- const signId=available.querySelector('button').dataset.faId,raw=p.w.localStorage.getItem(key);p.state.fail=true;available.querySelector('button').click();await until(()=>!q(p,'#fa-error').hidden);assert.equal(p.w.localStorage.getItem(key),raw);p.state.fail=false;
- q(p,`[data-fa-id="${signId}"]`).click();await until(()=>save(p).freeAgency.at(-1)?.player_id===signId);
+ const signId=available.querySelector('button').dataset.faId,raw=p.w.localStorage.getItem(key);p.state.fail=true;available.querySelector('button').click();q(p,'#fa-confirm').click();await until(()=>!q(p,'#fa-error').hidden);assert.equal(p.w.localStorage.getItem(key),raw);p.state.fail=false;
+ q(p,'#fa-confirm').click();await until(()=>save(p).freeAgency.at(-1)?.player_id===signId);
  for(let i=0;i<40;i++){
   const profile=p.state.profile;const missing=profile.roster_rules.find(rule=>profile.roster.filter(player=>player.position===rule.position).length<rule.minimum);
   if(!missing&&profile.roster.length>=31)break;
   const row=[...p.d.querySelectorAll('#fa-players tr')].filter(row=>(!missing||row.children[1].textContent===missing.position)&&!row.querySelector('button').disabled).sort((a,b)=>Number(a.children[5].textContent.replace(/[^0-9.]/g,''))-Number(b.children[5].textContent.replace(/[^0-9.]/g,'')))[0];assert.ok(row);
-  const count=save(p).freeAgency.length;row.querySelector('button').click();await until(()=>save(p).freeAgency.length===count+1);
+  const count=save(p).freeAgency.length;row.querySelector('button').click();q(p,'#fa-confirm').click();await until(()=>save(p).freeAgency.length===count+1);
  }
  q(p,'#fa-finish').click();await until(()=>save(p).freeAgency.at(-1)?.kind==='finish'&&!q(p,'#panel-roster').hidden);
  if(!q(p,'#meet-payroll-floor').hidden){q(p,'#meet-payroll-floor').click();q(p,'#floor-confirm').click();await until(()=>q(p,'#meet-payroll-floor').hidden);assert.equal(save(p).freeAgency.at(-1).kind,'raise');}

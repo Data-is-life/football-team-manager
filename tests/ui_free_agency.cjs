@@ -67,8 +67,28 @@ async function checks(){
  for(const id of ['fa-age-min','fa-age-max']){q(p,'#'+id).value='';q(p,'#'+id).dispatchEvent(new p.w.Event('input'));}
  q(p,'#fa-cap-space').value='';q(p,'#fa-cap-space').dispatchEvent(new p.w.Event('change'));
  const button=q(p,'#fa-players button:not([disabled])');assert.ok(button);const id=button.dataset.faId;
- p.state.fail=true;button.click();await until(()=>!q(p,'#fa-error').hidden);assert.equal(raw(p),before);
- p.state.fail=false;q(p,`[data-fa-id="${id}"]`).click();q(p,`[data-fa-id="${id}"]`).click();await until(()=>save(p).freeAgency.length===1);
+ const offer=pool.available.find(player=>player.id===id);
+ const pay=pool.profile.payroll, money=value=>`$${(value/1e6).toFixed(2)}M`;
+ button.click();
+ const confirmation=q(p,'#fa-confirmation'),confirm=q(p,'#fa-confirm');
+ assert.equal(confirmation.hidden,false);
+ assert.equal(q(p,`[data-fa-id="${id}"]`).closest('tr').nextElementSibling,confirmation.closest('tr'));
+ assert.equal(q(p,'#fa-confirm-text').textContent,`Sign ${offer.name} (${offer.position}) for ${money(offer.annual_salary)}/year, ${offer.years} years, starting Season 2?`);
+ assert.deepEqual([...q(p,'#fa-impact').children].map(line=>line.textContent),[
+  `Current payroll: ${money(pay.total)}`,`Payroll after signing: ${money(pay.total+offer.annual_salary)}`,
+  `Salary cap: ${money(pay.cap)}`,`Cap space after signing: ${money(pay.cap_space-offer.annual_salary)}`
+ ]);
+ assert.equal(p.d.activeElement,confirm);
+ q(p,'#fa-cancel').click();assert.equal(confirmation.hidden,true);assert.equal(p.d.activeElement.dataset.faId,id);
+ assert.equal(raw(p),before);assert.equal(p.state.calls,filterCalls);
+ q(p,`[data-fa-id="${id}"]`).click();
+ q(p,'#fa-age-max').value=String(offer.age-1);q(p,'#fa-age-max').dispatchEvent(new p.w.Event('input'));
+ assert.equal(confirmation.hidden,true);assert.equal(p.state.calls,filterCalls);
+ q(p,'#fa-age-max').value='';q(p,'#fa-age-max').dispatchEvent(new p.w.Event('input'));
+ p.state.fail=true;q(p,`[data-fa-id="${id}"]`).click();confirm.click();
+ await until(()=>!q(p,'#fa-error').hidden);assert.equal(raw(p),before);assert.equal(confirmation.hidden,false);
+ p.state.fail=false;confirm.click();confirm.click();await until(()=>save(p).freeAgency.length===1);
+ assert.equal(p.state.calls,filterCalls+2);assert.equal(confirmation.hidden,true);
  assert.equal(save(p).freeAgency[0].player_id,id);assert.equal(q(p,`[data-fa-id="${id}"]`),null);assert.ok(q(p,`#roster-groups [data-player-id="${id}"]`));
  checkFreeAgentBadge(p,id);
  assert.match(q(p,'#fa-status').textContent,/Wave 2.*110%/);const signed=save(p);p.dom.window.close();p=await page(signed);
@@ -96,7 +116,7 @@ async function checks(){
  const modernTarget=modern.free_agency.available.find(p=>p.affordable);
  const quotedRow=q(p,`[data-fa-id="${modernTarget.id}"]`).closest('tr');
  assert.equal(quotedRow.children[5].textContent,`$${(modernTarget.annual_salary/1e6).toFixed(2)}M`);
- q(p,`[data-fa-id="${modernTarget.id}"]`).click();await until(()=>save(p).freeAgency.length===1);
+ q(p,`[data-fa-id="${modernTarget.id}"]`).click();q(p,'#fa-confirm').click();await until(()=>save(p).freeAgency.length===1);
  const modernSave=save(p);p.dom.window.close();p=await page(modernSave);
  assert.equal(save(p).lineupRules,34);assert.match(q(p,'#fa-status').textContent,/Wave 2.*Team premium/);
  const after=await api({...modernRequest,action:'free_agency',manual_picks:modernDraft.manual_picks,free_agency:modernSave.freeAgency});

@@ -51,6 +51,8 @@ let activeSeasonDrops = [];
 let activeOwnActions = [], ownSigningState = null;
 let activeTradeActions = [], tradingState = null, tradePreview = null, tradeBusy = false;
 let freeAgencyBusy = false;
+let pendingFreeAgent = null;
+const faConfirmation = document.querySelector("#fa-confirmation");
 let activeTrainingCamp = false;
 let campBusy = false;
 const campButton = document.querySelector("#training-camp-button");
@@ -1393,6 +1395,8 @@ function renderSchedule(data, runSeed, { priorStandings = {}, history = [], care
   activePreCampActions = []; activeCampActions = [];
   activeFreeAgency = null;
   freeAgencyState = null;
+  pendingFreeAgent = null;
+  faConfirmation.hidden = true;
   activeOwnActions=[];ownSigningState=null;document.querySelector("#own-signing").hidden=true;
   activeTradeActions=[];tradingState=null;tradePreview=null;document.querySelector("#view-trades").hidden=true;
   document.querySelector("#free-agency").hidden = true;
@@ -2584,6 +2588,22 @@ function rosterActionBlocked() {
   if(seasonDropsAvailable())return seasonDropBlocked(player);
   return pendingRosterKind !== "drop" ? player?.renewal_offer?.affordable === false : player?.release_preview?.allowed === false;
 }
+function impactLine(area, label, value) {
+  const p = document.createElement("p");
+  const strong = document.createElement("strong");
+  strong.textContent = label;
+  p.append(strong, document.createTextNode(` ${value}`));
+  area.append(p);
+}
+function showSigningPayrollImpact(area, pay, projected, signing) {
+  area.replaceChildren();
+  const over = projected - pay.cap;
+  impactLine(area, "Current payroll:", faMoney(pay.total));
+  if (pay.total > pay.cap) impactLine(area, "Currently over cap:", faMoney(pay.total - pay.cap));
+  impactLine(area, `Payroll after ${signing}:`, faMoney(projected));
+  impactLine(area, "Salary cap:", faMoney(pay.cap));
+  impactLine(area, over > 0 ? `Over cap after ${signing}:` : `Cap space after ${signing}:`, faMoney(Math.abs(over)));
+}
 function showRosterActionImpact(player) {
   const area = document.querySelector("#cut-impact");
   area.replaceChildren();
@@ -2591,11 +2611,7 @@ function showRosterActionImpact(player) {
   area.hidden = pendingRosterKind !== "drop" ? !rosterProfile?.payroll : !preview;
   document.querySelector("#cut-confirm").disabled = rosterActionBlocked();
   const money = value => `${value < 0 ? "−" : ""}$${(Math.abs(value)/1e6).toFixed(2)}M`;
-  const line = (label, value) => {
-    const p = document.createElement("p");
-    const strong = document.createElement("strong"); strong.textContent = label;
-    p.append(strong, document.createTextNode(` ${value}`)); area.append(p);
-  };
+  const line = (label, value) => impactLine(area, label, value);
   if (pendingRosterKind !== "drop") {
     const pay = rosterProfile?.payroll;
     if (!pay) return;
@@ -2603,13 +2619,8 @@ function showRosterActionImpact(player) {
     const offer=player.renewal_offer??player.contract_offer;
     const priorHold = activeLineupRules>=45 ? 0 : (player.contract?.annual_salary??offer.annual_salary);
     const projected = pay.total - priorHold + offer.annual_salary;
-    const over = Math.max(0, projected - pay.cap);
-    line("Current payroll:", money(pay.total));
-    if (pay.total > pay.cap) line("Currently over cap:", money(pay.total - pay.cap));
     const signing=pendingRosterKind==="sign"?"signing":"re-signing";
-    line(`Payroll after ${signing}:`, money(projected));
-    line("Salary cap:", money(pay.cap));
-    line(over ? `Over cap after ${signing}:` : `Cap space after ${signing}:`, money(over || pay.cap - projected));
+    showSigningPayrollImpact(area, pay, projected, signing);
     if (rosterActionBlocked()) line(pendingRosterKind==="sign"?"Signing unavailable:":"Re-signing unavailable:", "Clear cap space before confirming. Signed salaries remain guaranteed.");
     return;
   }
@@ -2878,6 +2889,7 @@ function renderFreeAgency() {
   if(activeLineupRules>=42)document.querySelector('#fa-flow-guide').textContent='Sign players at fixed asking prices or end free agency. CPU teams can sign players after each signing and when you finish. Only UDFAs, released players and one-season carryovers enter this market. Prices do not fall while you wait. Signings may temporarily exceed 38 players; finalize cuts before starting the season.';
   const panel = document.querySelector("#free-agency");
   const available = Boolean(data && (!data.complete || activeLineupRules>=48));
+  faConfirmation.hidden = true;
   document.querySelector("#view-free-agency").hidden = !available;
   document.querySelector("#roster-fa-return").hidden = !available;
   panel.hidden = !available;
@@ -2897,17 +2909,40 @@ function renderFreeAgency() {
     && (!Number.isFinite(minAge) || p.age >= minAge)
     && (!Number.isFinite(maxAge) || p.age <= maxAge)
     && (!fitsCap || p.annual_salary <= data.profile.payroll.cap_space)).sort((a,b) => b[sort]-a[sort] || a.name.localeCompare(b.name) || a.id.localeCompare(b.id));
+  if (!players.includes(pendingFreeAgent) || !pendingFreeAgent?.affordable) pendingFreeAgent = null;
+  const busy = freeAgencyBusy || cutBusy || campBusy;
   const rows = players.map(p => {
     const row = document.createElement("tr");
     for (const value of [p.name,p.position,p.age,p.current_rating,p.potential_rating,faMoney(p.annual_salary),`${p.years} years`]) {
       const cell = document.createElement("td"); cell.textContent = value; row.append(cell);
     }
     const cell = document.createElement("td"); const button = document.createElement("button");
-    button.textContent = "Sign"; button.dataset.faId = p.id; button.disabled = freeAgencyBusy || cutBusy || campBusy || !p.affordable;
+    button.type = "button"; button.textContent = "Sign"; button.dataset.faId = p.id; button.disabled = busy || !p.affordable;
+    button.setAttribute("aria-label", `Sign ${p.name}, ${p.position}`);
+    button.setAttribute("aria-expanded", String(p === pendingFreeAgent));
+    button.setAttribute("aria-controls", "fa-confirmation");
     if (!p.affordable) button.title = "Requires cap space and an open roster spot, with room for required minimums";
     cell.append(button); row.append(cell); return row;
   });
-  document.querySelector("#fa-players").replaceChildren(...rows);
+  const body = document.querySelector("#fa-players");
+  body.replaceChildren(...rows);
+  if (pendingFreeAgent) {
+    const player = pendingFreeAgent;
+    const pay = data.profile.payroll;
+    const playerRow = rows[players.indexOf(player)];
+    const confirmationRow = body.insertRow(playerRow.sectionRowIndex + 1);
+    confirmationRow.className = "fa-confirmation-row";
+    const cell = confirmationRow.insertCell();
+    cell.colSpan = playerRow.cells.length;
+    cell.append(faConfirmation);
+    document.querySelector("#fa-confirm-text").textContent = `Sign ${player.name} (${player.position}) for ${faMoney(player.annual_salary)}/year, ${player.years} years, starting Season ${pay.season ?? activeSeason + 1}?`;
+    showSigningPayrollImpact(document.querySelector("#fa-impact"), pay, pay.total + player.annual_salary, "signing");
+    document.querySelector("#fa-confirm").disabled = busy;
+    document.querySelector("#fa-cancel").disabled = busy;
+    faConfirmation.hidden = false;
+  } else {
+    panel.insertBefore(faConfirmation, panel.querySelector(".table-wrap"));
+  }
   document.querySelector("#fa-empty").hidden = rows.length > 0;
   document.querySelector("#fa-pass").disabled = freeAgencyBusy || cutBusy || campBusy;
   document.querySelector("#fa-finish").disabled = freeAgencyBusy || cutBusy || campBusy || data.complete;
@@ -2917,6 +2952,8 @@ function renderFreeAgency() {
 async function loadFreeAgency(kind=null, player_id='') {
   if (freeAgencyBusy || cutBusy || campBusy || careerEnded() || activeLineupRules < 29 || (activeLineupRules<31 && !activeTrainingCamp) || (freeAgencyState?.complete && activeLineupRules<48) || activeTradeActions.length>0) return;
   if(activeLineupRules>=42&&!ownSigningState?.complete)return;
+  if (kind === "sign" && (pendingFreeAgent?.id !== player_id || !pendingFreeAgent.affordable)) return;
+  if (kind !== "sign") pendingFreeAgent = null;
   const enteringMarket = !freeAgencyState;
   const actions = [...(activeFreeAgency ?? []), ...(kind ? [{kind,player_id}] : [])];
   freeAgencyBusy = true; renderFreeAgency(); updateOffseasonActions();
@@ -2935,9 +2972,37 @@ async function loadFreeAgency(kind=null, player_id='') {
     document.querySelector("#fa-error").textContent = error.message;
     document.querySelector("#fa-error").hidden = false;
     showError(error.message);
-  } finally { freeAgencyBusy = false; renderFreeAgency(); updateOffseasonActions(); renderCuts(); }
+  } finally {
+    freeAgencyBusy = false;
+    renderFreeAgency();
+    updateOffseasonActions();
+    renderCuts();
+    if (kind === "sign" && !document.querySelector("#panel-free-agency").hidden) {
+      const target = pendingFreeAgent ? "#fa-confirm" : "#fa-title";
+      document.querySelector(target).focus({ preventScroll: true });
+    }
+  }
 }
-document.querySelector("#fa-players").addEventListener("click", event => { const b=event.target.closest('[data-fa-id]'); if (b && !b.disabled) loadFreeAgency('sign',b.dataset.faId); });
+document.querySelector("#fa-players").addEventListener("click", event => {
+  const button = event.target.closest("[data-fa-id]");
+  if (!button || button.disabled) return;
+  pendingFreeAgent = freeAgencyState.available.find(player => player.id === button.dataset.faId);
+  document.querySelector("#fa-error").hidden = true;
+  renderFreeAgency();
+  document.querySelector("#fa-confirm").focus({ preventScroll: true });
+  document.querySelector("#fa-confirm").scrollIntoView({ block: "nearest", inline: "nearest" });
+});
+document.querySelector("#fa-confirm").addEventListener("click", () => {
+  if (pendingFreeAgent) loadFreeAgency("sign", pendingFreeAgent.id);
+});
+document.querySelector("#fa-cancel").addEventListener("click", () => {
+  if (!pendingFreeAgent || freeAgencyBusy) return;
+  const id = pendingFreeAgent.id;
+  pendingFreeAgent = null;
+  document.querySelector("#fa-error").hidden = true;
+  renderFreeAgency();
+  [...document.querySelectorAll("[data-fa-id]")].find(button => button.dataset.faId === id)?.focus();
+});
 document.querySelector("#fa-pass").addEventListener("click", () => loadFreeAgency('pass'));
 document.querySelector("#fa-finish").addEventListener("click", () => loadFreeAgency('finish'));
 for (const id of ['fa-sort','fa-position','fa-cap-space']) document.querySelector(`#${id}`).addEventListener('change',renderFreeAgency);
