@@ -2042,6 +2042,7 @@ function updateOffseasonActions() {
   nextSeasonButton.disabled = freeAgencyBusy || !finished || !drafted || invalidRoster || draftBusy || cutBusy || campBusy || advancingSeason;
   if(activeLineupRules>=42){
     nextSeasonButton.disabled=freeAgencyBusy||campBusy||cutBusy||draftBusy||advancingSeason||!finished||!drafted
+      || Boolean(ownSigningState&&!ownSigningState.complete&&pendingOwnSigningDecisions())
       || Boolean(freeAgencyState?.complete&&!rosterReady());
     nextSeasonButton.textContent=!ownSigningState?'Sign your own players':!ownSigningState.complete?'Finish own-player signing':
       !freeAgencyState?.complete?'Open free agency':'Start season';
@@ -2913,16 +2914,21 @@ document.querySelector("#fa-pass").addEventListener("click", () => loadFreeAgenc
 document.querySelector("#fa-finish").addEventListener("click", () => loadFreeAgency('finish'));
 for (const id of ['fa-sort','fa-position']) document.querySelector(`#${id}`).addEventListener('change',renderFreeAgency);
 
+function pendingOwnSigningDecisions(){
+  return (rosterProfile?.roster??[]).filter(p=>p.renewal_offer||p.contract_offer).length;
+}
+
 function renderOwnSigning(){
   const available=activeLineupRules>=42&&ownSigningState&&!ownSigningState.complete;
   document.querySelector('#own-signing').hidden=!available;
   if(!available)return;
-  const pending=rosterProfile.roster.filter(p=>p.renewal_offer||p.contract_offer).length;
+  const pending=pendingOwnSigningDecisions();
   document.querySelector('#own-signing-status').textContent=`Sign or release your expiring players and drafted rookies. ${pending} decisions remaining. Active contracts continue automatically. Finish this stage before opening free agency.`;
   document.querySelector('#own-signing-finish').disabled=freeAgencyBusy||cutBusy||campBusy||pending>0;
 }
 async function loadOwnPlayers(kind=null){
   if(cutBusy||freeAgencyBusy||campBusy||careerEnded()||ownSigningState?.complete)return;
+  if(kind==='finish'&&(!ownSigningState||pendingOwnSigningDecisions()))return;
   freeAgencyBusy=true;updateOffseasonActions();renderOwnSigning();
   try{
     const own=kind?[...activeOwnActions,{kind,player_id:''}]:activeOwnActions;
