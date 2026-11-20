@@ -2890,7 +2890,13 @@ function renderFreeAgency() {
   document.querySelector("#fa-status").textContent = `${activeLineupRules>=42 ? "Free agency" : `Your turn · Wave ${data.wave}`} · ${priceNote} · Cap space ${faMoney(data.profile.payroll.cap_space)} · ${data.profile.roster.length}/38 players`;
   const sort = document.querySelector("#fa-sort").value;
   const position = document.querySelector("#fa-position").value;
-  const players = data.available.filter(p => !position || p.position === position).sort((a,b) => b[sort]-a[sort] || a.name.localeCompare(b.name) || a.id.localeCompare(b.id));
+  const minAge = document.querySelector("#fa-age-min").valueAsNumber;
+  const maxAge = document.querySelector("#fa-age-max").valueAsNumber;
+  const fitsCap = document.querySelector("#fa-cap-space").value === "fits";
+  const players = data.available.filter(p => (!position || p.position === position)
+    && (!Number.isFinite(minAge) || p.age >= minAge)
+    && (!Number.isFinite(maxAge) || p.age <= maxAge)
+    && (!fitsCap || p.annual_salary <= data.profile.payroll.cap_space)).sort((a,b) => b[sort]-a[sort] || a.name.localeCompare(b.name) || a.id.localeCompare(b.id));
   const rows = players.map(p => {
     const row = document.createElement("tr");
     for (const value of [p.name,p.position,p.age,p.current_rating,p.potential_rating,faMoney(p.annual_salary),`${p.years} years`]) {
@@ -2934,11 +2940,13 @@ async function loadFreeAgency(kind=null, player_id='') {
 document.querySelector("#fa-players").addEventListener("click", event => { const b=event.target.closest('[data-fa-id]'); if (b && !b.disabled) loadFreeAgency('sign',b.dataset.faId); });
 document.querySelector("#fa-pass").addEventListener("click", () => loadFreeAgency('pass'));
 document.querySelector("#fa-finish").addEventListener("click", () => loadFreeAgency('finish'));
-for (const id of ['fa-sort','fa-position']) document.querySelector(`#${id}`).addEventListener('change',renderFreeAgency);
+for (const id of ['fa-sort','fa-position','fa-cap-space']) document.querySelector(`#${id}`).addEventListener('change',renderFreeAgency);
 
 function pendingOwnSigningDecisions(){
   return (rosterProfile?.roster??[]).filter(p=>p.renewal_offer||p.contract_offer).length;
 }
+
+for (const id of ['fa-age-min','fa-age-max']) document.querySelector(`#${id}`).addEventListener('input',renderFreeAgency);
 
 function renderOwnSigning(){
   const available=activeLineupRules>=42&&ownSigningState&&!ownSigningState.complete;
