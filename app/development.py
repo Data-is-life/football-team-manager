@@ -109,12 +109,12 @@ def rating_view(player, context, development_states=None):
     return result
 
 
-def reveal_rookie(player, state, seed, preseason_growth=False, kicker_potential=False, balanced_outcomes=False):
-    """One entry-season assessment; rules 8 add modest camp growth within potential."""
+def reveal_rookie(player, state, seed, preseason_growth=False, kicker_potential=False, balanced_outcomes=False, user_outcomes=False):
+    """One seeded entry-season assessment; rules 50 improve managed-roster odds."""
     if state.rookie_revealed:
         return player, state
     draw = number(seed, player.id, 'rookie-reveal-v2' if preseason_growth else 'rookie-reveal-v1') % 100
-    boom, bust = (25, 50) if balanced_outcomes else (20, 25) if preseason_growth else (15, 30)
+    boom, bust = (25, 30) if user_outcomes else (25, 50) if balanced_outcomes else (20, 25) if preseason_growth else (15, 30)
     outcome = 'boom' if draw < boom else 'bust' if draw < bust else 'normal'
     current, potential = player.rating, state.potential
     if outcome == 'boom':
@@ -135,7 +135,7 @@ def reveal_rookie(player, state, seed, preseason_growth=False, kicker_potential=
                             rookie_revealed=True, rookie_outcome=outcome)
 
 
-def next_player(player, state, seed, season, rotation_growth=False, rookie_reassessment=False, preseason_growth=False, kicker_potential=False, balanced_outcomes=False):
+def next_player(player, state, seed, season, rotation_growth=False, rookie_reassessment=False, preseason_growth=False, kicker_potential=False, balanced_outcomes=False, user_outcomes=False):
     # A drafted rookie's listed age is their age in the upcoming rookie season.
     entry = int(player.id.split('-')[-2]) if player.id.startswith('rookie-') else 1
     previous_potential = state.potential
@@ -145,7 +145,7 @@ def next_player(player, state, seed, season, rotation_growth=False, rookie_reass
         fresh = initial_state(replace(player, rating=state.baseline), seed, True)
         state = replace(state, potential=fresh.potential, kicker_development=True)
     if rookie_reassessment and player.id.startswith('rookie-') and season == entry:
-        updated, result = reveal_rookie(player, state, seed, preseason_growth, kicker_potential, balanced_outcomes)
+        updated, result = reveal_rookie(player, state, seed, preseason_growth, kicker_potential, balanced_outcomes, user_outcomes)
         return updated, replace(result, potential_change=result.potential-previous_potential) if initialize_kicker else result
 
     if season <= entry:
@@ -302,7 +302,7 @@ def advance_context(context, run_seed, season, development_start=1, lineup_rules
         for owner, players in context:
             updated = []
             for player in players:
-                player, state = next_player(player,states[player.id],run_seed,year,rotation_growth and player.position not in ('QB','K'), lineup_rules >= 7, lineup_rules >= 8, lineup_rules >= 9, lineup_rules >= 42)
+                player, state = next_player(player,states[player.id],run_seed,year,rotation_growth and player.position not in ('QB','K'), lineup_rules >= 7, lineup_rules >= 8, lineup_rules >= 9, lineup_rules >= 42, lineup_rules >= 50 and owner == context.rebuild_team)
                 updated.append(player)
                 updated_states.append((player.id,state))
             rosters.append((owner,ranked_players(updated)))
