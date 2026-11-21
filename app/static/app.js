@@ -110,6 +110,7 @@ let scoutingTeamId = null;
 let scoutingCity = "";
 
 const SAVE_KEY = "arcade-league-save";
+const CHECKPOINT_KEY = "arcade-league-checkpoint";
 const saveStatus = document.querySelector("#save-status");
 const resumeButton = document.querySelector("#resume-save");
 let restoring = false;
@@ -119,6 +120,28 @@ function rebuildQuery(team = activeRebuildTeam) {
 }
 function rebuildOrigin(context) {
   return context ? context.rebuildTeam : activeRebuildTeam;
+}
+
+function savedLeagueCheckpoint(save) {
+  try {
+    const stored = JSON.parse(localStorage.getItem(CHECKPOINT_KEY));
+    if (stored?.teamId === save.teamId && stored.runSeed === save.runSeed
+        && stored.season === save.season && typeof stored.token === "string") return stored.token;
+  } catch {
+    // The decision log still restores the career if the optional cache is unavailable.
+  }
+  return null;
+}
+
+function storeLeagueCheckpoint(token) {
+  if (typeof token !== "string") return;
+  try {
+    localStorage.setItem(CHECKPOINT_KEY, JSON.stringify({
+      teamId: activeTeamId, runSeed: activeRunSeed, season: activeSeason, token,
+    }));
+  } catch {
+    // A full cache must never block progress or overwrite the decision log.
+  }
 }
 
 function saveProgress() {
@@ -600,7 +623,9 @@ async function resumeProgress() {
     if (save.playoffRound !== null) requests.push(`/api/playoffs/${save.teamId}/round/${save.playoffRound}?season=${save.season}&run_seed=${save.runSeed}${priorStandingsQuery(save.priorStandings)}&lineup_rules=${save.lineupRules}&development_start=${save.developmentStart ?? 1}${rebuildQuery(save.rebuildTeam)}`);
     // Warm the shared career replay once before dependent endpoints request it.
     // lru_cache does not coalesce simultaneous misses in FastAPI's worker threads.
-    const profileRequest = hasLineupContext(save) ? careerRequest("profile", {}, save) : null;
+    const checkpointOptions = save.lineupRules >= 42 && save.career.length
+      ? { checkpoint: savedLeagueCheckpoint(save), save_checkpoint: true } : {};
+    const profileRequest = hasLineupContext(save) ? careerRequest("profile", checkpointOptions, save) : null;
     const payloadsRequest = Promise.all(requests.map(async url => {
       if (profileRequest) {
         if (url.startsWith("/api/team/")) return profileRequest;
@@ -647,6 +672,7 @@ async function resumeProgress() {
     if (tradingState) activateView("roster");
     else if(ownSigningState&&!ownSigningState.complete)activateView("roster");
     select.value = save.teamId;
+    storeLeagueCheckpoint(profile.checkpoint);
     saveStatus.textContent = "Saved progress restored. Autosave is on in this browser.";
     resumeButton.hidden = true;
   } catch {
@@ -2848,7 +2874,8 @@ nextSeasonButton.addEventListener("click", async () => {
     }];
     const history = [...careerHistory, summary];
     const [schedule, profile] = await Promise.all([loadNextSchedule(),
-      careerRequest("profile", { season: nextSeason, career, lineup_rules: lineupRules, development_start: developmentStart, lineup_changes: lineupChanges, season_drops: [] })]);
+      careerRequest("profile", { season: nextSeason, career, lineup_rules: lineupRules, development_start: developmentStart,
+        lineup_changes: lineupChanges, season_drops: [], ...(lineupRules >= 42 ? {save_checkpoint: true} : {}) })]);
     if (profile.team?.id !== activeTeamId || profile.run_seed !== activeRunSeed || profile.lineup_rules !== lineupRules) {
       throw new Error("The next season could not be loaded. Please try again.");
     }
@@ -2857,6 +2884,7 @@ nextSeasonButton.addEventListener("click", async () => {
     renderWelcome();
     setDevelopmentRecap(profile, nextSeason);
     saveProgress();
+    storeLeagueCheckpoint(profile.checkpoint);
     if (developmentRecap && (!hadCamp||activeLineupRules>=42)) developmentDialog.showModal();
   } catch (error) {
     showError(error.message);
