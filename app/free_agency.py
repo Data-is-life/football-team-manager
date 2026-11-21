@@ -105,6 +105,7 @@ def free_agency(team_id, season, request_seed, context, order, actions=(), *, pr
                for owner in rosters}
     budgets = {owner:cap_payroll(players,context,context.season,owner) for owner,players in rosters.items()}
     potentials, normal_contracts, wave_contracts = {}, {}, {}
+    team_premium = {owner:sum(parts) for owner,parts in premiums.items()}
 
     def potential_for(player):
         if player.id not in potentials:
@@ -112,7 +113,7 @@ def free_agency(team_id, season, request_seed, context, order, actions=(), *, pr
         return potentials[player.id]
 
     def demand(owner, player):
-        premium = sum(premiums[owner])
+        premium = team_premium[owner]
         key = (player.id,wave,premium)
         if key not in wave_contracts:
             if player.id not in normal_contracts:
@@ -121,14 +122,14 @@ def free_agency(team_id, season, request_seed, context, order, actions=(), *, pr
                 premium_basis_points=premium, run_seed=getattr(context,'run_seed',0))
         return wave_contracts[key]
 
-    def reserved(owner, player=None):
-        added = int(player is not None)
-        filled = int(player is not None and counts[owner][player.position] < owner_rules[owner][player.position][1])
+    def reserved(owner, position=None):
+        added = int(position is not None)
+        filled = int(position is not None and counts[owner][position] < owner_rules[owner][position][1])
         return minimum * max(missing[owner]-filled, minimum_total-len(rosters[owner])-added, 0)
 
     def can_sign(owner, player, deal):
         return ((pre_camp or len(rosters[owner]) < maximum_total)
-                and budgets[owner] + deal.annual_salary + reserved(owner,player) <= cap)
+                and budgets[owner] + deal.annual_salary + reserved(owner,player.position) <= cap)
 
     def sign(owner, identity):
         player = pool.get(identity)
@@ -155,33 +156,37 @@ def free_agency(team_id, season, request_seed, context, order, actions=(), *, pr
             for player in players:
                 weakest[player.position] = min(weakest.get(player.position,player.rating),player.rating)
             policy = cpu_identity.for_team(context,owner,context.season)
-            candidates = []
+            kind = policy.kind if policy is not None else None
+            budget = cap-budgets[owner]
+            limits = {position:budget-reserved(owner,position) for position in owner_rules[owner]}
+            best = preferred = None
             for player in pool.values():
                 target, floor = owner_rules[owner][player.position]
                 count = counts[owner][player.position]
                 shortage = count < floor
                 baseline = weakest.get(player.position,40)
-                if (policy is None or policy.kind not in ('expensive_peaks','talent_hoarder')) and not shortage and count >= target and player.rating <= baseline+3:
+                if kind not in ('expensive_peaks','talent_hoarder') and not shortage and count >= target and player.rating <= baseline+3:
                     continue
                 deal = demand(owner, player)
-                if not can_sign(owner,player,deal):
+                if deal.annual_salary > limits[player.position]:
                     continue
-                benefit = (100 if shortage else max(0,player.rating-baseline)) + .1*max(0,potential_for(player)-player.rating)
-                score = CPU_GROUP_IMPORTANCE[player.position]*benefit/max(1,deal.annual_salary/1_000_000)**.3
-                if policy is not None and policy.kind == 'talent_hoarder':
+                if kind == 'talent_hoarder':
                     score = player.rating
-                elif policy is not None and policy.kind == 'expensive_peaks':
+                elif kind == 'expensive_peaks':
                     score = player.rating + 8*math.log(max(1,deal.annual_salary/minimum))
-                elif policy is not None:
-                    score *= cpu_identity.market_factor(policy,player,potential_for(player),deal.annual_salary,context.run_seed,owner,context.season)
-                candidates.append((score,player.rating,player.id))
-            if candidates:
-                if policy is not None and policy.kind == 'expensive_peaks':
-                    preferred = [c for c in candidates if cpu_identity.peak_window(pool[c[2]])]
-                    if preferred:
-                        candidates = preferred
-                _,_,identity = max(candidates)
-                sign(owner,identity)
+                else:
+                    potential = potential_for(player)
+                    benefit = (100 if shortage else max(0,player.rating-baseline)) + .1*max(0,potential-player.rating)
+                    score = CPU_GROUP_IMPORTANCE[player.position]*benefit/max(1,deal.annual_salary/1_000_000)**.3
+                    if policy is not None:
+                        score *= cpu_identity.market_factor(policy,player,potential,deal.annual_salary,context.run_seed,owner,context.season)
+                candidate = (score,player.rating,player.id)
+                if best is None or candidate > best:
+                    best = candidate
+                if kind == 'expensive_peaks' and (preferred is None or candidate > preferred) and cpu_identity.peak_window(player):
+                    preferred = candidate
+            if best is not None:
+                sign(owner,(preferred or best)[2])
 
     def finish_cpu_rosters():
         nonlocal context, rosters, pool, counts, missing, budgets, states

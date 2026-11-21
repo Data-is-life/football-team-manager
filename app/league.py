@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections import Counter
 from dataclasses import asdict, dataclass
-from functools import lru_cache
+from functools import cached_property, lru_cache
 import random
 import re
 from typing import Iterable
@@ -178,6 +178,17 @@ def _orient_schedule(weeks: list[list[tuple[str, str, str]]]) -> list[LeagueGame
     return sorted(schedule, key=lambda game: (game.week, game.home_id, game.away_id))
 
 
+class _ScheduleGraph(nx.Graph):
+    @cached_property
+    def _neighbors(self):
+        # All nodes are added before matching. Reuse the public adjacency views
+        # instead of rebuilding one for every edge-weight lookup in the solver.
+        return dict(self.adj)
+
+    def __getitem__(self, node):
+        return self._neighbors[node]
+
+
 @lru_cache(maxsize=32)
 def _generate_league_schedule_cached(
     season: int,
@@ -192,7 +203,7 @@ def _generate_league_schedule_cached(
         remaining = original.copy()
         weeks: list[list[tuple[str, str, str]]] = []
         for week_index in range(17):
-            graph = nx.Graph()
+            graph = _ScheduleGraph()
             graph.add_nodes_from(team.id for team in TEAMS)
             rng = random.Random(f"league:{season}:attempt:{attempt}:week:{week_index}")
             for edge, count in remaining.items():

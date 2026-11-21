@@ -7,10 +7,10 @@ const draftRules=Number(process.env.TEST_DRAFT_RULES||42);
 const q=(p,s)=>p.d.querySelector(s),raw=p=>p.w.localStorage.getItem(key),save=p=>JSON.parse(raw(p));
 async function until(check){for(let i=0;i<4000;i++){if(check())return;await new Promise(r=>setTimeout(r,10));}throw Error('Simple offseason UI timeout');}
 async function page(checkpoint){
- const dom=new JSDOM(html,{url:base,runScripts:'outside-only'}),w=dom.window,d=w.document,state={calls:[],fail:false};
+ const dom=new JSDOM(html,{url:base,runScripts:'outside-only'}),w=dom.window,d=w.document,state={calls:[],requests:[],fail:false};
  w.localStorage.setItem(key,JSON.stringify(checkpoint));w.HTMLElement.prototype.scrollIntoView=()=>{};w.scrollTo=()=>{};
  w.HTMLDialogElement.prototype.close=function(){this.open=false};w.HTMLDialogElement.prototype.showModal=function(){this.open=true};
- w.fetch=async(url,init)=>{const b=init&&JSON.parse(init.body);if(b)state.calls.push(b);if(state.fail&&b?.action==='own_players')return {ok:false,json:async()=>({detail:'Temporary signing failure'})};const r=await fetch(new URL(url,base),init);if(!r.ok)console.error('API:',b?.action,await r.clone().text());else if(b){const data=await r.clone().json();if(data.profile)state.profile=data.profile;}return r;};
+ w.fetch=async(url,init)=>{const b=init&&JSON.parse(init.body);state.requests.push(b?.action??url);if(b)state.calls.push(b);if(state.fail&&b?.action==='own_players')return {ok:false,json:async()=>({detail:'Temporary signing failure'})};const r=await fetch(new URL(url,base),init);if(!r.ok)console.error('API:',b?.action,await r.clone().text());else if(b){const data=await r.clone().json();if(data.profile)state.profile=data.profile;}return r;};
  w.eval(script);const p={dom,w,d,state};await until(()=>/restored|could not/.test(q(p,'#save-status').textContent));assert.match(q(p,'#save-status').textContent,/restored/);return p;
 }
 function assertDraftNavigation(p, visible){
@@ -83,7 +83,11 @@ async function checks(){
  assertDraftNavigation(p,false);assert.equal(q(p,'#training-camp-button').hidden,true);assert.equal(q(p,'#panel-trades').hidden,true);assert.equal(q(p,'#view-free-agency').hidden,draftRules<48);
  if(!q(p,'#meet-payroll-floor').hidden){q(p,'#meet-payroll-floor').click();q(p,'#floor-confirm').click();await until(()=>q(p,'#meet-payroll-floor').hidden);}
  assert.equal(q(p,'#view-trades').hidden,true);assert.equal(q(p,'#next-season').textContent,'Start season');
- const before=save(p);q(p,'#next-season').click();await until(()=>save(p).season===2);
+ const requestCount=p.state.requests.length;
+ q(p,'#next-season').click();await until(()=>save(p).season===2);
+ const transition=p.state.requests.slice(requestCount);
+ assert.match(transition[0],/\/api\/schedule\/seattle\?season=2&/);
+ assert.deepEqual(transition.slice(1),['trades','profile']);
  assert.equal(save(p).lineupRules,draftRules===44?45:draftRules);assert.equal(save(p).career[0].own_actions.at(-1).kind,'finish');assert.equal(save(p).career[0].trade_actions.at(-1).kind,'finish');
  assert.equal(q(p,'#training-camp-button').hidden,true);assert.equal(q(p,'#own-signing').hidden,true);assert.equal(q(p,'#view-trades').hidden,true);
  assert.equal(q(p,'#development-dialog').open,true);assert.ok(q(p,`#roster-groups [data-player-id="${id}"]`));
