@@ -1,14 +1,16 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 const {spawn,execFileSync}=require('node:child_process'),{JSDOM}=require('jsdom');
 const root=path.resolve(__dirname,'..'),base='http://127.0.0.1:8797',key='arcade-league-save';
+const checkpointKey='arcade-league-checkpoint';
 const fixture=JSON.parse(execFileSync(process.env.PYTHON||'python',['tests/simple_offseason_fixtures.py'],{cwd:root,env:{...process.env,PYTHONPATH:root},encoding:'utf8'}));
 const html=fs.readFileSync(path.join(root,'app/static/index.html'),'utf8'),script=fs.readFileSync(path.join(root,'app/static/app.js'),'utf8');
 const draftRules=Number(process.env.TEST_DRAFT_RULES||42);
 const q=(p,s)=>p.d.querySelector(s),raw=p=>p.w.localStorage.getItem(key),save=p=>JSON.parse(raw(p));
 async function until(check){for(let i=0;i<4000;i++){if(check())return;await new Promise(r=>setTimeout(r,10));}throw Error('Simple offseason UI timeout');}
-async function page(checkpoint){
+async function page(checkpoint, leagueCheckpoint){
  const dom=new JSDOM(html,{url:base,runScripts:'outside-only'}),w=dom.window,d=w.document,state={calls:[],requests:[],fail:false};
  w.localStorage.setItem(key,JSON.stringify(checkpoint));w.HTMLElement.prototype.scrollIntoView=()=>{};w.scrollTo=()=>{};
+ if(leagueCheckpoint)w.localStorage.setItem(checkpointKey,leagueCheckpoint);
  w.HTMLDialogElement.prototype.close=function(){this.open=false};w.HTMLDialogElement.prototype.showModal=function(){this.open=true};
  w.fetch=async(url,init)=>{const b=init&&JSON.parse(init.body);state.requests.push(b?.action??url);if(b)state.calls.push(b);if(state.fail&&b?.action==='own_players')return {ok:false,json:async()=>({detail:'Temporary signing failure'})};const r=await fetch(new URL(url,base),init);if(!r.ok)console.error('API:',b?.action,await r.clone().text());else if(b){const data=await r.clone().json();if(data.profile)state.profile=data.profile;}return r;};
  w.eval(script);const p={dom,w,d,state};await until(()=>/restored|could not/.test(q(p,'#save-status').textContent));assert.match(q(p,'#save-status').textContent,/restored/);return p;
@@ -91,7 +93,12 @@ async function checks(){
  assert.equal(save(p).lineupRules,draftRules===44?45:draftRules);assert.equal(save(p).career[0].own_actions.at(-1).kind,'finish');assert.equal(save(p).career[0].trade_actions.at(-1).kind,'finish');
  assert.equal(q(p,'#training-camp-button').hidden,true);assert.equal(q(p,'#own-signing').hidden,true);assert.equal(q(p,'#view-trades').hidden,true);
  assert.equal(q(p,'#development-dialog').open,true);assert.ok(q(p,`#roster-groups [data-player-id="${id}"]`));
- const next=save(p);p.dom.window.close();p=await page(next);assert.deepEqual(save(p),next);assert.ok(q(p,`#roster-groups [data-player-id="${id}"]`));
+ const next=save(p),leagueCheckpoint=p.w.localStorage.getItem(checkpointKey);
+ const stored=JSON.parse(leagueCheckpoint);
+ assert.equal(stored.season,2);assert.equal(stored.teamId,'seattle');assert.ok(stored.token.length>0);
+ p.dom.window.close();p=await page(next,leagueCheckpoint);assert.deepEqual(save(p),next);assert.ok(q(p,`#roster-groups [data-player-id="${id}"]`));
+ assert.equal(p.state.calls.find(call=>call.action==='profile').checkpoint,stored.token);
+ assert.equal(p.w.localStorage.getItem(checkpointKey),leagueCheckpoint);
  assert.ok(!p.state.calls.some(c=>c.action==='camp'));p.dom.window.close();
  console.log('Simple offseason UI passed: own-player signing and rookies, failure/retry, duplicate guards, fixed-price market with no pass or camp, CPU competition, payroll review, trades, automatic development, saves and Season 2 replay.');
 }

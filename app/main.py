@@ -21,7 +21,8 @@ from .player_contracts import public_player_fields, payroll_payload, cap_ready, 
 from .lineups import lineup_context, replace_lineup_rosters
 from .simulation import ranked_players
 from .draft import build_draft
-from .career import offseason, replay_career, prepare_free_agency
+from .career import offseason, replay_career, replay_from_previous_checkpoint, prepare_free_agency
+from .checkpoints import encode_checkpoint, restored_context
 from .starter_choices import StarterPlan, with_starters, selected_roster, current_starters
 
 
@@ -336,6 +337,8 @@ class CareerRequest(BaseModel):
     week: int = Field(default=1, ge=1, le=19)
     round_number: int = Field(default=0, ge=0, le=4)
     view_team: str | None = None
+    checkpoint: str | None = None
+    save_checkpoint: StrictBool = False
 
 
 def ranks_context(ranks):
@@ -374,9 +377,18 @@ def career_action(team_id: str, request: CareerRequest) -> dict:
         steps = tuple((step.season, ranks_context(step.prior_standings), tuple(step.manual_picks), tuple(step.dropped), step.lineup_rules, tuple((change.week, tuple(change.starters)) for change in step.lineup_changes), step.draft_rounds, tuple((action.kind,action.player_id) for action in step.roster_actions), tuple((a.kind,a.player_id) for a in step.free_agency), tuple((a.kind,a.player_id) for a in step.pre_camp_actions), tuple((a.kind,a.player_id) for a in step.camp_actions)) + ((tuple((a.kind,a.other_team,a.give_id,a.receive_id) for a in step.trade_actions),) if step.lineup_rules>=41 else ()) + ((tuple((a.kind,a.player_id) for a in step.own_actions),) if step.lineup_rules>=42 else ())
                       + ((tuple((d.week,d.player_id) for d in step.season_drops),) if step.lineup_rules>=42 else ())
                       for step in request.career)
-        context = replay_career(team_id, request.run_seed, steps, request.lineup_rules,request.season,request.development_start,request.rebuild_team)
+        career_key = (team_id, request.run_seed, steps, request.lineup_rules,
+                      request.season, request.development_start, request.rebuild_team)
+        base_context, checkpoint_used = None, False
+        if request.lineup_rules >= 42 and steps:
+            token = request.checkpoint if request.action == 'profile' else None
+            base_context, checkpoint_used = restored_context(career_key, token)
+            if base_context is None:
+                base_context = replay_from_previous_checkpoint(career_key)
+        if base_context is None:
+            base_context = replay_career(*career_key)
         changes = tuple((change.week, tuple(change.starters)) for change in request.lineup_changes)
-        context = with_starters(context, team_id, request.run_seed, changes)
+        context = with_starters(base_context, team_id, request.run_seed, changes)
         from .season_drops import with_season_drops
         context = with_season_drops(context, team_id, tuple((d.week,d.player_id) for d in request.season_drops))
         if request.action == 'season_drop':
@@ -472,6 +484,11 @@ def career_action(team_id: str, request: CareerRequest) -> dict:
             draft, rosters = build_draft(team_id, request.season, request.run_seed,
                                         tuple(request.manual_picks), prior, context, auto_pick=request.auto_draft, draft_rounds=request.draft_rounds, return_league=True)
             return {**draft, 'profile': profile_payload(viewed, rosters[viewed], request.run_seed, context, payroll_season=request.season+1, league_rosters=rosters)}
-        return profile_payload(viewed, list(roster_for(viewed, request.run_seed, context).values()), request.run_seed, context)
+        profile = profile_payload(viewed, list(roster_for(viewed, request.run_seed, context).values()), request.run_seed, context)
+        if request.action == 'profile' and request.save_checkpoint and not checkpoint_used and viewed == team_id and steps:
+            token = encode_checkpoint(career_key, base_context)
+            if token:
+                profile['checkpoint'] = token
+        return profile
     except ValueError as error:
         raise HTTPException(status_code=422, detail=str(error)) from error

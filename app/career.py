@@ -229,3 +229,22 @@ def replay_career(team_id: str, run_seed: int, steps: tuple, lineup_rules: int =
                                rebuild_team, context, previous)
         previous = step[0]
     return lineup_context(context, run_seed, lineup_rules, target_season, development_start, rebuild_team)
+
+
+def replay_from_previous_checkpoint(career_key):
+    """Keep a reopened career fast when its next offseason is committed."""
+    from .checkpoints import remember_context, restored_context
+
+    team, seed, steps, rules, season, start, rebuild = career_key
+    step = steps[-1]
+    if step[0] != season - 1 or step[4] < 42:
+        return None
+    previous_key = (team, seed, steps[:-1], step[4], season - 1, start, rebuild)
+    previous_context, _ = restored_context(previous_key)
+    if previous_context is None:
+        return None
+    previous_year = steps[-2][0] if len(steps) > 1 else 0
+    context = _replay_step(team, seed, step, rules, start, rebuild, previous_context, previous_year)
+    context = lineup_context(context, seed, rules, season, start, rebuild)
+    remember_context(career_key, context)
+    return context
