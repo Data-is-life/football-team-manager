@@ -101,9 +101,10 @@ def replay(context, owner, actions):
         validate_roster(dict(context)[owner],minimum_total=roster_minimum(context),maximum_total=roster_limit(context),context=context,owner=owner)
     if complete and not financial_ready(dict(context)[owner],context,owner):
         raise ValueError('Resolve roster and payroll before finishing trading')
+    states = dict(context.development)
     def player(p):
         return {'id':p.id,'name':p.name,'position':p.position,'rating':p.rating,
-            'potential':contract_potential(p,context),'age':p.age,
+            'potential':contract_potential(p,context,states),'age':p.age,
             'salary':p.contract.annual_salary,'years':p.contract.signed_season+p.contract.years-context.season}
     teams=[{'id':o,'city':TEAM_BY_ID[o].city,'players':[player(p) for p in ps if not eligibility(p,context)]}
            for o,ps in context if o!=owner]

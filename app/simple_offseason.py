@@ -91,6 +91,17 @@ def _market_phase(team, season, seed, prior, root, context, market_actions):
     return json.dumps(market), context
 
 
+@lru_cache(maxsize=8)
+def _finalize_phase(team, season, seed, context, trade_actions):
+    context = sign_retained_rookies(context, season+1)
+    from .trades import replay
+    trading, context = replay(context, team, trade_actions)
+    if trading['complete']:
+        # Reuse this annual development pass when the season starts after review.
+        context = advance_context(replace(context,season=season),seed,season+1,lineup_rules=context.lineup_rules)
+    return json.dumps(trading), context
+
+
 def run(team,season,seed,choices,prior,root,rounds,own_actions=(),market_actions=(),review_actions=(),trade_actions=()):
     if root.lineup_rules >= 48 and review_actions:
         raise ValueError('Record roster review decisions in the market action log')
@@ -110,12 +121,9 @@ def run(team,season,seed,choices,prior,root,rounds,own_actions=(),market_actions
                 if kind=='drop': context=release_player(context,team,identity,final=True)
                 elif kind=='raise': context=raise_to_floor(context,team,identity)
                 else: raise ValueError('Only releases and payroll-minimum adjustments are available')
-            context=sign_retained_rookies(context,season+1)
-            from .trades import replay
-            trading,context=replay(context,team,trade_actions)
+            raw_trading,context=_finalize_phase(team,season,seed,context,trade_actions)
+            trading=json.loads(raw_trading)
             if trading['complete']:
-                # The only annual development pass. Previewing/signing/trading never ages anyone.
-                context=advance_context(replace(context,season=season),seed,season+1,lineup_rules=context.lineup_rules)
                 from .draft import player_payload
                 development=[player_payload(p,context) for p in dict(context)[team]]
     context=stamp_pool(context,season+1)

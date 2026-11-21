@@ -63,6 +63,7 @@ let activeLineupChanges = [];
 let playoffBusy = false;
 let cutBusy = false;
 let advancingSeason = false;
+let nextSchedule = null;
 let pendingCut = null;
 let pendingRosterKind = "drop";
 const rosterManagement = document.querySelector("#roster-management");
@@ -1389,6 +1390,7 @@ function renderSchedule(data, runSeed, { priorStandings = {}, history = [], care
   activeGmExtensionRules = gmExtensionRules;
   renderHelp();
   regularSnapshot = null;
+  nextSchedule = null;
   activeDraftChoices = null;
   draftState = null;
   activeTrainingCamp = false;
@@ -2142,6 +2144,9 @@ async function loadPlayoffRound(number) {
       data = await response.json();
     }
     renderPostseason(data);
+    if (data.postseason_complete && activeLineupRules >= 42 && activeSeason < 999 && !careerEnded()) {
+      loadNextSchedule().catch(() => {});
+    }
     saveProgress();
     activateView("playoffs", { focus: true });
   } catch (error) {
@@ -2766,12 +2771,43 @@ campButton.addEventListener("click", async () => {
   }
 });
 
+function nextSeasonRules() {
+  return activeLineupRules >= 50 ? 50 : activeLineupRules >= 49 ? 49 : activeLineupRules >= 48 ? 48 : activeLineupRules >= 47 ? 47 : activeLineupRules >= 46 ? 46 : activeLineupRules >= 44 ? 45 : activeLineupRules >= 43 ? 43 : activeLineupRules >= 42 ? 42 : activeLineupRules >= 41 ? 41 : activeLineupRules >= 40 ? 40 : activeLineupRules >= 39 ? 39 : activeLineupRules >= 38 ? 38 : activeLineupRules >= 37 ? 37 : activeLineupRules >= 36 ? 36 : activeLineupRules >= 35 ? 35 : activeLineupRules >= 34 ? 34 : activeLineupRules >= 33 ? 33 : activeLineupRules >= 32 ? 32 : activeLineupRules >= 28 ? 31 : activeLineupRules >= 11 ? 28 : 10;
+}
+
+function nextSeasonRanks() {
+  return Object.fromEntries(regularSnapshot.standings.groups.flatMap(group => group.teams)
+    .map(row => [row.team.id, row.rank]));
+}
+
+function loadNextSchedule() {
+  const team = activeTeamId, season = activeSeason + 1;
+  const url = `/api/schedule/${team}?season=${season}&lineup_rules=${nextSeasonRules()}${priorStandingsQuery(nextSeasonRanks())}`;
+  if (nextSchedule?.url === url) return nextSchedule.promise;
+  const entry = { url, promise: null };
+  entry.promise = (async () => {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error("The next season could not be loaded. Please try again.");
+    const schedule = await response.json();
+    if (schedule.team.id !== team || schedule.season !== season) {
+      throw new Error("The next season could not be loaded. Please try again.");
+    }
+    return schedule;
+  })().catch(error => {
+    if (nextSchedule === entry) nextSchedule = null;
+    throw error;
+  });
+  nextSchedule = entry;
+  return entry.promise;
+}
+
 nextSeasonButton.addEventListener("click", async () => {
   if (careerEnded() || advancingSeason || nextSeasonButton.disabled || (activeDraftChoices?.length !== activeDraftRounds || !draftState?.complete || (activeLineupRules<31 && !rosterReady()) || (activeLineupRules >= 18 && activeLineupRules<31 && !activeTrainingCamp)) || cutBusy || draftBusy || campBusy || !playoffState?.postseason_complete || !regularSnapshot || activeSeason >= 999) return;
   if(activeLineupRules>=42&&!ownSigningState?.complete){await loadOwnPlayers(ownSigningState?'finish':null);return;}
   if (activeLineupRules >= 29 && !freeAgencyState?.complete) { await loadFreeAgency(); return; }
   if (activeLineupRules>=31 && (!activeTrainingCamp || !rosterReady())) return;
   if (activeLineupRules>=41 && !tradingState?.complete) {
+    loadNextSchedule().catch(() => {});
     const done=await finishLegacyTrading();if(!done)return;
   }
   advancingSeason = true;
@@ -2783,8 +2819,7 @@ nextSeasonButton.addEventListener("click", async () => {
   errorBox.hidden = true;
   const hadCamp = activeTrainingCamp;
   const nextSeason = activeSeason + 1;
-  const ranks = Object.fromEntries(regularSnapshot.standings.groups.flatMap(group => group.teams)
-    .map(row => [row.team.id, row.rank]));
+  const ranks = nextSeasonRanks();
   const lastOwnRound = playoffState.rounds.filter(round => round.games.some(game =>
     game.home.team.id === activeTeamId || game.away.team.id === activeTeamId)).at(-1);
   const summary = { season: activeSeason, ...regularSnapshot.record,
@@ -2796,7 +2831,7 @@ nextSeasonButton.addEventListener("click", async () => {
       : !playoffState.qualified ? "Missed playoffs" : `Lost in ${lastOwnRound.name}` };
   try {
     const developmentStart = activeDevelopmentStart ?? nextSeason;
-    const lineupRules = activeLineupRules >= 50 ? 50 : activeLineupRules >= 49 ? 49 : activeLineupRules >= 48 ? 48 : activeLineupRules >= 47 ? 47 : activeLineupRules >= 46 ? 46 : activeLineupRules >= 44 ? 45 : activeLineupRules >= 43 ? 43 : activeLineupRules >= 42 ? 42 : activeLineupRules >= 41 ? 41 : activeLineupRules >= 40 ? 40 : activeLineupRules >= 39 ? 39 : activeLineupRules >= 38 ? 38 : activeLineupRules >= 37 ? 37 : activeLineupRules >= 36 ? 36 : activeLineupRules >= 35 ? 35 : activeLineupRules >= 34 ? 34 : activeLineupRules >= 33 ? 33 : activeLineupRules >= 32 ? 32 : activeLineupRules >= 28 ? 31 : activeLineupRules >= 11 ? 28 : 10;
+    const lineupRules = nextSeasonRules();
     // Re-rank the new roster after development and draft/cuts. Prior-season
     // overrides remain only in career history, where completed games need them.
     const lineupChanges = [];
@@ -2811,17 +2846,8 @@ nextSeasonButton.addEventListener("click", async () => {
       ...(activeSeasonDrops.length ? { season_drops: activeSeasonDrops } : {}),
       ...(activeLineupChanges.length ? { lineup_changes: activeLineupChanges } : {}),
     }];
-    const scheduleRequest = (async () => {
-      const response = await fetch(`/api/schedule/${activeTeamId}?season=${nextSeason}&lineup_rules=${lineupRules}${priorStandingsQuery(ranks)}`);
-      if (!response.ok) throw new Error("The next season could not be loaded. Please try again.");
-      const schedule = await response.json();
-      if (schedule.team.id !== activeTeamId || schedule.season !== nextSeason) {
-        throw new Error("The next season could not be loaded. Please try again.");
-      }
-      return schedule;
-    })();
     const history = [...careerHistory, summary];
-    const [schedule, profile] = await Promise.all([scheduleRequest,
+    const [schedule, profile] = await Promise.all([loadNextSchedule(),
       careerRequest("profile", { season: nextSeason, career, lineup_rules: lineupRules, development_start: developmentStart, lineup_changes: lineupChanges, season_drops: [] })]);
     if (profile.team?.id !== activeTeamId || profile.run_seed !== activeRunSeed || profile.lineup_rules !== lineupRules) {
       throw new Error("The next season could not be loaded. Please try again.");
