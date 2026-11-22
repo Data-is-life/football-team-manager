@@ -15,12 +15,14 @@ def add_kicking_stats(box: dict, rng: random.Random, *, overtime_winner: bool = 
         overtime_count = int(overtime_winner)
         made = row["field_goals_made"] - overtime_count
         attempted = row["field_goals_attempted"] - overtime_count
-        attempts = [
-            {"distance_yards": round(rng.triangular(18, 62, 38)),
-             "made": index < made, "overtime": False}
-            for index in range(attempted)
-        ]
-        rng.shuffle(attempts)
+        attempts = row.get("field_goal_attempts")
+        if attempts is None:
+            attempts = [
+                {"distance_yards": round(rng.triangular(18, 62, 38)),
+                 "made": index < made, "overtime": False}
+                for index in range(attempted)
+            ]
+            rng.shuffle(attempts)
         if overtime_winner:
             attempts.append({"distance_yards": round(rng.triangular(18, 55, 35)),
                              "made": True, "overtime": True})

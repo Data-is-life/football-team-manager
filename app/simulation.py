@@ -209,6 +209,8 @@ def roster_for(team_id: str, run_seed: int = 0, roster_context: tuple = ()) -> d
 
 
 def _split_total(total: int, weights: list[float]) -> list[int]:
+    if total == 0:
+        return [0] * len(weights)
     raw = [total * weight / sum(weights) for weight in weights]
     values = [int(value) for value in raw]
     for index in sorted(range(len(raw)), key=lambda item: raw[item] - values[item], reverse=True):
@@ -378,18 +380,22 @@ def apply_usage(box: dict, opponent_box: dict, rng: random.Random, run_seed: int
         rb1_share = rng.uniform(0.50, 0.90) if len(backs) > 1 else 1.0
         back_weights = [rb1_share, 1 - rb1_share] if len(backs) > 1 else [1.0]
     rb_skill = sum(player.rating * weight for player, weight in zip(backs, back_weights))
-    ratings = team_ratings(box["team"]["id"], run_seed, roster_context)
-    opponent_ratings = team_ratings(opponent_box["team"]["id"], run_seed, roster_context)
-    plays = total_plays(box["score"] + opponent_box["score"],
-                        ratings.offense - opponent_ratings.defense, rng)
-    attempts = round(plays * pass_share(qb.rating, rb_skill,
-                                       opponent_box["score"] - box["score"], qb.experience))
-    carries = plays - attempts
     passing = box["passing"][0]
-    completions = min(attempts, round(attempts * passing["completion_rate"]))
-    passing.update({"attempts": attempts, "completions": completions})
     stats = box["team_stats"]
-    stats.update({"total_plays": plays, "pass_attempts": attempts, "rush_attempts": carries})
+    if "rush_attempts" in stats:
+        carries = stats["rush_attempts"]
+        attempts, completions = passing["attempts"], passing["completions"]
+    else:
+        ratings = team_ratings(box["team"]["id"], run_seed, roster_context)
+        opponent_ratings = team_ratings(opponent_box["team"]["id"], run_seed, roster_context)
+        plays = total_plays(box["score"] + opponent_box["score"],
+                            ratings.offense - opponent_ratings.defense, rng)
+        attempts = round(plays * pass_share(qb.rating, rb_skill,
+                                           opponent_box["score"] - box["score"], qb.experience))
+        carries = plays - attempts
+        completions = min(attempts, round(attempts * passing["completion_rate"]))
+        passing.update({"attempts": attempts, "completions": completions})
+        stats.update({"total_plays": plays, "pass_attempts": attempts, "rush_attempts": carries})
     rush_attempts = _split_total(carries, back_weights)
     rush_yards = _split_total(stats["rushing_yards"],
         [weight if count else 0 for weight,count in zip(back_weights,rush_attempts)] if modern else back_weights)
@@ -477,6 +483,38 @@ def _inherited_scoring(home_box, away_box, owner, week, run_seed):
                 own_row[field],other_row[field] = other_row[field],own_row[field]
 
 
+def _drive_box(team, roster, totals):
+    qb, kicker = roster["QB1"], roster["K1"]
+    touchdowns = totals.passing_tds + totals.rushing_tds
+    field_goals = sum(made for _, made in totals.kicks)
+    return {
+        "team": {"id": team.id, "city": team.city},
+        "score": totals.score,
+        "team_stats": {
+            "total_yards": totals.passing_yards + totals.rushing_yards,
+            "passing_yards": totals.passing_yards, "rushing_yards": totals.rushing_yards,
+            "turnovers": totals.interceptions + totals.fumbles, "sacks_allowed": totals.sacks,
+            "time_of_possession": f"{totals.seconds // 60}:{totals.seconds % 60:02d}",
+            "total_plays": totals.attempts + totals.carries,
+            "pass_attempts": totals.attempts, "rush_attempts": totals.carries,
+        },
+        "passing": [{
+            "player_id": qb.id, "player": qb.name, "position": "QB", "attempts": totals.attempts,
+            "completions": totals.completions, "completion_rate": totals.completions / max(1, totals.attempts),
+            "yards": totals.passing_yards, "touchdowns": totals.passing_tds, "interceptions": totals.interceptions,
+        }],
+        "rushing": [{"touchdowns": totals.rushing_tds}],
+        "kicking": [{
+            "player_id": kicker.id, "player": kicker.name, "position": "K",
+            "field_goals_made": field_goals, "field_goals_attempted": len(totals.kicks),
+            "extra_points_made": touchdowns,
+            "field_goal_attempts": [{"distance_yards": distance, "made": made, "overtime": False}
+                                    for distance, made in totals.kicks],
+        }],
+        "scoring": {"touchdowns": touchdowns, "field_goals": field_goals},
+    }
+
+
 def _scoring_boxes(selected_team_id, game, season, *, allow_ties=True,
                    neutral_site=False, run_seed=0, roster_context=()):
     """The shared scoring RNG path; usage/rotation streams cannot affect outcomes."""
@@ -491,11 +529,19 @@ def _scoring_boxes(selected_team_id, game, season, *, allow_ties=True,
     selected_is_home = game.venue == "Home"
     home_team = selected_team if selected_is_home else opponent
     away_team = opponent if selected_is_home else selected_team
-    home_box = _team_box(home_team, away_team, None if neutral_site else True, rng, run_seed, roster_context)
-    away_box = _team_box(away_team, home_team, None if neutral_site else False, rng, run_seed, roster_context)
-    owner = getattr(roster_context,'rebuild_team',None)
-    inherited = (getattr(roster_context,'lineup_rules',1)>=22 and season==1
-                 and 1<=game.week<=16 and owner in (home_team.id,away_team.id))
+    owner = getattr(roster_context, 'rebuild_team', None)
+    rules = getattr(roster_context, 'lineup_rules', 1)
+    inherited = rules >= 22 and season == 1 and 1 <= game.week <= 16 and owner in (home_team.id, away_team.id)
+    from .drives import DRIVE_RULES, simulate as simulate_drives
+    if rules >= DRIVE_RULES and not inherited:
+        home = roster_for(home_team.id, run_seed, roster_context)
+        away = roster_for(away_team.id, run_seed, roster_context)
+        home_totals, away_totals = simulate_drives(rng, home, away, neutral_site=neutral_site)
+        home_box = _drive_box(home_team, home, home_totals)
+        away_box = _drive_box(away_team, away, away_totals)
+    else:
+        home_box = _team_box(home_team, away_team, None if neutral_site else True, rng, run_seed, roster_context)
+        away_box = _team_box(away_team, home_team, None if neutral_site else False, rng, run_seed, roster_context)
     overtime = resolve_overtime(home_box, away_box, rng, allow_ties=False if inherited else allow_ties, neutral_site=neutral_site, run_seed=run_seed, roster_context=roster_context)
     if inherited:
         _inherited_scoring(home_box,away_box,owner,game.week,run_seed)
@@ -525,7 +571,8 @@ def simulate_game(
     usage_rng = random.Random(_stable_number(f"usage:{seed}"))
     apply_usage(home_box, away_box, usage_rng, run_seed, roster_context)
     apply_usage(away_box, home_box, usage_rng, run_seed, roster_context)
-    assign_possession(home_box, away_box)
+    if "field_goal_attempts" not in home_box["kicking"][0]:
+        assign_possession(home_box, away_box)
     add_efficiency_stats(home_box)
     add_efficiency_stats(away_box)
     # Separate stream preserves scores, usage, and playoff outcomes.

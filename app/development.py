@@ -6,6 +6,8 @@ from itertools import chain
 from .simulation import roster_for, ranked_players
 from .rules import DEVELOPMENT_RULES
 from .league import TEAMS
+from .attributes import generate_attributes
+from .drives import DRIVE_RULES
 
 # Development through, decline from, steep decline from, ordinary loss, steep loss.
 CURVES = {
@@ -128,7 +130,6 @@ def reveal_rookie(player, state, seed, preseason_growth=False, kicker_potential=
     if player.position == 'K' and not kicker_potential:
         # Preserve the legacy seasonal-form-only model.
         potential = current
-    from .attributes import generate_attributes
     updated = replace(player, rating=current, attributes=generate_attributes(player.id, player.position, current, seed)) if current != player.rating else player
     return updated, replace(state, potential=potential, baseline=current if player.position == 'K' else state.baseline,
                             change=current-player.rating, potential_change=potential-state.potential,
@@ -253,6 +254,8 @@ def advance_context(context, run_seed, season, development_start=1, lineup_rules
         raise ValueError('Flexible offseason rosters require a new career')
     if lineup_rules >= 49 and current_rules < 49 and context:
         raise ValueError('Balanced venue streaks require a new career')
+    if lineup_rules >= DRIVE_RULES and current_rules < DRIVE_RULES and context:
+        raise ValueError("Drive simulation requires a new career")
     rotation_growth = current_rules >= 5
     if current_rules < 3:
         if not context and lineup_rules >= 4:
@@ -302,7 +305,10 @@ def advance_context(context, run_seed, season, development_start=1, lineup_rules
         for owner, players in context:
             updated = []
             for player in players:
+                previous = player
                 player, state = next_player(player,states[player.id],run_seed,year,rotation_growth and player.position not in ('QB','K'), lineup_rules >= 7, lineup_rules >= 8, lineup_rules >= 9, lineup_rules >= 42, lineup_rules >= 50 and owner == context.rebuild_team)
+                if lineup_rules >= DRIVE_RULES and player.age != previous.age and player.rating != previous.rating:
+                    player = replace(player, attributes=generate_attributes(player.id, player.position, player.rating, run_seed))
                 updated.append(player)
                 updated_states.append((player.id,state))
             rosters.append((owner,ranked_players(updated)))
@@ -312,8 +318,11 @@ def advance_context(context, run_seed, season, development_start=1, lineup_rules
             for player in context.free_agents:
                 if retiring(player, context):
                     continue
+                previous = player
                 player, state = next_player(player, states[player.id], run_seed, year,
                     False, True, True, True, lineup_rules >= 42)
+                if lineup_rules >= DRIVE_RULES and player.age != previous.age and player.rating != previous.rating:
+                    player = replace(player, attributes=generate_attributes(player.id, player.position, player.rating, run_seed))
                 agents.append(player)
                 updated_states.append((player.id, state))
         context = replace(context, rosters=tuple(rosters), season=year,
