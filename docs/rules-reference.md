@@ -241,7 +241,16 @@ Your latest playoff outcome appears above the bracket: green congratulations aft
 
 ## Next build slice
 
-Plan the drive engine together, then add meaningful pregame management decisions. The leaderboard service for the wider arcade can remain separate and be shared by every future game.
+New careers use the drive engine beginning with rules 51. Each possession updates
+field position, time remaining, and the score. The default coach chooses pace and
+run/pass balance from the matchup and game situation. Line play, coverage, and
+pursuit affect different parts of the outcome. Aging and development update the
+current attributes used by these matchups.
+
+The scoreboard and box score use these possessions. The first 16 inherited
+games involving the managed team keep their scripted record. Older saves continue
+under their original scoring rules. Down and distance and coaching hires are
+future additions.
 
 ## Saved progress
 
