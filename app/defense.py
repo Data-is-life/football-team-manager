@@ -35,8 +35,8 @@ def _identity(player):
     return {"player_id": player.id, "player": player.name, "position": player.position}
 
 
-def add_defense_and_blocking(box, opponent, roster, rng):
-    """Allocate existing sacks/INTs and estimated tackles; never change scores.
+def add_defense_and_blocking(box, opponent, roster, rng, *, credits=None):
+    """Use snap credits when supplied and estimate the remaining production.
 
     Legacy rules use five starting linemen; modern rules use allocated OL roles.
     Defenders rotate through a
@@ -92,9 +92,35 @@ def add_defense_and_blocking(box, opponent, roster, rng):
             if field == "sacks":
                 row["tackles"] += value
 
-    distribute(opponent_sacks, "sacks", {"DL": 6, "LB": 3, "CB": .5, "S": .5})
-    distribute(sum(p["interceptions"] for p in opponent["passing"]), "interceptions",
-               {"DL": 0, "LB": 1, "CB": 3, "S": 3})
+    if credits is None:
+        distribute(opponent_sacks, "sacks", {"DL": 6, "LB": 3, "CB": .5, "S": .5})
+        distribute(sum(p["interceptions"] for p in opponent["passing"]), "interceptions",
+                   {"DL": 0, "LB": 1, "CB": 3, "S": 3})
+    else:
+        sacks, interceptions = credits
+        participation = {row["player_id"]: row for row in box["participation"]}
+        for row in rows:
+            identity = row["player_id"]
+            row["sacks"] = row["tackles"] = sacks[identity]
+            row["interceptions"] = interceptions[identity]
+        # An observed credit implies a snap. Move estimated snaps within the same position.
+        for position in DEFENSIVE_UNIT:
+            group = [row for row in rows if row["position"] == position]
+            for row in group:
+                minimum = row["sacks"] + row["interceptions"]
+                need = minimum - row["snaps"]
+                if need <= 0:
+                    continue
+                for donor in group:
+                    spare = donor["snaps"] - donor["sacks"] - donor["interceptions"]
+                    moved = min(max(0, spare), need)
+                    donor["snaps"] -= moved
+                    row["snaps"] += moved
+                    need -= moved
+                    if not need:
+                        break
+            for row in group:
+                participation[row["player_id"]]["snaps"] = row["snaps"]
     tackles = max(0, opponent_stats["rush_attempts"] - sum(p["touchdowns"] for p in opponent["rushing"]))
     tackles += max(0, sum(p["completions"] - p["touchdowns"] for p in opponent["passing"]))
     distribute(tackles, "tackles", {"DL": 2, "LB": 4, "CB": 2, "S": 2})

@@ -241,7 +241,7 @@ Your latest playoff outcome appears above the bracket: green congratulations aft
 
 ## Next build slice
 
-New careers use the drive engine beginning with rules 51. Each possession updates
+Rules 51 simulate games by possession. Each possession updates
 field position, time remaining, and the score. The default coach chooses pace and
 run/pass balance from the matchup and game situation. Line play, coverage, and
 pursuit affect different parts of the outcome. Aging and development update the
@@ -249,8 +249,15 @@ current attributes used by these matchups.
 
 The scoreboard and box score use these possessions. The first 16 inherited
 games involving the managed team keep their scripted record. Older saves continue
-under their original scoring rules. Down and distance and coaching hires are
-future additions.
+under their original scoring rules.
+
+New careers use rules 52. The engine advances down and distance on each snap,
+including first downs, goal-to-go, sacks, turnovers on downs, and safeties. The
+default coach makes run/pass and fourth-down decisions from the matchup, field
+position, score, and clock. Player passing, rushing, receiving, sacks, and
+interceptions come from the same plays as the league scores. The
+existing box score shows the results, with blocking, tackles, and participation
+still estimated. Coaching hires remain a future addition.
 
 ## Saved progress
 

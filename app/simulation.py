@@ -483,11 +483,15 @@ def _inherited_scoring(home_box, away_box, owner, week, run_seed):
                 own_row[field],other_row[field] = other_row[field],own_row[field]
 
 
-def _drive_box(team, roster, totals):
+def _drive_box(team, roster, totals, credits=None, *, score_only=False):
     qb, kicker = roster["QB1"], roster["K1"]
     touchdowns = totals.passing_tds + totals.rushing_tds
     field_goals = sum(made for _, made in totals.kicks)
-    return {
+    if score_only:
+        return {"team": {"id": team.id}, "score": totals.score,
+                "scoring": {"field_goals": field_goals},
+                "kicking": [{"field_goals_made": field_goals, "field_goals_attempted": len(totals.kicks)}]}
+    box = {
         "team": {"id": team.id, "city": team.city},
         "score": totals.score,
         "team_stats": {
@@ -514,9 +518,23 @@ def _drive_box(team, roster, totals):
         "scoring": {"touchdowns": touchdowns, "field_goals": field_goals},
     }
 
+    if credits is not None:
+        if totals.safeties:
+            box["scoring"]["safeties"] = totals.safeties
+        def production(player, credits_by_player, fields):
+            recorded = credits_by_player.get(player.id, {})
+            return {"player": player.name, "player_id": player.id, "position": player.position,
+                    **{name: recorded.get(name, 0) for name in fields}}
+        box["rushing"] = [production(p, credits.rushers, ("attempts", "yards", "touchdowns"))
+                          for p in roster.values() if p.position == "RB"]
+        box["receiving"] = [production(p, credits.receivers, ("targets", "receptions", "yards", "touchdowns"))
+                            for position in ("WR", "TE", "RB") for p in roster.values() if p.position == position]
+        box["_snap_credits"] = (credits.sacks, credits.interceptions)
+    return box
+
 
 def _scoring_boxes(selected_team_id, game, season, *, allow_ties=True,
-                   neutral_site=False, run_seed=0, roster_context=()):
+                   neutral_site=False, run_seed=0, roster_context=(), score_only=False):
     """The shared scoring RNG path; usage/rotation streams cannot affect outcomes."""
     from .starter_choices import context_for_week
     roster_context = context_for_week(roster_context, game.week)
@@ -533,12 +551,20 @@ def _scoring_boxes(selected_team_id, game, season, *, allow_ties=True,
     rules = getattr(roster_context, 'lineup_rules', 1)
     inherited = rules >= 22 and season == 1 and 1 <= game.week <= 16 and owner in (home_team.id, away_team.id)
     from .drives import DRIVE_RULES, simulate as simulate_drives
+    from .snaps import SNAP_RULES, simulate as simulate_snaps
     if rules >= DRIVE_RULES and not inherited:
         home = roster_for(home_team.id, run_seed, roster_context)
         away = roster_for(away_team.id, run_seed, roster_context)
-        home_totals, away_totals = simulate_drives(rng, home, away, neutral_site=neutral_site)
-        home_box = _drive_box(home_team, home, home_totals)
-        away_box = _drive_box(away_team, away, away_totals)
+        if rules >= SNAP_RULES:
+            stats_rng = None if score_only else random.Random(_stable_number(f"attribution:{seed}"))
+            (home_totals, away_totals), (home_credits, away_credits) = simulate_snaps(
+                rng, home, away, neutral_site=neutral_site, stats_rng=stats_rng)
+            home_box = _drive_box(home_team, home, home_totals, home_credits, score_only=score_only)
+            away_box = _drive_box(away_team, away, away_totals, away_credits, score_only=score_only)
+        else:
+            home_totals, away_totals = simulate_drives(rng, home, away, neutral_site=neutral_site)
+            home_box = _drive_box(home_team, home, home_totals)
+            away_box = _drive_box(away_team, away, away_totals)
     else:
         home_box = _team_box(home_team, away_team, None if neutral_site else True, rng, run_seed, roster_context)
         away_box = _team_box(away_team, home_team, None if neutral_site else False, rng, run_seed, roster_context)
@@ -567,10 +593,13 @@ def simulate_game(
     away_team = TEAM_BY_ID[away_box["team"]["id"]]
     selected_box = home_box if selected_is_home else away_box
     opponent_box = away_box if selected_is_home else home_box
-    # Independent usage stream keeps the existing scoring/overtime draws stable.
-    usage_rng = random.Random(_stable_number(f"usage:{seed}"))
-    apply_usage(home_box, away_box, usage_rng, run_seed, roster_context)
-    apply_usage(away_box, home_box, usage_rng, run_seed, roster_context)
+    home_credits = home_box.pop("_snap_credits", None)
+    away_credits = away_box.pop("_snap_credits", None)
+    if home_credits is None:
+        # Independent legacy usage stream keeps scoring draws stable.
+        usage_rng = random.Random(_stable_number(f"usage:{seed}"))
+        apply_usage(home_box, away_box, usage_rng, run_seed, roster_context)
+        apply_usage(away_box, home_box, usage_rng, run_seed, roster_context)
     if "field_goal_attempts" not in home_box["kicking"][0]:
         assign_possession(home_box, away_box)
     add_efficiency_stats(home_box)
@@ -587,8 +616,8 @@ def simulate_game(
         add_participation(away_box,home_box,roster_for(away_team.id,run_seed,roster_context))
     if include_defense_and_blocking:
         defense_rng = random.Random(_stable_number(f"defense:{seed}"))
-        add_defense_and_blocking(home_box, away_box, roster_for(home_team.id, run_seed, roster_context), defense_rng)
-        add_defense_and_blocking(away_box, home_box, roster_for(away_team.id, run_seed, roster_context), defense_rng)
+        add_defense_and_blocking(home_box, away_box, roster_for(home_team.id, run_seed, roster_context), defense_rng, credits=home_credits)
+        add_defense_and_blocking(away_box, home_box, roster_for(away_team.id, run_seed, roster_context), defense_rng, credits=away_credits)
     selected_score = int(selected_box["score"])
     opponent_score = int(opponent_box["score"])
     outcome = "T" if selected_score == opponent_score else ("W" if selected_score > opponent_score else "L")
@@ -633,7 +662,7 @@ def league_week_scores(season: int, week: int, run_seed: int = 0,
     """
     scores = []
     for home_id, game in _league_week_matchups(season, week, prior_standings,getattr(roster_context,'lineup_rules',1)):
-        home, away, _, _ = _scoring_boxes(home_id, game, season, run_seed=run_seed, roster_context=roster_context)
+        home, away, _, _ = _scoring_boxes(home_id, game, season, run_seed=run_seed, roster_context=roster_context, score_only=True)
         scores.append((home['team']['id'], away['team']['id'], home['score'], away['score']))
     return tuple(scores)
 
