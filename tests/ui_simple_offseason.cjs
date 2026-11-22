@@ -81,10 +81,23 @@ async function checks(){
  assert.ok(q(p,`#roster-groups [data-player-id="${id}"]`));
  const marketSave=save(p);p.dom.window.close();p=await page(marketSave);
  assert.equal(q(p,'#fa-pass').hidden,true);assert.match(q(p,'#fa-status').textContent,/Fixed asking prices/);assertDraftNavigation(p,false);
+ // A different draft order can leave a position short after the initial signing.
+ for(let i=0;i<31&&draftRules>=48;i++){
+  const profile=p.state.profile;
+  const missing=profile.roster_rules.find(rule=>rule.count<rule.minimum);
+  if(!missing&&profile.roster.length>=profile.roster_limits.minimum)break;
+  const row=[...p.d.querySelectorAll('#fa-players tr')].find(row=>
+   (!missing||row.children[1].textContent===missing.position)&&row.querySelector('[data-fa-id]:not([disabled])'));
+  assert.ok(row,'An affordable free agent can fill the open slot');
+  const count=save(p).freeAgency.length;
+  row.querySelector('[data-fa-id]').click();q(p,'#fa-confirm').click();
+  await until(()=>save(p).freeAgency.length===count+1&&!q(p,'#fa-finish').disabled);
+ }
  q(p,'#fa-finish').click();await until(()=>save(p).freeAgency.at(-1)?.kind==='finish'&&!q(p,'#panel-roster').hidden);
  assertDraftNavigation(p,false);assert.equal(q(p,'#training-camp-button').hidden,true);assert.equal(q(p,'#panel-trades').hidden,true);assert.equal(q(p,'#view-free-agency').hidden,draftRules<48);
  if(!q(p,'#meet-payroll-floor').hidden){q(p,'#meet-payroll-floor').click();q(p,'#floor-confirm').click();await until(()=>q(p,'#meet-payroll-floor').hidden);}
  assert.equal(q(p,'#view-trades').hidden,true);assert.equal(q(p,'#next-season').textContent,'Start season');
+ assert.equal(q(p,'#next-season').disabled,false);
  const requestCount=p.state.requests.length;
  q(p,'#next-season').click();await until(()=>save(p).season===2);
  const transition=p.state.requests.slice(requestCount);
