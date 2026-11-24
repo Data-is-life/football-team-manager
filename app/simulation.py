@@ -558,7 +558,7 @@ def _scoring_boxes(selected_team_id, game, season, *, allow_ties=True,
         if rules >= SNAP_RULES:
             stats_rng = None if score_only else random.Random(_stable_number(f"attribution:{seed}"))
             (home_totals, away_totals), (home_credits, away_credits) = simulate_snaps(
-                rng, home, away, neutral_site=neutral_site, stats_rng=stats_rng)
+                rng, home, away, neutral_site=neutral_site, stats_rng=stats_rng, rules=rules)
             home_box = _drive_box(home_team, home, home_totals, home_credits, score_only=score_only)
             away_box = _drive_box(away_team, away, away_totals, away_credits, score_only=score_only)
         else:

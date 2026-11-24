@@ -3,14 +3,34 @@ import random
 import unittest
 
 from app.attributes import PlayerAttributes
+from app.development import advance_context
 from app.drives import matchup
 from app.league import generate_schedule
 from app.lineups import lineup_context
 from app.simulation import league_week_scores, roster_for, simulate_game
-from app.snaps import Possession, play_call, simulate
+from app.snaps import Possession, calibrated_matchup, play_call, simulate
 
 
 class SnapEngineTests(unittest.TestCase):
+    def test_calibration_requires_new_career(self):
+        context = lineup_context((), 1234, 52)
+        with self.assertRaisesRegex(ValueError, "Calibrated simulation requires a new career"):
+            advance_context(context, 1234, 2, lineup_rules=53)
+
+    def test_calibration_scales_roster_edges_but_preserves_home_and_kicking(self):
+        offense = roster_for("seattle", 1234)
+        defense = roster_for("boston", 1234)
+        for home_edge in (0, 1.6):
+            original = matchup(offense, defense, home_edge)
+            adjusted = calibrated_matchup(offense, defense, home_edge)
+            for name in ("run", "passing", "protection"):
+                self.assertAlmostEqual(getattr(adjusted, name),
+                                       .60 * (getattr(original, name) - home_edge) + home_edge)
+            for name in ("run_breakaway", "pass_breakaway"):
+                self.assertAlmostEqual(getattr(adjusted, name), .60 * getattr(original, name))
+            for name in ("ball_security", "kick_accuracy", "kick_power"):
+                self.assertEqual(getattr(adjusted, name), getattr(original, name))
+
     def test_down_distance_goal_to_go_and_change_of_possession(self):
         state = Possession(0, spot=86)
         state.advance(7)
@@ -43,20 +63,29 @@ class SnapEngineTests(unittest.TestCase):
 
         offense = roster(75, 75)
         strong_front, strong_secondary = roster(90, 60), roster(60, 90)
-        front_games = [simulate(random.Random(i), offense, strong_front, neutral_site=True)[0][0]
+        for rules in (52, 53):
+            self.check_matchups(offense, strong_front, strong_secondary, rules)
+
+    def check_matchups(self, offense, strong_front, strong_secondary, rules):
+        front_games = [simulate(random.Random(i), offense, strong_front, neutral_site=True, rules=rules)[0][0]
                        for i in range(150)]
-        secondary_games = [simulate(random.Random(i), offense, strong_secondary, neutral_site=True)[0][0]
+        secondary_games = [simulate(random.Random(i), offense, strong_secondary, neutral_site=True, rules=rules)[0][0]
                            for i in range(150)]
         self.assertGreater(sum(s.attempts for s in front_games), sum(s.attempts for s in secondary_games))
         self.assertLess(sum(s.rushing_yards for s in front_games), sum(s.rushing_yards for s in secondary_games))
         self.assertGreater(sum(s.passing_yards for s in front_games), sum(s.passing_yards for s in secondary_games))
 
     def test_score_only_parity_and_credit_conservation(self):
+        for rules in (52, 53):
+            with self.subTest(rules=rules):
+                self.check_score_only_parity(rules)
+
+    def check_score_only_parity(self, rules):
         seed = 6789
-        context = lineup_context((), seed, 52, rebuild_team="seattle")
+        context = lineup_context((), seed, rules, rebuild_team="seattle")
         for week in (16, 17):
             for home, away, home_score, away_score in league_week_scores(1, week, seed, (), context):
-                game = generate_schedule(home, lineup_rules=52)[week - 1]
+                game = generate_schedule(home, lineup_rules=rules)[week - 1]
                 result = simulate_game(home, game, 1, run_seed=seed, roster_context=context)
                 self.assertNotIn("plays", result)
                 self.assertEqual(tuple(result[side]["score"] for side in ("home", "away")), (home_score, away_score))
