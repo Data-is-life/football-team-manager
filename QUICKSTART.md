@@ -13,7 +13,9 @@ simulates the action and shows the final scores and player stats.
    ceiling. Starters are chosen automatically by current rating. Bench depth
    contributes to team ratings, so keep useful backups.
 3. **Simulate the final week.** Check Game Stats, Schedule, Standings, and Rankings.
-   Later seasons begin at Week 1 and run for 17 games.
+   New careers simulate down and distance on every snap. The coach calls the
+  plays automatically, and the results appear in the box score. Later seasons
+  begin at Week 1 and run for 17 games.
 4. **Finish the playoffs.** Select **View playoffs** and advance all four rounds,
    even if your team is eliminated or misses qualification. Fourteen teams qualify;
    the top two seeds receive first-round byes.
@@ -26,18 +28,21 @@ simulates the action and shows the final scores and player stats.
    release each drafted rookie. Active contracts continue automatically. Resolve
    cap issues before opening the market.
 3. **Use free agency.** Sign at fixed asking prices or end the market. There are
-   no waves, passes, or automatic discounts. CPU teams also compete for players.
-   The pool contains current-class UDFAs, players teams let go, and unsigned
-   players returning for their one allowed carryover season.
+   no timed rounds or automatic discounts. CPU teams also compete for players.
+   Filter by position, age, or cap space. Select **Sign** to review the offer and
+   projected payroll, then select **Confirm signing** to accept.
 4. **Review your roster and payroll.** Keep 31–38 players, satisfy position minimums,
    and fit the 60% payroll floor and salary cap. Use **Meet payroll minimum** if
    needed. Trading is temporarily paused.
 5. **Start the season.** Choose **Start season**. Aging and
    development run automatically once, with no training-camp step. Rookie outcomes
-   are 25% boom, 25% bust, and 50% regular development.
+   are 25% boom, 5% bust, and 70% regular development for your rookies. CPU
+   rookies use 25% boom, 25% bust, and 50% regular development.
 
 Contracts are fully guaranteed: releasing a signed player leaves the remaining
 guarantee as dead cap. Check the release confirmation before committing.
+You can also release players during the season if your roster still meets the
+total and position minimums.
 
 ## Keep your job and your progress
 
