@@ -69,9 +69,9 @@ class RuleCleanupTests(TestCase):
     def test_rule_validation_preserves_all_existing_versions(self):
         from app.rules import LineupRules
         adapter = TypeAdapter(LineupRules)
-        for version in range(1, 55):
+        for version in range(1, 56):
             self.assertEqual(adapter.validate_python(version), version)
-        for invalid in (0, 55, '50', None):
+        for invalid in (0, 56, '50', None):
             with self.subTest(version=invalid), self.assertRaises(ValidationError):
                 adapter.validate_python(invalid)
 

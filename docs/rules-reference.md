@@ -277,7 +277,7 @@ average margins from 18.50 to 12.54 points and plays per team from 72.21 to
 remain favored: teams rated more than 10 points higher earn about 90% of
 regulation win equivalents (ties count as half).
 
-New careers use rules 54 (save version 55), with red-zone field compression.
+Rules 54 (save version 55) implement red-zone field compression.
 Inside the opponent's 20, compression increases linearly from zero to one
 at the goal line. Base completion probability falls by up to 18 percentage
 points, expected ordinary rushing yardage falls by up to 2.4 yards (quadratic
@@ -297,8 +297,31 @@ touchdown rate fell from 68.02% to 55.45%, versus 56.48% across the 816
 teams with a rating advantage above 10 still earned about 89% of regulation
 win equivalents. Average points per team fell from 21.72 to 19.61
 (NFL: 22.43); total scoring and explosive plays outside the red zone still
-need calibration. Fourth-down decisions, long field goals and turnovers
-remain future topics.
+need calibration.
+
+New careers use rules 55 (save version 56), with an expanded distribution
+of explosive plays outside the opponent's 20. Ordinary rushing gains use
+an extra 0.15 yards of mean and 4.3 yards of spread. The base rush breakout
+chance rises from 4.5% to 5.5% after beating the front; 20% of breakouts
+sample the longer, more variable tail. Ordinary completion gains decrease
+by 1.5 yards, while the base pass breakout chance rises from 10% to 19%;
+13% of breakouts sample the long tail. The ordinary breakout bonuses
+have means of 16 (rush) and 17 (pass) yards, and the rare tail adds a
+normally distributed bonus with mean 44 and spread 22 yards before
+matchup adjustments and bounds. Breakaway length still depends on speed,
+pursuit and deep coverage, using the existing 60% matchup sensitivity.
+Actual gain is capped at the goal line; red-zone plays retain rules 54.
+
+On fresh validation seeds 1100–1119 (5,100 regulation games), 20+ yard
+runs rose from 2.04% to 2.41% of attempts (NFL: 2.42%), and 20+ yard
+completions rose from 10.08% to 14.21% (NFL: 13.79%). The red-zone TD
+rate remained near the target, rising from 56.06% to 56.26%
+(NFL: 56.48%). Net yards per team increased from 317.92 to 328.85
+(NFL: 330.71) and points per team from 19.66 to 20.94 (NFL: 22.43).
+Average margin increased from 11.80 to 12.50, versus 11.00 in the
+historical sample. Strong teams with a rating gap above 10 still earn
+about 90% of regulation win equivalents. Fourth-down decisions, long
+field goals, turnovers and non-offensive scoring remain future topics.
 Earlier careers retain their original simulation rules.
 
 ## Saved progress

@@ -23,6 +23,47 @@ class SnapEngineTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "Red-zone simulation requires a new career"):
             advance_context(context, 1234, 2, lineup_rules=54)
 
+    def test_explosive_plays_require_new_career(self):
+        context = lineup_context((), 1234, 54)
+        with self.assertRaisesRegex(ValueError, "Explosive-play simulation requires a new career"):
+            advance_context(context, 1234, 2, lineup_rules=55)
+
+    def test_explosive_tail_and_secondary_matchup(self):
+        roster = roster_for("seattle", 1234)
+        edge = calibrated_matchup(roster, roster)
+        # Fix the front/coverage margins and vary only the pursuit/deep-defense edges.
+        weak_secondary = replace(edge, run_breakaway=15, pass_breakaway=15)
+        strong_secondary = replace(edge, run_breakaway=-15, pass_breakaway=-15)
+        for draw in (
+            lambda rng, matchup: rush(rng, matchup, explosive=True),
+            lambda rng, matchup: completion(rng, matchup, 10, calibrated=True, explosive=True),
+        ):
+            weak = [draw(random.Random(i), weak_secondary) for i in range(4000)]
+            strong = [draw(random.Random(i), strong_secondary) for i in range(4000)]
+            self.assertGreater(sum(y >= 50 for y in weak), sum(y >= 50 for y in strong))
+            self.assertTrue(any(y >= 70 for y in weak))
+
+    def test_explosive_rules_leave_red_zone_play_generation_unchanged(self):
+        # Use the real engine's play-call and RNG paths. Observe the explicit
+        # field-position flag on rush/completion, without altering their draws.
+        from unittest.mock import patch
+        from app import snaps
+        roster = roster_for("seattle", 1234)
+        observed = []
+        original_rush, original_completion = snaps.rush, snaps.completion
+        def capture(function):
+            def wrapper(*args, **kwargs):
+                observed.append((kwargs["compression"], kwargs["explosive"]))
+                return function(*args, **kwargs)
+            return wrapper
+        with patch.object(snaps, "rush", capture(original_rush)), \
+             patch.object(snaps, "completion", capture(original_completion)):
+            for seed in range(20):
+                simulate(random.Random(seed), roster, roster, rules=55)
+        self.assertTrue(any(explosive for _, explosive in observed))
+        self.assertTrue(any(compression > 0 for compression, _ in observed))
+        self.assertFalse(any(compression > 0 and explosive for compression, explosive in observed))
+
     def test_red_zone_compresses_field_without_changing_midfield_matchups(self):
         self.assertEqual([red_zone_compression(s) for s in (50, 79, 80, 85, 90, 95, 100)],
                          [0, 0, 0, .25, .5, .75, 1])
@@ -100,7 +141,7 @@ class SnapEngineTests(unittest.TestCase):
 
         offense = roster(75, 75)
         strong_front, strong_secondary = roster(90, 60), roster(60, 90)
-        for rules in (52, 53, 54):
+        for rules in (52, 53, 54, 55):
             self.check_matchups(offense, strong_front, strong_secondary, rules)
 
     def check_matchups(self, offense, strong_front, strong_secondary, rules):
@@ -113,7 +154,7 @@ class SnapEngineTests(unittest.TestCase):
         self.assertGreater(sum(s.passing_yards for s in front_games), sum(s.passing_yards for s in secondary_games))
 
     def test_score_only_parity_and_credit_conservation(self):
-        for rules in (52, 53, 54):
+        for rules in (52, 53, 54, 55):
             with self.subTest(rules=rules):
                 self.check_score_only_parity(rules)
 
