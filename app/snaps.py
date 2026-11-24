@@ -7,6 +7,7 @@ from .rotation import position_roles, receiving_weights
 
 SNAP_RULES = 52
 CALIBRATION_RULES = 53
+RED_ZONE_RULES = 54
 MATCHUP_SENSITIVITY = .60
 
 
@@ -41,7 +42,12 @@ class Possession:
             self.to_go -= yards
 
 
-def play_call(state, edge, half, clock, margin, rng, *, calibrated=False):
+def red_zone_compression(spot):
+    """Available field space shrinks continuously from the opponent's 20."""
+    return clamp((spot - 80) / 20, 0, 1)
+
+
+def play_call(state, edge, half, clock, margin, rng, *, calibrated=False, red_zone=False):
     distance = 117 - state.spot
     kick_range = clamp(59 + .24 * (edge.kick_power - 72), 49, 66)
     in_range = distance <= kick_range
@@ -60,21 +66,26 @@ def play_call(state, edge, half, clock, margin, rng, *, calibrated=False):
     share = ((.495 if calibrated else .54) + .005 * (edge.passing + .35 * edge.protection - edge.run)
              + .048 * (state.to_go - 7) + .07 * (state.down == 3)
              + .14 * (late and margin < 0) - .17 * (late and margin > 0))
+    if red_zone:
+        # Goal-line defenses crowd the run; the default coach mixes in short passes.
+        share += .20 * clamp((state.spot - 90) / 10, 0, 1)
     if state.to_go == 1:
         share -= .17
     return "pass" if rng.random() < clamp(share, .15, .91) else "run"
 
 
-def rush(rng, edge):
-    yards = rng.gauss(3.7 + .075 * edge.run, 3.9)
+def rush(rng, edge, *, compression=0):
+    yards = rng.gauss(3.7 + .075 * edge.run - 2.4 * compression * compression, 3.9)
     if yards > 1 and rng.random() < clamp(.045 * (1 + edge.run / 55), .005, .10):
         yards += clamp(rng.gauss(18 + .5 * edge.run_breakaway, 8), 5, 55)
     return max(-5, round(yards))
 
 
-def completion(rng, edge, to_go, *, calibrated=False):
+def completion(rng, edge, to_go, *, calibrated=False, compression=0):
     depth = min(15, max(3, to_go))
-    yards = rng.gauss(6.25 + .34 * depth + .065 * edge.passing, 5.2)
+    # Intermediate red-zone gains shrink; the goal line itself caps short gains.
+    yards = rng.gauss(6.25 + .34 * depth + .065 * edge.passing
+                      - 1.5 * compression * (1 - compression) * 4, 5.2)
     breakout = (clamp(.10 + .0009 * edge.pass_breakaway, .02, .20) if calibrated
                 else clamp(.045 + .0009 * edge.pass_breakaway, .01, .12))
     if rng.random() < breakout:
@@ -138,6 +149,7 @@ def credit(stats_rng, participants, credits, offense, event, yards, touchdown):
 
 def simulate(rng, home, away, *, neutral_site=False, stats_rng=None, rules=SNAP_RULES):
     calibrated = rules >= CALIBRATION_RULES
+    red_zone = rules >= RED_ZONE_RULES
     compare = calibrated_matchup if calibrated else matchup
     edges = (compare(home, away, 0 if neutral_site else 1.6), compare(away, home))
     normal_seconds, hurry_seconds, protect_seconds, stopped_seconds, punt_seconds, kick_seconds = (
@@ -156,7 +168,8 @@ def simulate(rng, home, away, *, neutral_site=False, stats_rng=None, rules=SNAP_
             team, opponent = totals[offense], totals[offense ^ 1]
             edge = edges[offense]
             margin = team.score - opponent.score
-            call = play_call(state, edge, half, clock, margin, rng, calibrated=calibrated)
+            compression = red_zone_compression(state.spot) if red_zone else 0
+            call = play_call(state, edge, half, clock, margin, rng, calibrated=calibrated, red_zone=red_zone)
             if call == "punt":
                 team.seconds += min(punt_seconds, clock)
                 clock = max(0, clock - punt_seconds)
@@ -177,7 +190,7 @@ def simulate(rng, home, away, *, neutral_site=False, stats_rng=None, rules=SNAP_
             turnover, yards = False, 0
             if call == "run":
                 team.carries += 1
-                event, yards = "run", rush(rng, edge)
+                event, yards = "run", rush(rng, edge, compression=compression)
                 turnover = rng.random() < clamp(.008 - .00018 * (edge.ball_security - 72), .002, .025)
             elif rng.random() < clamp(.061 - .0017 * edge.protection, .023, .16):
                 team.sacks += 1
@@ -186,13 +199,14 @@ def simulate(rng, home, away, *, neutral_site=False, stats_rng=None, rules=SNAP_
                 team.attempts += 1
                 roll = rng.random()
                 pick = clamp(.022 - .00055 * edge.passing, .008, .055)
-                complete = clamp(base_completion + .0048 * edge.passing + .0012 * edge.protection
+                complete = clamp(base_completion - .18 * compression + .0048 * edge.passing + .0012 * edge.protection
                                  - .007 * max(0, state.to_go - 8), .37, .84)
                 if roll < pick:
                     event, turnover = "interception", True
                     team.interceptions += 1
                 elif roll < pick + complete:
-                    event, yards = "complete", completion(rng, edge, state.to_go, calibrated=calibrated)
+                    event, yards = "complete", completion(rng, edge, state.to_go,
+                                                          calibrated=calibrated, compression=compression)
                     team.completions += 1
                 else:
                     event = "incomplete"
