@@ -239,7 +239,7 @@ Regular-season records stay separate from playoff results. Like the regular seas
 
 Your latest playoff outcome appears above the bracket: green congratulations after a win (including the championship), or a red sorry/elimination message after a loss. The loss message remains while you follow later rounds. Byes and missed qualification use neutral status text. Starting another season clears the outcome message.
 
-## Next build slice
+## Game simulation by rules version
 
 Rules 51 simulate games by possession. Each possession updates
 field position, time remaining, and the score. The default coach chooses pace and
@@ -251,7 +251,7 @@ The scoreboard and box score use these possessions. The first 16 inherited
 games involving the managed team keep their scripted record. Older saves continue
 under their original scoring rules.
 
-New careers use rules 52. The engine advances down and distance on each snap,
+New careers use rules 52 and save version 53. The engine advances down and distance on each snap,
 including first downs, goal-to-go, sacks, turnovers on downs, and safeties. The
 default coach makes run/pass and fourth-down decisions from the matchup, field
 position, score, and clock. Player passing, rushing, receiving, sacks, and
@@ -265,11 +265,21 @@ Your game autosaves after a successful team selection, next-season transition, s
 
 There is one save per browser and site address, using browser local storage; no account or cross-device sync is provided. Clearing site data removes it. Starting another team replaces it only after the new game loads successfully. If saving fails, the game displays a warning and can still be played in the open page. Failed simulations leave the previous save intact. Failed restores keep the save and offer Retry.
 
-Saves store a versioned team/season/run-seed/progress checkpoint; the API reconstructs results deterministically rather than storing rendered HTML. Changing the simulation rules in a future release may require a save migration/version change. Unsupported or damaged saves show a message and are replaced only after a successful new-game start.
+The browser stores the versioned save and its decision history. From Season 2
+onward, eligible careers also keep one encrypted season-start league snapshot.
+On reload, the API validates the snapshot against the career history and
+reconstructs the progress within the current season. If the snapshot is missing
+or invalid, the API replays the decision history and can issue a replacement.
+See [Render setup](development.md#deploy-with-render) for the key that keeps
+snapshots readable across server restarts.
 
 ## Multiple seasons
 
-After completing all four playoff rounds, complete the rookie draft. Under current rules, start training camp to apply development, then make final cuts to the career roster limits. Then choose **Continue to Season 2** (then Season 3, and so on). The same offseason steps apply whether your team wins, loses, or misses qualification. The API currently supports seasons 1–999; continuation stops at that limit.
+After completing all four playoff rounds, follow the [offseason guide](offseason.md).
+Complete the draft, resolve your own-player offers, finish free agency, and
+review the roster and payroll. **Start season** runs development and opens the
+next season. The same steps apply if your team wins, loses, or misses
+qualification. Careers stop at Season 999.
 
 Continuing retains your franchise, run seed, and finalized rosters for all 30 teams, including retained rookies and player cuts. Veterans age and gain experience once each offseason; current ability develops or declines by position and age. Attributes remain unchanged; retirements, free agency, and trades are separate future features. The new season has a fresh 17-game schedule, a new group rotation, a 0–0 record, and zero regular-season/playoff stats. Game results use the new season number, so they are not a replay of Season 1.
 

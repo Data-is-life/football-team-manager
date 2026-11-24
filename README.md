@@ -13,6 +13,8 @@ contracts, and prepare your roster for the next season.
 - **30 teams**, six groups, a 17-game schedule, and 14 playoff places.
 - **Roster building** with current/potential ratings, development, retirement,
   a six-round draft, free agency, guaranteed contracts, and payroll limits.
+- **Down-and-distance simulation** in new careers, with automatic play calling
+  and box scores built from the same plays as the league results.
 - **Franchise progress** with live standings, scouting, team rankings, player
   stats, GM records, and browser autosaves.
 

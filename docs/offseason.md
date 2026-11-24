@@ -1,23 +1,22 @@
-# Simplified offseason
+# Offseason guide
 
 [Quick start](../QUICKSTART.md) · [Project overview](../README.md)
 
-New careers use rules 43 and save version 44. Existing careers retain their
-original rules and recorded offseason sequence.
+These steps apply to new careers under rules 52 and save version 53. For the
+offseason sequence in earlier careers, see the [rules reference](rules-reference.md).
 
 **Season ends → Draft → Sign your own players → Free agency → Roster review → Start season**
 
 ## Own-player signing
 
 After the six-round draft, sign or release your expiring veterans and drafted
-rookies in Roster. Active contracts continue automatically. Rookie draft-slot
-pay is reserved against the cap until you sign or release the player; signing
-replaces the hold, rather than adding the same salary twice. A signed contract
-is fully guaranteed. Declining a rookie leaves no guaranteed charge.
+rookies in Roster. Active contracts continue automatically. Unsigned rookie
+offers and expired contracts use no cap space. Once signed, a contract counts
+toward the cap and is fully guaranteed.
 
-Finish this stage after resolving those decisions and satisfying the cap. CPU teams make their own retention and
-renewal decisions before the market opens. There are no new contracts after
-free agency closes, so consider positional needs before finishing the market.
+Resolve every offer and meet the cap before selecting **Finish own-player
+signing**. CPU teams make their own retention and renewal decisions before the
+market opens.
 
 ## Fixed-price free agency
 
@@ -25,9 +24,12 @@ Choose a player to sign, or end free agency. There is no pass action, wave
 counter, automatic market deadline, or wave discount. Prices use normal demand
 and the existing destination premium, remaining fixed within that offseason.
 CPU teams can sign after each user signing; ending the market resolves their
-remaining needs at those same prices. A signing must fit the cap and the reserved cost of filling minimum roster
-requirements. The roster may temporarily exceed 38 players; finalize cuts
-after the market closes, before starting the season.
+remaining needs at those same prices. A signing must fit the cap after reserving
+room to fill required roster slots. Filter by position, age, or cap space.
+**Fits cap space** compares the asking salary to displayed cap space. The signing
+button also checks the reserve. Review the contract and payroll impact before
+selecting **Confirm signing**. The roster may temporarily exceed 38 players.
+Finalize cuts after the market closes, before starting the season.
 
 The pool consists of current-class undrafted rookies, players declined or
 released by teams, and eligible unsigned carryovers. Emergency minimum-roster
@@ -42,13 +44,15 @@ Aging and retirement still apply to unsigned players.
 
 Ending free agency returns to Roster. Resolve the 60% payroll minimum, salary
 cap, 31–38-player roster and position requirements. The payroll-minimum
-adjustment remains available for review and confirmation.
+adjustment remains available for review and confirmation. You can reopen the
+market to make a signing. A signing or roster release after the market closes
+reopens it. Finish free agency again before starting the season.
 
 Trading is temporarily paused in the interface. Previously recorded trades stay
 in saved history and replay normally; no new offers can be made through the UI.
 
 Choose **Start season** after your roster and payroll are ready. Aging,
 development and rookie reassessment run exactly once. Rookie outcomes use seeded
-per-player probabilities: **25% boom, 25% bust, 50% regular development**.
-Actual counts vary by draft class. Assessments include UDFAs; reloads reconstruct
-the same decisions and results.
+per-player probabilities. Your rookies have **25% boom, 5% bust, and 70% regular
+development**. CPU rookies have **25% boom, 25% bust, and 50% regular development**.
+Actual counts vary by draft class.

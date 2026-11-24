@@ -69,10 +69,15 @@ game or create a preview service. After a merged deploy goes live, refresh the g
 The free service may sleep when idle, so the first request can take longer.
 Progress lives in browser local storage, independently of the server process.
 The Blueprint generates a persistent `CAREER_CHECKPOINT_SECRET` for encrypted
-league snapshots. Set the same secret across restarts when deploying without the
-Blueprint. If the key changes or a checkpoint is incompatible, the game rebuilds
-from the browser's existing decision log. Bump the checkpoint version when a
-change affects the serialized state or how historical careers are reconstructed.
+league snapshots. For a manually created Render web service, open **Environment**,
+add `CAREER_CHECKPOINT_SECRET` with a random secret value, and choose **Save and
+deploy**. Keep that value across deploys and restarts.
+
+Without a persistent secret, a restarted process cannot read the snapshot from
+the previous process. The game rebuilds from the browser's decision history and
+issues a replacement snapshot. This also happens once after changing the secret.
+Bump the checkpoint version when a change affects the serialized state or the
+reconstruction of historical careers.
 
 ## Where things live
 
