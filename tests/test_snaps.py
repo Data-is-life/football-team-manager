@@ -8,7 +8,8 @@ from app.drives import matchup
 from app.league import generate_schedule
 from app.lineups import lineup_context
 from app.simulation import league_week_scores, roster_for, simulate_game
-from app.snaps import Possession, calibrated_matchup, play_call, simulate
+from app.snaps import (Possession, calibrated_matchup, completion, play_call,
+                       red_zone_compression, rush, simulate)
 
 
 class SnapEngineTests(unittest.TestCase):
@@ -16,6 +17,42 @@ class SnapEngineTests(unittest.TestCase):
         context = lineup_context((), 1234, 52)
         with self.assertRaisesRegex(ValueError, "Calibrated simulation requires a new career"):
             advance_context(context, 1234, 2, lineup_rules=53)
+
+    def test_red_zone_requires_new_career(self):
+        context = lineup_context((), 1234, 53)
+        with self.assertRaisesRegex(ValueError, "Red-zone simulation requires a new career"):
+            advance_context(context, 1234, 2, lineup_rules=54)
+
+    def test_red_zone_compresses_field_without_changing_midfield_matchups(self):
+        self.assertEqual([red_zone_compression(s) for s in (50, 79, 80, 85, 90, 95, 100)],
+                         [0, 0, 0, .25, .5, .75, 1])
+        roster = roster_for("seattle", 1234)
+        edge = calibrated_matchup(roster, roster)
+        for seed in range(50):
+            self.assertEqual(rush(random.Random(seed), edge),
+                             rush(random.Random(seed), edge, compression=red_zone_compression(80)))
+            self.assertEqual(completion(random.Random(seed), edge, 10, calibrated=True),
+                             completion(random.Random(seed), edge, 10, calibrated=True,
+                                        compression=red_zone_compression(80)))
+        self.assertLess(sum(rush(random.Random(i), edge, compression=.9) for i in range(200)),
+                        sum(rush(random.Random(i), edge) for i in range(200)))
+        self.assertLess(sum(completion(random.Random(i), edge, 10, calibrated=True,
+                                       compression=.5) for i in range(200)),
+                        sum(completion(random.Random(i), edge, 10, calibrated=True) for i in range(200)))
+
+    def test_default_coach_passes_more_often_near_goal_line(self):
+        roster = roster_for("seattle", 1234)
+        edge = calibrated_matchup(roster, roster)
+        for spot in (50, 80, 95):
+            state = Possession(0, spot, 1, 5)
+            old = sum(play_call(state, edge, 0, 800, 0, random.Random(i),
+                                calibrated=True) == "pass" for i in range(200))
+            new = sum(play_call(state, edge, 0, 800, 0, random.Random(i),
+                                calibrated=True, red_zone=True) == "pass" for i in range(200))
+            if spot <= 80:
+                self.assertEqual(old, new)
+            else:
+                self.assertGreater(new, old)
 
     def test_calibration_scales_roster_edges_but_preserves_home_and_kicking(self):
         offense = roster_for("seattle", 1234)
@@ -63,7 +100,7 @@ class SnapEngineTests(unittest.TestCase):
 
         offense = roster(75, 75)
         strong_front, strong_secondary = roster(90, 60), roster(60, 90)
-        for rules in (52, 53):
+        for rules in (52, 53, 54):
             self.check_matchups(offense, strong_front, strong_secondary, rules)
 
     def check_matchups(self, offense, strong_front, strong_secondary, rules):
@@ -76,7 +113,7 @@ class SnapEngineTests(unittest.TestCase):
         self.assertGreater(sum(s.passing_yards for s in front_games), sum(s.passing_yards for s in secondary_games))
 
     def test_score_only_parity_and_credit_conservation(self):
-        for rules in (52, 53):
+        for rules in (52, 53, 54):
             with self.subTest(rules=rules):
                 self.check_score_only_parity(rules)
 

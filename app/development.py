@@ -8,7 +8,7 @@ from .rules import DEVELOPMENT_RULES
 from .league import TEAMS
 from .attributes import generate_attributes
 from .drives import DRIVE_RULES
-from .snaps import CALIBRATION_RULES, SNAP_RULES
+from .snaps import CALIBRATION_RULES, RED_ZONE_RULES, SNAP_RULES
 
 # Development through, decline from, steep decline from, ordinary loss, steep loss.
 CURVES = {
@@ -261,6 +261,8 @@ def advance_context(context, run_seed, season, development_start=1, lineup_rules
         raise ValueError("Down-and-distance simulation requires a new career")
     if lineup_rules >= CALIBRATION_RULES and current_rules < CALIBRATION_RULES and context:
         raise ValueError("Calibrated simulation requires a new career")
+    if lineup_rules >= RED_ZONE_RULES and current_rules < RED_ZONE_RULES and context:
+        raise ValueError("Red-zone simulation requires a new career")
     rotation_growth = current_rules >= 5
     if current_rules < 3:
         if not context and lineup_rules >= 4:

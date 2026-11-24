@@ -259,7 +259,7 @@ interceptions come from the same plays as the league scores. The
 existing box score shows the results, with blocking, tackles, and participation
 still estimated. Coaching hires remain a future addition.
 
-New careers use rules 53 (save version 54), calibrated against regulation
+Rules 53 (save version 54) are calibrated against regulation
 play-by-play from the 2023–25 NFL regular seasons
 ([nflverse data](https://github.com/nflverse/nflverse-data/releases/tag/pbp)).
 Roster matchup differences in rushing, passing, pass protection and
@@ -275,8 +275,30 @@ In a held-out sample of 5,100 seeded regulation games, the calibration reduced
 average margins from 18.50 to 12.54 points and plays per team from 72.21 to
 59.39, while raising completion rate from 60.38% to 64.06%. Strong rosters
 remain favored: teams rated more than 10 points higher earn about 90% of
-regulation win equivalents (ties count as half). Red-zone and fourth-down
-decisions, long field goals and turnovers remain future calibration topics.
+regulation win equivalents (ties count as half).
+
+New careers use rules 54 (save version 55), with red-zone field compression.
+Inside the opponent's 20, compression increases linearly from zero to one
+at the goal line. Base completion probability falls by up to 18 percentage
+points, expected ordinary rushing yardage falls by up to 2.4 yards (quadratic
+in compression), and ordinary completed-pass yardage falls by up to 1.5
+yards, peaking at the 10-yard line. Nearer the goal line the existing
+yardage cap increasingly limits pass gains. Inside the 10, the default coach
+increases the pass-call share by up to 20 percentage points before the
+existing distance, matchup and situational adjustments and bounds.
+The 60% matchup sensitivity and clock rules are unchanged.
+
+The red-zone experiment used 20 initial league seasons (seeds 1040–1059)
+for tuning and another 20 (1060–1079; 5,100 regulation games) for validation.
+Red-zone trips include possessions with a scrimmage play or kick at or
+inside the opponent's 20, excluding kneels and spikes. The held-out
+touchdown rate fell from 68.02% to 55.45%, versus 56.48% across the 816
+2023–25 NFL regular-season games. Plays per team remained near 59, and
+teams with a rating advantage above 10 still earned about 89% of regulation
+win equivalents. Average points per team fell from 21.72 to 19.61
+(NFL: 22.43); total scoring and explosive plays outside the red zone still
+need calibration. Fourth-down decisions, long field goals and turnovers
+remain future topics.
 Earlier careers retain their original simulation rules.
 
 ## Saved progress
