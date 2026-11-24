@@ -4,11 +4,13 @@ from dataclasses import dataclass, field, replace
 
 from .drives import Totals, clamp, matchup
 from .rotation import position_roles, receiving_weights
+from .situations import play_call as situational_play_call
 
 SNAP_RULES = 52
 CALIBRATION_RULES = 53
 RED_ZONE_RULES = 54
 EXPLOSIVE_RULES = 55
+SITUATIONAL_RULES = 56
 MATCHUP_SENSITIVITY = .60
 
 
@@ -164,6 +166,7 @@ def simulate(rng, home, away, *, neutral_site=False, stats_rng=None, rules=SNAP_
     calibrated = rules >= CALIBRATION_RULES
     red_zone = rules >= RED_ZONE_RULES
     explosive = rules >= EXPLOSIVE_RULES
+    situational = rules >= SITUATIONAL_RULES
     compare = calibrated_matchup if calibrated else matchup
     edges = (compare(home, away, 0 if neutral_site else 1.6), compare(away, home))
     normal_seconds, hurry_seconds, protect_seconds, stopped_seconds, punt_seconds, kick_seconds = (
@@ -184,7 +187,13 @@ def simulate(rng, home, away, *, neutral_site=False, stats_rng=None, rules=SNAP_
             margin = team.score - opponent.score
             compression = red_zone_compression(state.spot) if red_zone else 0
             open_field = explosive and state.spot < 80
-            call = play_call(state, edge, half, clock, margin, rng, calibrated=calibrated, red_zone=red_zone)
+            if situational:
+                call = situational_play_call(state, edge, half, clock, margin, rng)
+            else:
+                call = play_call(
+                    state, edge, half, clock, margin, rng,
+                    calibrated=calibrated, red_zone=red_zone,
+                )
             if call == "punt":
                 team.seconds += min(punt_seconds, clock)
                 clock = max(0, clock - punt_seconds)

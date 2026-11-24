@@ -299,7 +299,7 @@ win equivalents. Average points per team fell from 21.72 to 19.61
 (NFL: 22.43); total scoring and explosive plays outside the red zone still
 need calibration.
 
-New careers use rules 55 (save version 56), with an expanded distribution
+Rules 55 (save version 56) expanded the distribution
 of explosive plays outside the opponent's 20. Ordinary rushing gains use
 an extra 0.15 yards of mean and 4.3 yards of spread. The base rush breakout
 chance rises from 4.5% to 5.5% after beating the front; 20% of breakouts
@@ -320,9 +320,27 @@ rate remained near the target, rising from 56.06% to 56.26%
 (NFL: 330.71) and points per team from 19.66 to 20.94 (NFL: 22.43).
 Average margin increased from 11.80 to 12.50, versus 11.00 in the
 historical sample. Strong teams with a rating gap above 10 still earn
-about 90% of regulation win equivalents. Fourth-down decisions, long
-field goals, turnovers and non-offensive scoring remain future topics.
-Earlier careers retain their original simulation rules.
+about 90% of regulation win equivalents.
+
+New careers use rules 56 (save version 57). The coach chooses runs and
+passes by down and yards to go, with separate rates inside the opponent's
+20. Roster matchups adjust those rates. On fourth down the coach weighs
+field position, distance to the marker, and the score. Kicker power shifts
+the distances where a field goal becomes preferable to a punt. Late in a
+close game, a reachable field goal can tie the score or take the lead,
+while a larger deficit makes keeping the offense on the field more likely.
+
+The call rates use 2023–24 NFL play-by-play. With a margin of eight points
+or fewer and more than seven minutes left in the half, the pass rate on
+open-field third-and-4 to 6 went from 46.63% to 89.43% (2025 NFL: 86.71%).
+Across
+5,100 held-out regulation games, fourth-down attempts rose from 14.05%
+to 19.72% (2023–25 NFL: 20.88%). The share of field-goal attempts from
+50 yards or longer fell from 33.46% to 24.98% (NFL: 23.74%). Third-down
+conversion held near 40% and red-zone touchdown rate was 55.30%.
+Fourth-down conversion fell from 59.24% to 48.65% (NFL: 54.83%), and
+points per team fell from 20.95 to 19.99. Earlier careers retain their
+original simulation rules.
 
 ## Saved progress
 

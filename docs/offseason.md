@@ -2,7 +2,7 @@
 
 [Quick start](../QUICKSTART.md) · [Project overview](../README.md)
 
-These steps apply to new careers under rules 55 and save version 56. For the
+These steps apply to new careers under rules 56 and save version 57. For the
 offseason sequence in earlier careers, see the [rules reference](rules-reference.md).
 
 **Season ends → Draft → Sign your own players → Free agency → Roster review → Start season**

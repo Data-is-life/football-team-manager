@@ -1,6 +1,7 @@
 from dataclasses import replace
 import random
 import unittest
+from unittest.mock import Mock
 
 from app.attributes import PlayerAttributes
 from app.development import advance_context
@@ -8,11 +9,41 @@ from app.drives import matchup
 from app.league import generate_schedule
 from app.lineups import lineup_context
 from app.simulation import league_week_scores, roster_for, simulate_game
+from app.situations import play_call as situational_play_call
 from app.snaps import (Possession, calibrated_matchup, completion, play_call,
                        red_zone_compression, rush, simulate)
 
 
 class SnapEngineTests(unittest.TestCase):
+    def test_situational_calls_respect_distance_and_field_position(self):
+        roster = roster_for("seattle", 1234)
+        edge = calibrated_matchup(roster, roster)
+
+        cases = (
+            (Possession(0, spot=45, down=3, to_go=1), "run"),
+            (Possession(0, spot=45, down=3, to_go=5), "pass"),
+            (Possession(0, spot=25, down=4, to_go=1), "punt"),
+            (Possession(0, spot=45, down=4, to_go=1), "run"),
+            (Possession(0, spot=75, down=4, to_go=6), "kick"),
+        )
+        for state, expected in cases:
+            with self.subTest(state=state):
+                rng = Mock()
+                rng.random.return_value = .5
+                self.assertEqual(
+                    situational_play_call(state, edge, 0, 1200, 0, rng),
+                    expected,
+                )
+
+    def test_late_fourth_down_responds_to_points_needed(self):
+        roster = roster_for("seattle", 1234)
+        edge = calibrated_matchup(roster, roster)
+        state = Possession(0, spot=75, down=4, to_go=7)
+        rng = Mock()
+        rng.random.return_value = .5
+        self.assertEqual(situational_play_call(state, edge, 1, 100, -3, rng), "kick")
+        self.assertEqual(situational_play_call(state, edge, 1, 100, -7, rng), "pass")
+
     def test_calibration_requires_new_career(self):
         context = lineup_context((), 1234, 52)
         with self.assertRaisesRegex(ValueError, "Calibrated simulation requires a new career"):
@@ -141,7 +172,7 @@ class SnapEngineTests(unittest.TestCase):
 
         offense = roster(75, 75)
         strong_front, strong_secondary = roster(90, 60), roster(60, 90)
-        for rules in (52, 53, 54, 55):
+        for rules in (52, 53, 54, 55, 56):
             self.check_matchups(offense, strong_front, strong_secondary, rules)
 
     def check_matchups(self, offense, strong_front, strong_secondary, rules):
@@ -154,7 +185,7 @@ class SnapEngineTests(unittest.TestCase):
         self.assertGreater(sum(s.passing_yards for s in front_games), sum(s.passing_yards for s in secondary_games))
 
     def test_score_only_parity_and_credit_conservation(self):
-        for rules in (52, 53, 54, 55):
+        for rules in (52, 53, 54, 55, 56):
             with self.subTest(rules=rules):
                 self.check_score_only_parity(rules)
 
