@@ -251,13 +251,33 @@ The scoreboard and box score use these possessions. The first 16 inherited
 games involving the managed team keep their scripted record. Older saves continue
 under their original scoring rules.
 
-New careers use rules 52 and save version 53. The engine advances down and distance on each snap,
+Rules 52 (save version 53) advance down and distance on each snap,
 including first downs, goal-to-go, sacks, turnovers on downs, and safeties. The
 default coach makes run/pass and fourth-down decisions from the matchup, field
 position, score, and clock. Player passing, rushing, receiving, sacks, and
 interceptions come from the same plays as the league scores. The
 existing box score shows the results, with blocking, tackles, and participation
 still estimated. Coaching hires remain a future addition.
+
+New careers use rules 53 (save version 54), calibrated against regulation
+play-by-play from the 2023–25 NFL regular seasons
+([nflverse data](https://github.com/nflverse/nflverse-data/releases/tag/pbp)).
+Roster matchup differences in rushing, passing, pass protection and
+breakaways have 60% of their previous effect. The home-field term, ball
+security and kicking attributes are unchanged. Ordinary plays use 37 seconds,
+hurry-up plays 19, protecting a lead 40, clock-stopping plays 10, punts 15
+and field goals 12. The base pass-call share is 49.5%, base completion
+probability is 65%, and base completion breakout probability is 10%
+(bounded between 2% and 20% after the matchup adjustment).
+These are starting values before situational and player adjustments.
+
+In a held-out sample of 5,100 seeded regulation games, the calibration reduced
+average margins from 18.50 to 12.54 points and plays per team from 72.21 to
+59.39, while raising completion rate from 60.38% to 64.06%. Strong rosters
+remain favored: teams rated more than 10 points higher earn about 90% of
+regulation win equivalents (ties count as half). Red-zone and fourth-down
+decisions, long field goals and turnovers remain future calibration topics.
+Earlier careers retain their original simulation rules.
 
 ## Saved progress
 

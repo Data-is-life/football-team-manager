@@ -1,11 +1,24 @@
 """Down-and-distance simulation. Attribution uses a separate random stream."""
 from collections import Counter
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 from .drives import Totals, clamp, matchup
 from .rotation import position_roles, receiving_weights
 
 SNAP_RULES = 52
+CALIBRATION_RULES = 53
+MATCHUP_SENSITIVITY = .60
+
+
+def calibrated_matchup(offense, defense, home_edge=0):
+    """Scale roster advantages without changing home field or special teams."""
+    edge = matchup(offense, defense, home_edge)
+    return replace(edge,
+                   run=(edge.run - home_edge) * MATCHUP_SENSITIVITY + home_edge,
+                   passing=(edge.passing - home_edge) * MATCHUP_SENSITIVITY + home_edge,
+                   protection=(edge.protection - home_edge) * MATCHUP_SENSITIVITY + home_edge,
+                   run_breakaway=edge.run_breakaway * MATCHUP_SENSITIVITY,
+                   pass_breakaway=edge.pass_breakaway * MATCHUP_SENSITIVITY)
 
 
 @dataclass
@@ -28,7 +41,7 @@ class Possession:
             self.to_go -= yards
 
 
-def play_call(state, edge, half, clock, margin, rng):
+def play_call(state, edge, half, clock, margin, rng, *, calibrated=False):
     distance = 117 - state.spot
     kick_range = clamp(59 + .24 * (edge.kick_power - 72), 49, 66)
     in_range = distance <= kick_range
@@ -44,7 +57,7 @@ def play_call(state, edge, half, clock, margin, rng):
             return "kick"
         if state.down == 4 and not (short or chase):
             return "kick" if in_range else "punt"
-    share = (.54 + .005 * (edge.passing + .35 * edge.protection - edge.run)
+    share = ((.495 if calibrated else .54) + .005 * (edge.passing + .35 * edge.protection - edge.run)
              + .048 * (state.to_go - 7) + .07 * (state.down == 3)
              + .14 * (late and margin < 0) - .17 * (late and margin > 0))
     if state.to_go == 1:
@@ -59,10 +72,12 @@ def rush(rng, edge):
     return max(-5, round(yards))
 
 
-def completion(rng, edge, to_go):
+def completion(rng, edge, to_go, *, calibrated=False):
     depth = min(15, max(3, to_go))
     yards = rng.gauss(6.25 + .34 * depth + .065 * edge.passing, 5.2)
-    if rng.random() < clamp(.045 + .0009 * edge.pass_breakaway, .01, .12):
+    breakout = (clamp(.10 + .0009 * edge.pass_breakaway, .02, .20) if calibrated
+                else clamp(.045 + .0009 * edge.pass_breakaway, .01, .12))
+    if rng.random() < breakout:
         yards += clamp(rng.gauss(22 + .45 * edge.pass_breakaway, 9), 5, 55)
     return max(-3, round(yards))
 
@@ -121,8 +136,13 @@ def credit(stats_rng, participants, credits, offense, event, yards, touchdown):
             other.interceptions[stats_rng.choices(*defense.interception)[0]] += 1
 
 
-def simulate(rng, home, away, *, neutral_site=False, stats_rng=None):
-    edges = (matchup(home, away, 0 if neutral_site else 1.6), matchup(away, home))
+def simulate(rng, home, away, *, neutral_site=False, stats_rng=None, rules=SNAP_RULES):
+    calibrated = rules >= CALIBRATION_RULES
+    compare = calibrated_matchup if calibrated else matchup
+    edges = (compare(home, away, 0 if neutral_site else 1.6), compare(away, home))
+    normal_seconds, hurry_seconds, protect_seconds, stopped_seconds, punt_seconds, kick_seconds = (
+        (37, 19, 40, 10, 15, 12) if calibrated else (32, 17, 37, 7, 8, 5))
+    base_completion = .650 if calibrated else .610
     totals = (TeamStats(), TeamStats())
     credits = (Credits(), Credits()) if stats_rng is not None else (None, None)
     if stats_rng is not None:
@@ -136,10 +156,10 @@ def simulate(rng, home, away, *, neutral_site=False, stats_rng=None):
             team, opponent = totals[offense], totals[offense ^ 1]
             edge = edges[offense]
             margin = team.score - opponent.score
-            call = play_call(state, edge, half, clock, margin, rng)
+            call = play_call(state, edge, half, clock, margin, rng, calibrated=calibrated)
             if call == "punt":
-                team.seconds += min(8, clock)
-                clock = max(0, clock - 8)
+                team.seconds += min(punt_seconds, clock)
+                clock = max(0, clock - punt_seconds)
                 landing = state.spot + rng.randint(32, 49)
                 state.restart(20 if landing >= 100 else 100 - landing)
                 continue
@@ -149,8 +169,8 @@ def simulate(rng, home, away, *, neutral_site=False, stats_rng=None):
                                             + .006 * (edge.kick_accuracy - 72), .22, .995)
                 team.kicks.append((distance, made))
                 team.score += 3 * made
-                team.seconds += min(5, clock)
-                clock = max(0, clock - 5)
+                team.seconds += min(kick_seconds, clock)
+                clock = max(0, clock - kick_seconds)
                 state.restart(28 if made else clamp(107 - state.spot, 20, 99))
                 continue
 
@@ -166,13 +186,13 @@ def simulate(rng, home, away, *, neutral_site=False, stats_rng=None):
                 team.attempts += 1
                 roll = rng.random()
                 pick = clamp(.022 - .00055 * edge.passing, .008, .055)
-                complete = clamp(.610 + .0048 * edge.passing + .0012 * edge.protection
+                complete = clamp(base_completion + .0048 * edge.passing + .0012 * edge.protection
                                  - .007 * max(0, state.to_go - 8), .37, .84)
                 if roll < pick:
                     event, turnover = "interception", True
                     team.interceptions += 1
                 elif roll < pick + complete:
-                    event, yards = "complete", completion(rng, edge, state.to_go)
+                    event, yards = "complete", completion(rng, edge, state.to_go, calibrated=calibrated)
                     team.completions += 1
                 else:
                     event = "incomplete"
@@ -191,8 +211,8 @@ def simulate(rng, home, away, *, neutral_site=False, stats_rng=None):
 
             hurry = (half == 0 and clock < 125) or (half == 1 and clock < 380 and margin < 0)
             protect = half == 1 and clock < 380 and margin > 0
-            elapsed = 7 if event in ("incomplete", "interception") or touchdown or turnover else (
-                17 if hurry else 37 if protect else 32)
+            elapsed = stopped_seconds if event in ("incomplete", "interception") or touchdown or turnover else (
+                hurry_seconds if hurry else protect_seconds if protect else normal_seconds)
             elapsed = min(clock, elapsed)
             team.seconds += elapsed
             clock -= elapsed
