@@ -35,7 +35,8 @@ DISTANCE_LIMITS = (1, 3, 6, 10)
 FIELD_LIMITS = (29, 39, 49, 59, 79)
 
 
-def fourth_down_call(state, edge, half, clock, margin, rng, band):
+def fourth_down_call(state, edge, half, clock, margin, rng, band,
+                     *, short_yardage=False):
     """Return a kick, punt, or None to keep the offense on the field."""
     kick_distance = 117 - state.spot - .24 * (edge.kick_power - 72)
     if half == 1 and clock <= 140 and margin < 0:
@@ -45,6 +46,8 @@ def fourth_down_call(state, edge, half, clock, margin, rng, band):
 
     field_band = bisect_left(FIELD_LIMITS, state.spot)
     go_share = FOURTH_DOWN_GO_SHARE[field_band][band]
+    if short_yardage and band == 0:
+        go_share += .30 * (1 - go_share)
     # Matchup shifts are bounded so they cannot swamp field position.
     conversion_edge = (
         edge.run if band == 0 else edge.passing + .35 * edge.protection
@@ -75,7 +78,7 @@ def fourth_down_call(state, edge, half, clock, margin, rng, band):
     return "punt"
 
 
-def play_call(state, edge, half, clock, margin, rng):
+def play_call(state, edge, half, clock, margin, rng, *, short_yardage=False):
     band = bisect_left(DISTANCE_LIMITS, state.to_go)
     if clock <= 8:
         if half == 1 and margin > 0:
@@ -87,7 +90,8 @@ def play_call(state, edge, half, clock, margin, rng):
             return "kick"
     if state.down == 4:
         decision = fourth_down_call(
-            state, edge, half, clock, margin, rng, band
+            state, edge, half, clock, margin, rng, band,
+            short_yardage=short_yardage,
         )
         if decision is not None:
             return decision

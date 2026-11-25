@@ -12,6 +12,7 @@ from .snaps import (
     CALIBRATION_RULES,
     EXPLOSIVE_RULES,
     RED_ZONE_RULES,
+    SHORT_YARDAGE_RULES,
     SITUATIONAL_RULES,
     SNAP_RULES,
 )
@@ -273,6 +274,8 @@ def advance_context(context, run_seed, season, development_start=1, lineup_rules
         raise ValueError("Explosive-play simulation requires a new career")
     if lineup_rules >= SITUATIONAL_RULES and current_rules < SITUATIONAL_RULES and context:
         raise ValueError("Situational play calling requires a new career")
+    if lineup_rules >= SHORT_YARDAGE_RULES and current_rules < SHORT_YARDAGE_RULES and context:
+        raise ValueError("Short-yardage play calling requires a new career")
     rotation_growth = current_rules >= 5
     if current_rules < 3:
         if not context and lineup_rules >= 4:
