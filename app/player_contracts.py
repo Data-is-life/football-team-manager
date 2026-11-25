@@ -5,6 +5,8 @@ from decimal import Decimal, ROUND_HALF_UP
 from functools import lru_cache
 import random
 
+from .rules import SHORT_INHERITED_CONTRACT_RULES
+
 MINIMUM_SALARY = 1_000_000
 # Annual salary for a 75-current-rated player; game-balance values, not NFL data.
 BASE_SALARIES = {'QB':8_000_000,'WR':4_500_000,'TE':3_000_000,'RB':3_000_000,
@@ -330,9 +332,12 @@ def inherited_payroll(rosters, owner, seed, season, rules=25):
         viable=[p for p in group if retirement_age(p,seed)>=p.age+2]
         selected=min(viable or group,key=lambda p:draw(f'bad:{index}:{p.id}'))
         quote_rating=78+draw(f'price:{selected.id}')%5 if selected.position=='QB' else 82+draw(f'price:{selected.id}')%7
+        years = 2
+        if rules < SHORT_INHERITED_CONTRACT_RULES:
+            years = 3 + draw(f'term:{selected.id}') % 2
         bad[selected.id]=replace(selected.contract,
             annual_salary=market_salary(selected.position,quote_rating,season, run_seed=seed),
-            years=3+draw(f'term:{selected.id}')%2,category='inherited_bad')
+            years=years,category='inherited_bad')
     ordinary=[p for p in players if p.id not in bad]
     minimum=minimum_salary(season,25, run_seed=seed)
     extra=target-sum(c.annual_salary for c in bad.values())-len(ordinary)*minimum

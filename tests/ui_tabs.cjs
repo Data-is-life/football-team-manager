@@ -524,7 +524,7 @@ async function checkUI() {
   assert.equal(d.querySelector('#gm-regular').textContent,'0–0–0');
   assert.equal(d.querySelector('#roster-ratings-button').getAttribute('aria-pressed'),'true');
   assert.equal(d.querySelector('#roster-competition').value,'regular');
-  const freshProfile=await (await fetch(base+`/api/team/seattle?run_seed=${fixtureSeed+2}&lineup_rules=58&rebuild_team=seattle`)).json();
+  const freshProfile=await (await fetch(base+`/api/team/seattle?run_seed=${fixtureSeed+2}&lineup_rules=59&rebuild_team=seattle`)).json();
   const oldSeattle=await (await fetch(base+`/api/team/seattle?run_seed=${fixtureSeed}`)).json();
   assert.match(d.querySelector('#team-rating-guide').textContent,/Missing slots contribute zero.*Offense.*Defense/);
   checkRatings(freshProfile);
@@ -534,6 +534,7 @@ async function checkUI() {
   assert.equal(freshProfile.payroll.below_floor,0);
   const badDeals=freshProfile.roster.filter(p=>p.contract.category==='inherited_bad');
   assert.equal(badDeals.length,3);assert.ok(badDeals.every(p=>p.current_rating<70&&p.contract.fully_guaranteed));
+  assert.ok(badDeals.every(p=>p.contract.years===2&&p.contract.expires_after_season===2));
   assert.ok(d.querySelector('#payroll-status').textContent.includes('Season 1 payroll $'+(freshProfile.payroll.total/1e6).toFixed(2)+'M'));
 
   assert.notDeepEqual(freshProfile.roster.map(player=>player.name),oldSeattle.roster.map(player=>player.name));
@@ -559,7 +560,7 @@ async function checkUI() {
   d.querySelector('#simulate-button').click();
   await until(()=>d.querySelector('#simulate-button').textContent==='Regular season complete');
   assert.equal(usedSeeds.at(-1),fixtureSeed+2);
-  const freshGame=await (await fetch(base+`/api/season/seattle/week/17?run_seed=${fixtureSeed+2}&lineup_rules=58&rebuild_team=seattle`)).json();
+  const freshGame=await (await fetch(base+`/api/season/seattle/week/17?run_seed=${fixtureSeed+2}&lineup_rules=59&rebuild_team=seattle`)).json();
   assert.equal(d.querySelector('#season-record').textContent,`${freshGame.record.wins}–${freshGame.record.losses}${freshGame.record.ties?`–${freshGame.record.ties}`:''}`);
   assert.equal(d.querySelector('#schedule .game-final').textContent,`${freshGame.game_results[0].outcome} · ${freshGame.game_results[0].team_score}–${freshGame.game_results[0].opponent_score}${freshGame.game_results[0].overtime?' · OT':''}`);
   if(index===0) {
