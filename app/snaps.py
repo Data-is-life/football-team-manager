@@ -14,6 +14,7 @@ EXPLOSIVE_RULES = 55
 SITUATIONAL_RULES = 56
 SHORT_YARDAGE_RULES = 57
 CLOCK_MANAGEMENT_RULES = 58
+TWO_MINUTE_RULES = 60
 MATCHUP_SENSITIVITY = .60
 
 
@@ -185,11 +186,38 @@ def simulate(rng, home, away, *, neutral_site=False, stats_rng=None, rules=SNAP_
     for half in range(2):
         state = Possession(first ^ half)
         clock = 1800
+        timeouts = [3, 3]
+        can_spike = False
         while clock:
             offense = state.offense
             team, opponent = totals[offense], totals[offense ^ 1]
             edge = edges[offense]
             margin = team.score - opponent.score
+            if rules >= TWO_MINUTE_RULES and clock <= 120:
+                downs_left = 4 - state.down
+                untimed_gaps = max(0, downs_left - timeouts[offense ^ 1])
+                if (half == 1 and margin > 0 and state.spot > 1
+                        and clock <= 2 * (downs_left + 1) + 39 * untimed_gaps):
+                    elapsed = min(clock, 2)
+                    if downs_left and clock > 2:
+                        if timeouts[offense ^ 1]:
+                            timeouts[offense ^ 1] -= 1
+                        else:
+                            elapsed = min(clock, 41)
+                    team.seconds += elapsed
+                    clock -= elapsed
+                    state.advance(-1 if state.spot > 2 else 0)
+                    can_spike = False
+                    continue
+                if (can_spike and state.down < 4 and 9 <= clock <= 12
+                        and (half == 0 or -3 <= margin <= 0)
+                        and 117 - state.spot <= 57 + .24 * (edge.kick_power - 72)):
+                    team.seconds += 4
+                    clock -= 4
+                    state.advance(0)
+                    can_spike = False
+                    continue
+            can_spike = False
             compression = red_zone_compression(state.spot) if red_zone else 0
             open_field = explosive and state.spot < 80
             tempo, pass_adjustment = (
@@ -266,6 +294,25 @@ def simulate(rng, home, away, *, neutral_site=False, stats_rng=None, rules=SNAP_
             elapsed = stopped_seconds if event in ("incomplete", "interception") or touchdown or turnover else (
                 tempo if tempo is not None else
                 hurry_seconds if hurry else protect_seconds if protect else normal_seconds)
+            if rules >= TWO_MINUTE_RULES:
+                live_clock = (
+                    event not in ("incomplete", "interception")
+                    and not touchdown and not turnover
+                    and state.spot + yards > 0
+                    and (state.down < 4 or yards >= state.to_go)
+                )
+                if live_clock and clock <= 120:
+                    if half == 1 and margin > 0 and timeouts[offense ^ 1]:
+                        timeouts[offense ^ 1] -= 1
+                        elapsed = 5
+                    elif (half == 0 or margin <= 0) and timeouts[offense] and clock <= 45:
+                        timeouts[offense] -= 1
+                        elapsed = 5
+                    else:
+                        elapsed = min(elapsed, 5) if clock <= 17 and margin <= 0 else elapsed
+                        can_spike = True
+                elif live_clock and clock > 120 and clock - elapsed <= 120:
+                    elapsed = clock - 120
             elapsed = min(clock, elapsed)
             team.seconds += elapsed
             clock -= elapsed
