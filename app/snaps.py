@@ -4,6 +4,7 @@ from dataclasses import dataclass, field, replace
 
 from .drives import Totals, clamp, matchup
 from .rotation import position_roles, receiving_weights
+from .situations import clock_strategy
 from .situations import play_call as situational_play_call
 
 SNAP_RULES = 52
@@ -12,6 +13,7 @@ RED_ZONE_RULES = 54
 EXPLOSIVE_RULES = 55
 SITUATIONAL_RULES = 56
 SHORT_YARDAGE_RULES = 57
+CLOCK_MANAGEMENT_RULES = 58
 MATCHUP_SENSITIVITY = .60
 
 
@@ -169,6 +171,7 @@ def simulate(rng, home, away, *, neutral_site=False, stats_rng=None, rules=SNAP_
     explosive = rules >= EXPLOSIVE_RULES
     situational = rules >= SITUATIONAL_RULES
     short_yardage = rules >= SHORT_YARDAGE_RULES
+    clock_management = rules >= CLOCK_MANAGEMENT_RULES
     compare = calibrated_matchup if calibrated else matchup
     edges = (compare(home, away, 0 if neutral_site else 1.6), compare(away, home))
     normal_seconds, hurry_seconds, protect_seconds, stopped_seconds, punt_seconds, kick_seconds = (
@@ -189,10 +192,15 @@ def simulate(rng, home, away, *, neutral_site=False, stats_rng=None, rules=SNAP_
             margin = team.score - opponent.score
             compression = red_zone_compression(state.spot) if red_zone else 0
             open_field = explosive and state.spot < 80
+            tempo, pass_adjustment = (
+                clock_strategy(clock, margin)
+                if clock_management and half == 1 else (None, None)
+            )
             if situational:
                 call = situational_play_call(
                     state, edge, half, clock, margin, rng,
                     short_yardage=short_yardage,
+                    pass_adjustment=pass_adjustment,
                 )
             else:
                 call = play_call(
@@ -256,6 +264,7 @@ def simulate(rng, home, away, *, neutral_site=False, stats_rng=None, rules=SNAP_
             hurry = (half == 0 and clock < 125) or (half == 1 and clock < 380 and margin < 0)
             protect = half == 1 and clock < 380 and margin > 0
             elapsed = stopped_seconds if event in ("incomplete", "interception") or touchdown or turnover else (
+                tempo if tempo is not None else
                 hurry_seconds if hurry else protect_seconds if protect else normal_seconds)
             elapsed = min(clock, elapsed)
             team.seconds += elapsed

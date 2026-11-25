@@ -10,6 +10,7 @@ from .attributes import generate_attributes
 from .drives import DRIVE_RULES
 from .snaps import (
     CALIBRATION_RULES,
+    CLOCK_MANAGEMENT_RULES,
     EXPLOSIVE_RULES,
     RED_ZONE_RULES,
     SHORT_YARDAGE_RULES,
@@ -276,6 +277,8 @@ def advance_context(context, run_seed, season, development_start=1, lineup_rules
         raise ValueError("Situational play calling requires a new career")
     if lineup_rules >= SHORT_YARDAGE_RULES and current_rules < SHORT_YARDAGE_RULES and context:
         raise ValueError("Short-yardage play calling requires a new career")
+    if lineup_rules >= CLOCK_MANAGEMENT_RULES and current_rules < CLOCK_MANAGEMENT_RULES and context:
+        raise ValueError("Clock management requires a new career")
     rotation_growth = current_rules >= 5
     if current_rules < 3:
         if not context and lineup_rules >= 4:

@@ -172,7 +172,7 @@ class SnapEngineTests(unittest.TestCase):
 
         offense = roster(75, 75)
         strong_front, strong_secondary = roster(90, 60), roster(60, 90)
-        for rules in (52, 53, 54, 55, 56, 57):
+        for rules in (52, 53, 54, 55, 56, 57, 58):
             self.check_matchups(offense, strong_front, strong_secondary, rules)
 
     def check_matchups(self, offense, strong_front, strong_secondary, rules):
@@ -185,7 +185,7 @@ class SnapEngineTests(unittest.TestCase):
         self.assertGreater(sum(s.passing_yards for s in front_games), sum(s.passing_yards for s in secondary_games))
 
     def test_score_only_parity_and_credit_conservation(self):
-        for rules in (52, 53, 54, 55, 56, 57):
+        for rules in (52, 53, 54, 55, 56, 57, 58):
             with self.subTest(rules=rules):
                 self.check_score_only_parity(rules)
 
