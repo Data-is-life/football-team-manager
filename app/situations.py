@@ -78,7 +78,28 @@ def fourth_down_call(state, edge, half, clock, margin, rng, band,
     return "punt"
 
 
-def play_call(state, edge, half, clock, margin, rng, *, short_yardage=False):
+def clock_strategy(clock, margin):
+    """Return running-clock snap spacing and a pass-probability adjustment."""
+    if clock <= 120:
+        if margin < 0:
+            return 19, .27
+        if margin > 0:
+            return 41, -.34
+    if clock <= 300:
+        if margin < 0:
+            return (19 if margin < -8 else 36), .14
+        if margin > 0:
+            return 41, -.20
+    if clock <= 600:
+        if margin < 0:
+            return (36 if margin < -8 else 39), .03
+        if margin > 0:
+            return 41, -.08
+    return 37, 0
+
+
+def play_call(state, edge, half, clock, margin, rng, *, short_yardage=False,
+              pass_adjustment=None):
     band = bisect_left(DISTANCE_LIMITS, state.to_go)
     if clock <= 8:
         if half == 1 and margin > 0:
@@ -101,6 +122,8 @@ def play_call(state, edge, half, clock, margin, rng, *, short_yardage=False):
     )
     share = pass_shares[state.down - 1][band]
     share += .005 * (edge.passing + .35 * edge.protection - edge.run)
-    if half == 1 and clock <= 420:
+    if pass_adjustment is not None:
+        share += pass_adjustment
+    elif half == 1 and clock <= 420:
         share += .14 * (margin < 0) - .17 * (margin > 0)
     return "pass" if rng.random() < clamp(share, .08, .97) else "run"
