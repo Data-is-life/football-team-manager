@@ -48,12 +48,16 @@ class RandomRosterTests(unittest.TestCase):
         self.assertEqual(expected, team_profile('seattle', 1234))
 
     def check_box(self, box, seed):
-        players = {player.id: player for player in roster_for(box['team']['id'], seed).values()}
+        profile = team_profile(box['team']['id'], seed)
+        players = {player['id']: player['name'] for player in profile['roster']}
         for category in ('passing', 'rushing', 'receiving', 'kicking'):
             for row in box[category]:
-                self.assertEqual(row['player'], players[row['player_id']].name)
+                self.assertEqual(row['player'], players[row['player_id']])
 
     def test_regular_and_postseason_boxes_use_the_same_rosters_as_profiles(self):
+        game = simulate_game('san-francisco', generate_schedule('san-francisco')[0], 1)
+        self.check_box(game['home'], 0)
+        self.check_box(game['away'], 0)
         for seed in (1234, 5678):
             game = simulate_game('seattle', generate_schedule('seattle')[0], 1, run_seed=seed)
             self.check_box(game['home'], seed)

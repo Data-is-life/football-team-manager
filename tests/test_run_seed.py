@@ -41,6 +41,8 @@ class RunSeedTests(unittest.TestCase):
             for key in ("wins", "losses", "ties"):
                 self.assertEqual(data["record"][key], rows[team.id][key])
             previous = simulate_through_week(team.id, 1, 2, seed)
+            self.assertEqual(len(previous["game_results"]), 2)
+            self.assertEqual(len(data["game_results"]), 3)
             self.assertEqual(data["game_results"][:2], previous["game_results"])
             expected = {(game["home"]["team"]["id"], game["away"]["team"]["id"]):
                         (game["home"]["score"], game["away"]["score"])

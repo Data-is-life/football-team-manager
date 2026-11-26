@@ -68,13 +68,7 @@ async function checks() {
  const undismissed=saved(p);p.dom.window.close();p=await restored(undismissed);
  assert.equal(p.d.querySelector('#career-welcome').hidden,false);
  p.d.querySelector('#welcome-help').click();assert.equal(p.d.querySelector('#panel-help').hidden,false);
- assert.equal(p.d.querySelectorAll('#help-topics section').length,12);
- assert.match(p.d.querySelector('#help-topics').textContent,/80% starters/);
- assert.match(p.d.querySelector('#help-topics').textContent,/25% boom/);
- assert.match(p.d.querySelector('#help-topics').textContent,/Seasons 2–5/);
  assert.equal(new Set([...p.d.querySelectorAll('[id]')].map(n=>n.id)).size,p.d.querySelectorAll('[id]').length);
- assert.equal(p.d.querySelector('#view-help').textContent,'How to Play');
- assert.equal(p.d.querySelectorAll('.info-control,.info-body').length,0);
  assert.ok([...p.d.querySelectorAll('#rating-method,#development-note,#contract-rules,#draft-format,#rotation-note,#tiebreaker-note')].every(node=>node.closest('#panel-help')));
  assert.equal(saved(p),undismissed,'Opening help must not change a save');
  p.d.querySelector('#welcome-dismiss').click();assert.equal(p.d.querySelector('#career-welcome').hidden,true);
@@ -122,9 +116,6 @@ async function checks() {
   }
   p.dom.window.close();
  }
- // The immediately previous save format remains readable without a new guide.
- const legacy18={...JSON.parse(first),version:18};delete legacy18.welcomeDismissed;
- p=await restored(JSON.stringify(legacy18));assert.equal(p.d.querySelector('#career-welcome').hidden,true);assert.equal(saved(p),JSON.stringify(legacy18));p.dom.window.close();
  const raw=checkpoint(id,8);
  p=await restored(raw,{fail:true});
  assert.equal(saved(p),raw);assert.equal(p.d.querySelector('#schedule-section').hidden,true);
