@@ -342,6 +342,19 @@ Fourth-down conversion fell from 59.24% to 48.65% (NFL: 54.83%), and
 points per team fell from 20.95 to 19.99. Earlier careers retain their
 original simulation rules.
 
+### Two-minute drills and clock stoppages
+
+Rules 60 (save version 61) add the two-minute warning in each half and
+give each team three timeouts per half. A trailing defense can call a
+timeout after an in-bounds play late in the second half. An offense can
+use its timeouts to preserve a scoring opportunity near the end of a half.
+
+The coach kneels when a lead can be protected through the final snap,
+taking the opponent's remaining timeouts into account. Near the end of
+either half, the offense can spike the ball to set up a field goal when
+it is already in range and has a down to spare. Kneels and spikes use a
+down and affect the game clock. Player stat lines exclude both plays.
+
 ## Saved progress
 
 Your game autosaves after a successful team selection, next-season transition, simulated week, or playoff round (including revealing the playoff field). Reopening the game restores your team, randomized roster, completed schedule, standings, season stats, and playoff bracket. The next simulation continues from the saved point.

@@ -1,7 +1,7 @@
 from dataclasses import replace
 import random
 import unittest
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 from app.attributes import PlayerAttributes
 from app.development import advance_context
@@ -15,6 +15,28 @@ from app.snaps import (Possession, calibrated_matchup, completion, play_call,
 
 
 class SnapEngineTests(unittest.TestCase):
+    def test_running_clock_reaches_two_minute_warning_in_both_halves(self):
+        roster = roster_for("seattle", 1234)
+        clocks = ([], [])
+
+        def call_run(state, edge, half, clock, margin, rng, **kwargs):
+            clocks[half].append(clock)
+            return "run"
+
+        rng = Mock()
+        rng.randrange.return_value = 0
+        rng.random.return_value = .5
+        with patch("app.snaps.situational_play_call", side_effect=call_run):
+            with patch("app.snaps.rush", return_value=0):
+                simulate(rng, roster, roster, rules=60)
+
+        for half_clocks in clocks:
+            with self.subTest(half_clocks=half_clocks):
+                first_snap_after_warning = next(
+                    clock for clock in half_clocks if clock <= 120
+                )
+                self.assertEqual(first_snap_after_warning, 120)
+
     def test_situational_calls_respect_distance_and_field_position(self):
         roster = roster_for("seattle", 1234)
         edge = calibrated_matchup(roster, roster)
