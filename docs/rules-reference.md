@@ -357,6 +357,10 @@ down and affect the game clock. Player stat lines exclude both plays.
 
 ## Saved progress
 
+The browser resumes save version 61 with rules 60, including rules 60
+for each recorded season. Older careers cannot be resumed. Their stored
+data stays in place until a new career saves successfully.
+
 Your game autosaves after a successful team selection, next-season transition, simulated week, or playoff round (including revealing the playoff field). Reopening the game restores your team, randomized roster, completed schedule, standings, season stats, and playoff bracket. The next simulation continues from the saved point.
 
 There is one save per browser and site address, using browser local storage; no account or cross-device sync is provided. Clearing site data removes it. Starting another team replaces it only after the new game loads successfully. If saving fails, the game displays a warning and can still be played in the open page. Failed simulations leave the previous save intact. Failed restores keep the save and offer Retry.

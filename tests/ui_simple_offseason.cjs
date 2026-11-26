@@ -3,8 +3,10 @@ const {spawn,execFileSync}=require('node:child_process'),{JSDOM}=require('jsdom'
 const root=path.resolve(__dirname,'..'),base='http://127.0.0.1:8797',key='arcade-league-save';
 const checkpointKey='arcade-league-checkpoint';
 const fixture=JSON.parse(execFileSync(process.env.PYTHON||'python',['tests/simple_offseason_fixtures.py'],{cwd:root,env:{...process.env,PYTHONPATH:root},encoding:'utf8'}));
-const html=fs.readFileSync(path.join(root,'app/static/index.html'),'utf8'),script=fs.readFileSync(path.join(root,'app/static/app.js'),'utf8');
 const draftRules=Number(process.env.TEST_DRAFT_RULES||42);
+const html=fs.readFileSync(path.join(root,'app/static/index.html'),'utf8');
+const source=fs.readFileSync(path.join(root,'app/static/app.js'),'utf8');
+const script=draftRules<60?require('./historical-save-fixtures.cjs').allowHistoricalFixtures(source):source;
 const q=(p,s)=>p.d.querySelector(s),raw=p=>p.w.localStorage.getItem(key),save=p=>JSON.parse(raw(p));
 async function until(check){for(let i=0;i<4000;i++){if(check())return;await new Promise(r=>setTimeout(r,10));}throw Error('Simple offseason UI timeout');}
 async function page(checkpoint, leagueCheckpoint){
