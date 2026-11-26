@@ -88,11 +88,6 @@ class UsageTests(unittest.TestCase):
         self.assertGreater(seconds(home), seconds(away))
         self.assertEqual(seconds(home) + seconds(away), 3600)
 
-    def test_experience_is_bounded_and_repeatable(self):
-        first = roster_for("seattle")
-        self.assertEqual(first, roster_for("seattle"))
-        self.assertTrue(all(0 <= player.experience <= 12 for player in first.values()))
-
 
 if __name__ == "__main__":
     unittest.main()

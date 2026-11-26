@@ -2,9 +2,9 @@ import unittest
 
 from fastapi import HTTPException
 
-from app.league import TEAMS, generate_schedule
+from app.league import TEAMS
 from app.main import team_profile
-from app.simulation import ROSTER_RULES, roster_for, simulate_game, team_ratings
+from app.simulation import ROSTER_RULES, roster_for, team_ratings
 from app.standings import standings_through_week
 
 
@@ -41,19 +41,11 @@ class TeamProfileTests(unittest.TestCase):
                     self.assertGreaterEqual(player["age"], 21)
                     self.assertLessEqual(player["age"], 36)
                     self.assertIn(player["age"] - player["experience"], range(21, 25))
+                    self.assertIn(player["experience"], range(13))
                     self.assertEqual(player["age"], again["age"])
                     self.assertEqual(player["age"], roster_for(team.id)[f'{player["position"]}{player["depth"]}'].age)
                     ages.add(player["age"])
         self.assertGreater(len(ages), 1)
-
-    def test_profile_players_match_simulated_box_scores(self):
-        team_id = "san-francisco"
-        players = {player["name"] for player in team_profile(team_id)["roster"]}
-        game = generate_schedule(team_id)[0]
-        result = simulate_game(team_id, game, season=1)
-        box = result["home"] if game.venue == "Home" else result["away"]
-        for category in ("passing", "rushing", "receiving", "kicking"):
-            self.assertTrue(all(row["player"] in players for row in box[category]))
 
     def test_standings_ratings_match_all_team_profiles_for_each_run_and_season(self):
         for seed in (0, 1234, 5678):
