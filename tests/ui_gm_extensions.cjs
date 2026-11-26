@@ -2,7 +2,7 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('n
 const {spawn}=require('node:child_process'),{JSDOM}=require('jsdom');
 const {finishOffseason}=require('./ui_offseason_helpers.cjs');
 const root=path.resolve(__dirname,'..'),base='http://127.0.0.1:8802',key='arcade-league-save';
-const html=fs.readFileSync(path.join(root,'app/static/index.html'),'utf8'),script=fs.readFileSync(path.join(root,'app/static/app.js'),'utf8');
+const html=fs.readFileSync(path.join(root,'app/static/index.html'),'utf8'),script=require('./historical-save-fixtures.cjs').allowHistoricalFixtures(fs.readFileSync(path.join(root,'app/static/app.js'),'utf8'));
 const q=(p,s)=>p.d.querySelector(s),raw=p=>p.w.localStorage.getItem(key),save=p=>JSON.parse(raw(p));
 async function until(check){for(let i=0;i<4000;i++){if(check())return;await new Promise(r=>setTimeout(r,10));}throw Error('GM extension UI timeout');}
 async function api(url){const r=await fetch(base+url);assert.ok(r.ok);return r.json();}

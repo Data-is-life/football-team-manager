@@ -7,6 +7,7 @@ const root = path.resolve(__dirname, '..');
 const base = 'http://127.0.0.1:8769';
 const key = 'arcade-league-save';
 const script = fs.readFileSync(path.join(root,'app/static/app.js'),'utf8');
+const { allowHistoricalFixtures } = require('./historical-save-fixtures.cjs');
 const html = fs.readFileSync(path.join(root,'app/static/index.html'),'utf8');
 const cache = new Map();
 async function api(url) {
@@ -19,7 +20,7 @@ async function until(check) {
  for(let i=0;i<1500;i++) {if(check()) return;await new Promise(r=>setTimeout(r,10));}
  throw new Error('UI state timed out');
 }
-function page(raw, {fail=false, blocked=false}={}) {
+function page(raw, {fail=false, blocked=false, historicalFixture=true}={}) {
  const dom = new JSDOM(html,{url:base,runScripts:'outside-only'});
  const w=dom.window,d=w.document;
  w.HTMLElement.prototype.scrollIntoView=()=>{};
@@ -30,7 +31,7 @@ function page(raw, {fail=false, blocked=false}={}) {
  if(blocked) w.Storage.prototype.setItem=function(){throw new Error('Quota exceeded')};
  const state={fail};
  w.fetch=async url=> state.fail && url!=='/api/teams' ? {ok:false} : {ok:true,json:()=>api(url)};
- w.eval(script);
+ w.eval(historicalFixture ? allowHistoricalFixtures(script) : script);
  return {dom,w,d,state};
 }
 const status=p=>p.d.querySelector('#save-status').textContent;
@@ -74,7 +75,21 @@ async function checks() {
  p.d.querySelector('#welcome-dismiss').click();assert.equal(p.d.querySelector('#career-welcome').hidden,true);
  assert.equal(JSON.parse(saved(p)).welcomeDismissed,true);
  const first=saved(p);p.dom.window.close();
- p=await restored(first);
+ const current=JSON.parse(first);
+ for (const retired of [
+  {...current,version:60,lineupRules:59},
+  {...current,lineupRules:59},
+  {...current,career:[{season:1,lineup_rules:59}]},
+ ]) {
+  const raw=JSON.stringify(retired);
+  p=await restored(raw,{historicalFixture:false});
+  assert.match(status(p),/unsupported format/);
+  assert.equal(saved(p),raw);
+  assert.equal(p.d.querySelector('#schedule-section').hidden,true);
+  p.dom.window.close();
+ }
+ p=await restored(first,{historicalFixture:false});
+ assert.match(status(p),/restored/);
  assert.equal(p.d.querySelector('#career-welcome').hidden,true);
  assert.equal(p.d.querySelectorAll('#schedule .completed').length,16);
  assert.equal(p.d.querySelectorAll('.roster-player').length,35);

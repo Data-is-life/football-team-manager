@@ -26,6 +26,7 @@ let activeSeason = 1;
 let activeCareerStartWeek = 1;
 let activeGmExtensionRules = 2;
 const NEW_CAREER_RULES = 60;
+const CURRENT_SAVE_VERSION = 61;
 let activeLineupRules = NEW_CAREER_RULES;
 const legacySalaryGuide=document.querySelector("#salary-growth-guide").textContent;
 const legacyCampGuide=document.querySelector("#training-camp-guide").textContent;
@@ -174,10 +175,20 @@ function saveProgress() {
   }
 }
 
+function supportsCareerSave(save) {
+  return save?.version === CURRENT_SAVE_VERSION
+    && save.lineupRules === NEW_CAREER_RULES
+    && Array.isArray(save.career)
+    && save.career.every(step => step?.lineup_rules === NEW_CAREER_RULES);
+}
+
 function readSave() {
   const raw = localStorage.getItem(SAVE_KEY);
   if (!raw) return null;
   const save = JSON.parse(raw);
+  if (!supportsCareerSave(save)) {
+    throw new Error("Unsupported career save version");
+  }
   const integer = (value, min, max) => Number.isInteger(value) && value >= min && value <= max;
   if (!save || ![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61].includes(save.version) || typeof save.teamId !== "string"
       || ![...select.options].some(option => option.value && option.value === save.teamId)

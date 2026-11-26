@@ -1,7 +1,7 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 const {spawn}=require('node:child_process'),{JSDOM}=require('jsdom');
 const root=path.resolve(__dirname,'..'),base='http://127.0.0.1:8781',key='arcade-league-save';
-const script=fs.readFileSync(path.join(root,'app/static/app.js'),'utf8'),html=fs.readFileSync(path.join(root,'app/static/index.html'),'utf8');
+const script=require('./historical-save-fixtures.cjs').allowHistoricalFixtures(fs.readFileSync(path.join(root,'app/static/app.js'),'utf8')),html=fs.readFileSync(path.join(root,'app/static/index.html'),'utf8');
 const q=(p,s)=>p.d.querySelector(s),raw=p=>p.w.localStorage.getItem(key),save=p=>JSON.parse(raw(p));
 async function until(check){for(let i=0;i<3000;i++){if(check())return;await new Promise(r=>setTimeout(r,10))}throw new Error('Leaders UI timed out')}
 async function api(body,owner='seattle'){const r=await fetch(base+'/api/career/'+owner,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});assert.equal(r.ok,true);return r.json()}

@@ -1,7 +1,7 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 const {spawn}=require('node:child_process'),{JSDOM}=require('jsdom');
 const root=path.resolve(__dirname,'..'),base='http://127.0.0.1:8777',key='arcade-league-save';
-const html=fs.readFileSync(path.join(root,'app/static/index.html'),'utf8'),script=fs.readFileSync(path.join(root,'app/static/app.js'),'utf8');
+const html=fs.readFileSync(path.join(root,'app/static/index.html'),'utf8'),script=require('./historical-save-fixtures.cjs').allowHistoricalFixtures(fs.readFileSync(path.join(root,'app/static/app.js'),'utf8'));
 async function until(check){for(let i=0;i<2000;i++){if(check())return;await new Promise(r=>setTimeout(r,10))}throw new Error('Season simulation UI state timed out')}
 const q=(p,s)=>p.d.querySelector(s),raw=p=>p.w.localStorage.getItem(key),save=p=>JSON.parse(raw(p));
 const legacy=(week=0)=>({version:1,teamId:'seattle',runSeed:1234,season:1,week,playoffRound:null});

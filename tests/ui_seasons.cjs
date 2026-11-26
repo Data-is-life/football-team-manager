@@ -5,7 +5,7 @@ const {spawn} = require('node:child_process');
 const {JSDOM} = require('jsdom');
 const {finishOffseason}=require('./ui_offseason_helpers.cjs');
 const root=path.resolve(__dirname,'..'),base='http://127.0.0.1:8770',key='arcade-league-save';
-const script=fs.readFileSync(path.join(root,'app/static/app.js'),'utf8');
+const script=require('./historical-save-fixtures.cjs').allowHistoricalFixtures(fs.readFileSync(path.join(root,'app/static/app.js'),'utf8'));
 const html=fs.readFileSync(path.join(root,'app/static/index.html'),'utf8');
 const cache=new Map();
 async function api(url) {

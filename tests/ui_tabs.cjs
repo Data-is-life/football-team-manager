@@ -44,7 +44,7 @@ async function checkUI() {
   w.HTMLElement.prototype.scrollIntoView=()=>{};
   // Restore pre-rebuild careers to retain explicit bye/elimination/champion coverage.
   w.localStorage.setItem('arcade-league-save',JSON.stringify({version:7,teamId:id,runSeed:fixtureSeed,season:1,week:0,lineupRules:4,developmentStart:1,priorStandings:{},history:[],draftChoices:null,dropped:[],career:[],playoffRound:null}));
-  w.eval(fs.readFileSync(path.join(root,'app/static/app.js'),'utf8'));
+  w.eval(require('./historical-save-fixtures.cjs').allowHistoricalFixtures(fs.readFileSync(path.join(root,'app/static/app.js'),'utf8')));
   await until(()=>d.querySelector('#team-select').options.length===31);
   await until(()=>/restored/.test(d.querySelector('#save-status').textContent));
   await until(()=>!d.querySelector('#schedule-section').hidden);

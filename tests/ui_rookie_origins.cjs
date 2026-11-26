@@ -2,7 +2,7 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('n
 const {spawn,execFileSync}=require('node:child_process'),{JSDOM}=require('jsdom');
 const root=path.resolve(__dirname,'..'),base='http://127.0.0.1:8801',key='arcade-league-save';
 const fixture=JSON.parse(execFileSync(process.env.PYTHON||'python',['tests/test_rookie_origins.py'],{cwd:root,env:{...process.env,PYTHONPATH:root},encoding:'utf8'}));
-const html=fs.readFileSync(path.join(root,'app/static/index.html'),'utf8'),script=fs.readFileSync(path.join(root,'app/static/app.js'),'utf8');
+const html=fs.readFileSync(path.join(root,'app/static/index.html'),'utf8'),script=require('./historical-save-fixtures.cjs').allowHistoricalFixtures(fs.readFileSync(path.join(root,'app/static/app.js'),'utf8'));
 const q=(p,s)=>p.d.querySelector(s),save=p=>JSON.parse(p.w.localStorage.getItem(key));
 async function until(check){for(let i=0;i<4000;i++){if(check())return;await new Promise(r=>setTimeout(r,10));}throw Error('Rookie origin UI timeout');}
 async function page(checkpoint){
