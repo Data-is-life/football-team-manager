@@ -475,6 +475,29 @@
         <button id="season-confirm-start" type="button">Simulate games</button>
       </div>
     </dialog>
+    <dialog id="player-overview" class="team-roster-dialog player-overview" aria-labelledby="player-overview-name">
+      <div class="scout-heading">
+        <h2 id="player-overview-name">Player overview</h2>
+        <button id="player-overview-close" class="secondary-button" type="button" autofocus>Close profile</button>
+      </div>
+      <dl class="player-overview-details">
+        <div><dt>Position</dt><dd id="player-overview-position"></dd></div>
+        <div><dt>Age</dt><dd id="player-overview-age"></dd></div>
+        <div><dt>Height</dt><dd id="player-overview-height"></dd></div>
+        <div><dt>Weight</dt><dd id="player-overview-weight"></dd></div>
+        <div><dt>Current rating</dt><dd id="player-overview-current"></dd></div>
+        <div><dt>Potential rating</dt><dd id="player-overview-potential"></dd></div>
+        <div><dt>Draft position</dt><dd id="player-overview-draft"></dd></div>
+      </dl>
+      <h3 id="player-contract-title">Contract</h3>
+      <p id="player-contract-summary"></p>
+      <div id="player-contract-table" class="table-wrap" tabindex="0" role="region" aria-labelledby="player-contract-title">
+        <table aria-label="Salary by season">
+          <thead><tr><th scope="col">Season</th><th scope="col">Status</th><th scope="col">Deal seasons</th><th scope="col">Salary</th></tr></thead>
+          <tbody id="player-contract-rows"></tbody>
+        </table>
+      </div>
+    </dialog>
     <dialog id="team-roster-dialog" class="team-roster-dialog" aria-labelledby="scout-title">
       <div class="scout-heading">
         <div><p class="eyebrow">Scouting roster</p><h2 id="scout-title">Team roster</h2></div>

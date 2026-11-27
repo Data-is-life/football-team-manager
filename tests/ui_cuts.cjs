@@ -93,7 +93,7 @@ async function checks(){
 
   assert.equal(q(p,'#next-season').disabled,index<3);assert.equal(q(p,'#next-season').hidden,index<3);assert.equal(q(p,'#manage-roster').hidden,false);assert.equal(q(p,'#playoff-simulate').hidden,true);assert.equal(q(p,'#simulate-season').hidden,true);
   if(index===1){
-   const qb=p.d.querySelectorAll('#roster-groups [data-position="QB"] .roster-player');assert.equal(qb.length,1);assert.equal(qb[0].querySelector('button').disabled,true);assert.equal(qb[0].querySelector('button').textContent,'Minimum reached');
+   const qb=p.d.querySelectorAll('#roster-groups [data-position="QB"] .roster-player');assert.equal(qb.length,1);assert.equal(qb[0].querySelector('[data-drop-id]').disabled,true);assert.equal(qb[0].querySelector('[data-drop-id]').textContent,'Minimum reached');
    const blocked=await fetch(base+'/api/career/'+owner,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'cuts',season:1,run_seed:1234,lineup_rules:6,rebuild_team:owner,manual_picks:choices,dropped:[...save(p).dropped,choices[0]]})});assert.equal(blocked.status,422);
   }
   const saved=raw(p);p.dom.window.close();p=await restore(saved);q(p,'#manage-roster').click();assert.equal(p.d.querySelectorAll('#roster-groups [data-drop-id]').length,41-index);assert.equal(q(p,'#next-season').hidden,index<3);assert.ok(q(p,'#cut-count').textContent.endsWith(message),'Reload preserves the exact remaining count');
