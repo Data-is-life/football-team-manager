@@ -96,6 +96,8 @@ let rookieSeason = 1;
 let teamRankings = [];
 let developmentRecap = null;
 const developmentDialog = document.querySelector("#development-dialog");
+const playerOverview = document.querySelector("#player-overview");
+let playerContractHistory = [];
 let rosterMode = "ratings";
 let rosterTotals = null;
 const rosterDialog = document.querySelector("#team-roster-dialog");
@@ -153,6 +155,7 @@ function saveProgress() {
     season: activeSeason, week: currentWeek, lineupRules: activeLineupRules, developmentStart: activeDevelopmentStart, rebuildTeam: activeRebuildTeam,
     ...(activeSeasonDrops.length ? {seasonDrops:activeSeasonDrops} : {}),
     priorStandings: activePriorStandings, history: careerHistory,
+    ...(playerContractHistory.length ? { playerContractHistory } : {}),
     draftChoices: activeDraftChoices,
     ...(activeLineupRules>=42 && activeFreeAgency!==null ? {ownActions:activeOwnActions} : {}),
     ...(activeTradeActions.length ? {tradeActions:activeTradeActions} : {}),
@@ -672,7 +675,7 @@ async function resumeProgress() {
       throw new Error("Restore failed");
     }
     renderTeamProfile(profile, save.season);
-    renderSchedule(schedule, save.runSeed, { priorStandings: save.priorStandings, history: save.history, career: save.career, lineupRules: save.lineupRules, developmentStart: save.developmentStart, rebuildTeam: save.rebuildTeam, contracts: save.contracts, gmExtensionRules:save.gmExtensionRules, lineupChanges: save.lineupChanges, careerStartWeek: save.careerStartWeek, draftRounds: save.draftRounds, seasonDrops: save.seasonDrops });
+    renderSchedule(schedule, save.runSeed, { priorStandings: save.priorStandings, history: save.history, career: save.career, lineupRules: save.lineupRules, developmentStart: save.developmentStart, rebuildTeam: save.rebuildTeam, contracts: save.contracts, gmExtensionRules:save.gmExtensionRules, lineupChanges: save.lineupChanges, careerStartWeek: save.careerStartWeek, draftRounds: save.draftRounds, seasonDrops: save.seasonDrops, contractHistory: readPlayerContractHistory(save) });
     ownerUpdateDismissed = save.ownerUpdateDismissed;
     welcomeDismissed = save.welcomeDismissed;
     renderWelcome();
@@ -1069,6 +1072,108 @@ function addSalaryCell(row, contract) {
   row.append(cell);
 }
 
+function addPlayerProfileButton(cell, player) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "player-profile-button";
+  button.textContent = player.name;
+  button.setAttribute("aria-haspopup", "dialog");
+  button.setAttribute("aria-controls", playerOverview.id);
+  button.addEventListener("click", () => {
+    button.focus({ preventScroll: true });
+    showPlayerOverview(player);
+  });
+  cell.replaceChildren(button);
+}
+
+function readPlayerContractHistory(save) {
+  if (!Array.isArray(save.playerContractHistory)) return [];
+  const validYears = new Map();
+  for (const year of save.playerContractHistory) {
+    if (!Number.isInteger(year?.season) || year.season < 1 || year.season > save.season
+        || !Array.isArray(year.contracts) || year.contracts.length > 44) continue;
+    const contracts = year.contracts.filter(contract => typeof contract?.playerId === "string"
+      && Number.isSafeInteger(contract.annualSalary) && contract.annualSalary > 0
+      && Number.isInteger(contract.start) && contract.start >= 1 && contract.start <= year.season
+      && Number.isInteger(contract.end) && contract.end >= year.season);
+    if (contracts.length) validYears.set(year.season, { season: year.season, contracts });
+  }
+  return [...validYears.values()];
+}
+
+function recordSeasonContracts(season, history) {
+  // The season roster is still intact here, before applying restored offseason actions.
+  if (history.some(year => year.season === season)) return history;
+  const contracts = rosterProfile.roster
+    .filter(({ contract }) => contract && contract.signed_season <= season
+      && contract.expires_after_season >= season)
+    .map(({ id, contract }) => ({
+      playerId: id,
+      annualSalary: contract.annual_salary,
+      start: contract.signed_season,
+      end: contract.expires_after_season,
+    }));
+  return contracts.length ? [...history, { season, contracts }] : history;
+}
+
+function showPlayerOverview(player) {
+  const terms = player.contract ?? player.contract_offer;
+  const pick = player.draft_pick ?? terms?.overall_pick;
+  const draftPosition = pick ? `Round ${Math.ceil(pick / 30)} · #${pick} overall`
+    : player.rookie_origin === "undrafted" ? "Undrafted"
+    : player.id.startsWith("rookie-") ? "Pick unavailable"
+    : player.id.startsWith("replacement-") ? "Replacement player"
+    : "Before this career";
+  const details = {
+    name: player.name,
+    position: player.position,
+    age: player.age,
+    height: player.height_inches ? `${Math.floor(player.height_inches / 12)}′ ${player.height_inches % 12}″` : "—",
+    weight: player.weight_lbs ? `${player.weight_lbs} lb` : "—",
+    current: player.current_rating,
+    potential: player.potential_rating,
+    draft: draftPosition,
+  };
+  for (const [field, value] of Object.entries(details)) {
+    document.querySelector(`#player-overview-${field}`).textContent = value;
+  }
+
+  const rows = [];
+  for (const { season, contracts } of playerContractHistory) {
+    if (season >= rookieSeason) continue;
+    const archived = contracts.find(contract => contract.playerId === player.id);
+    if (archived) rows.push([season, "Past", archived.start, archived.end, archived.annualSalary]);
+  }
+  let summary = "No signed contract or pending offer.";
+  if (terms) {
+    const provisional = terms.status === "provisional";
+    const start = terms.signed_season ?? terms.starts_season;
+    const end = terms.expires_after_season ?? start + terms.years - 1;
+    const term = terms.years === 1 ? "1 year" : `${terms.years} years`;
+    summary = `${salaryLabel(terms)} · ${term} · Season ${start}${end === start ? "" : `–${end}`}`;
+    if (terms.fully_guaranteed) summary += " · Fully guaranteed";
+    for (let season = Math.max(start, rookieSeason); season <= end; season++) {
+      const status = provisional ? "Provisional" : season === activeSeason ? "Current" : "Scheduled";
+      rows.push([season, status, start, end, terms.annual_salary]);
+    }
+  }
+  const body = document.querySelector("#player-contract-rows");
+  body.replaceChildren();
+  for (const [season, status, start, end, salary] of rows.sort((a, b) => a[0] - b[0])) {
+    const row = body.insertRow();
+    row.insertCell().textContent = season;
+    row.insertCell().textContent = status;
+    row.insertCell().textContent = start === end ? start : `${start}–${end}`;
+    row.insertCell().textContent = faMoney(salary);
+  }
+  document.querySelector("#player-contract-summary").textContent = summary;
+  document.querySelector("#player-contract-table").hidden = rows.length === 0;
+  playerOverview.showModal();
+  document.querySelector("#player-overview-close").focus();
+}
+
+document.querySelector("#player-overview-close").addEventListener("click", () => playerOverview.close());
+
 function createRosterGroups(profile, includeStats = true) {
   return profile.roster_rules.map((rule) => {
     const players = profile.roster.filter(player => player.position === rule.position);
@@ -1103,6 +1208,7 @@ function createRosterGroups(profile, includeStats = true) {
         cell.textContent = value;
         row.append(cell);
       }
+      if (includeStats) addPlayerProfileButton(row.children[1], player);
       if (profile.lineup_rules >= 15) addSalaryCell(row, player.contract ?? player.contract_offer);
       addRookieBadge(row.children[1], player);
       addFreeAgentBadge(row.children[1], player);
@@ -1311,6 +1417,7 @@ function renderRosterStats() {
         cell.textContent = value;
         row.append(cell);
       }
+      addPlayerProfileButton(row.children[1], player);
       addRookieBadge(row.children[1], player);
       addFreeAgentBadge(row.children[1], player);
       addRetirementBadge(row.children[1], player);
@@ -1399,11 +1506,12 @@ function createRunSeed() {
   return candidate === activeRunSeed ? (candidate % 4294967295) + 1 : candidate;
 }
 
-function renderSchedule(data, runSeed, { priorStandings = {}, history = [], career = [], lineupRules = NEW_CAREER_RULES, developmentStart = 1, rebuildTeam = null, contracts = true, gmExtensionRules = 2, lineupChanges = [], careerStartWeek = 1, draftRounds = 6, seasonDrops = [] } = {}) {
+function renderSchedule(data, runSeed, { priorStandings = {}, history = [], career = [], lineupRules = NEW_CAREER_RULES, developmentStart = 1, rebuildTeam = null, contracts = true, gmExtensionRules = 2, lineupChanges = [], careerStartWeek = 1, draftRounds = 6, seasonDrops = [], contractHistory = [] } = {}) {
   closeSeasonConfirmation(false);
   simulationMore.open = false;
   clearLeaders();
   if (rosterDialog.open) rosterDialog.close();
+  if (playerOverview.open) playerOverview.close();
   weekSimulationBusy = false;
   seasonSimulationActive = false;
   stopSeasonRequested = false;
@@ -1411,6 +1519,7 @@ function renderSchedule(data, runSeed, { priorStandings = {}, history = [], care
   renderRankings();
   activeRunSeed = runSeed;
   activeSeason = data.season;
+  playerContractHistory = recordSeasonContracts(activeSeason, contractHistory);
   clearDevelopmentRecap();
   activeCareerStartWeek = careerStartWeek;
   activeDraftRounds = draftRounds;
@@ -2894,7 +3003,7 @@ nextSeasonButton.addEventListener("click", async () => {
       throw new Error("The next season could not be loaded. Please try again.");
     }
     renderTeamProfile(profile, nextSeason);
-    renderSchedule(schedule, activeRunSeed, { priorStandings: ranks, history, career, lineupRules, developmentStart, rebuildTeam: activeRebuildTeam, contracts: activeContracts, lineupChanges, careerStartWeek: activeCareerStartWeek });
+    renderSchedule(schedule, activeRunSeed, { priorStandings: ranks, history, career, lineupRules, developmentStart, rebuildTeam: activeRebuildTeam, contracts: activeContracts, lineupChanges, careerStartWeek: activeCareerStartWeek, contractHistory: playerContractHistory });
     renderWelcome();
     setDevelopmentRecap(profile, nextSeason);
     saveProgress();

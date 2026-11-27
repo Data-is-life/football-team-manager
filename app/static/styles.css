@@ -119,6 +119,37 @@ th { color: var(--muted); font-weight: 700; }
 .team-roster-dialog::backdrop { background: rgba(0,0,0,0.75); }
 .scout-heading { display: flex; align-items: start; justify-content: space-between; flex-wrap: wrap; gap: 16px; margin-bottom: 16px; }
 .scout-heading h2 { font-size: clamp(1.5rem, 4vw, 2.4rem); }
+.player-profile-button {
+  min-height: 32px;
+  max-width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--cyan);
+  font-weight: 700;
+  text-align: left;
+  text-decoration: underline;
+  text-underline-offset: .2em;
+}
+.player-profile-button:hover { transform: none; }
+.player-overview { width: min(640px, calc(100% - 24px)); }
+.player-overview-details {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 132px), 1fr));
+  gap: 12px;
+  margin: 0 0 24px;
+}
+.player-overview-details > div {
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel-2);
+}
+.player-overview-details dt { color: var(--muted); font-size: .85rem; }
+.player-overview-details dd { margin: 4px 0 0; font-weight: 700; }
+.player-overview .table-wrap:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+.player-overview table { font-size: .9rem; font-variant-numeric: tabular-nums; }
+.player-overview th:nth-child(2), .player-overview td:nth-child(2) { text-align: left; }
 #scout-retry { margin-bottom: 16px; }
 .leader-mark { display: inline-grid; place-items: center; width: 19px; height: 19px; color: #0b0d14; background: var(--lime); border-radius: 5px; font-size: 0.66rem; }
 tr.selected-team td { color: var(--cyan); background: rgba(72,230,210,0.07); }

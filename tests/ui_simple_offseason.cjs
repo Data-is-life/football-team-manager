@@ -14,7 +14,7 @@ async function page(checkpoint, leagueCheckpoint){
  w.localStorage.setItem(key,JSON.stringify(checkpoint));w.HTMLElement.prototype.scrollIntoView=()=>{};w.scrollTo=()=>{};
  if(leagueCheckpoint)w.localStorage.setItem(checkpointKey,leagueCheckpoint);
  w.HTMLDialogElement.prototype.close=function(){this.open=false};w.HTMLDialogElement.prototype.showModal=function(){this.open=true};
- w.fetch=async(url,init)=>{const b=init&&JSON.parse(init.body);state.requests.push(b?.action??url);if(b)state.calls.push(b);if(state.fail&&b?.action==='own_players')return {ok:false,json:async()=>({detail:'Temporary signing failure'})};const r=await fetch(new URL(url,base),init);if(!r.ok)console.error('API:',b?.action,await r.clone().text());else if(b){const data=await r.clone().json();if(data.profile)state.profile=data.profile;}return r;};
+ w.fetch=async(url,init)=>{const b=init&&JSON.parse(init.body);state.requests.push(b?.action??url);if(b)state.calls.push(b);if(state.fail&&b?.action==='own_players')return {ok:false,json:async()=>({detail:'Temporary signing failure'})};const r=await fetch(new URL(url,base),init);if(!r.ok)console.error('API:',b?.action,await r.clone().text());else if(b){const data=await r.clone().json();if(data.profile)state.profile=data.profile;else if(b.action==='profile')state.profile=data;}return r;};
  w.eval(script);const p={dom,w,d,state};await until(()=>/restored|could not/.test(q(p,'#save-status').textContent));assert.match(q(p,'#save-status').textContent,/restored/);return p;
 }
 function assertDraftNavigation(p, visible){
@@ -35,6 +35,29 @@ async function checks(){
  assert.equal(q(p,'#own-signing').hidden,false);assert.equal(q(p,'#panel-roster').hidden,false);
  assert.equal(q(p,'#training-camp-button').hidden,true);assert.equal(q(p,'#view-free-agency').hidden,true);assert.equal(q(p,'#view-trades').hidden,true);
  assert.match(q(p,'#own-signing-status').textContent,/decisions remaining/);
+ const rookiePick=fixture.own.picks.find(pick=>pick.team.id===fixture.checkpoint.teamId);
+ const profileButton=id=>q(p,`#roster-groups [data-player-id="${id}"] .player-profile-button`);
+ const profileText=field=>q(p,`#player-overview-${field}`).textContent;
+ const salaryRows=()=>[...p.d.querySelectorAll('#player-contract-rows tr')]
+  .map(row=>[...row.cells].map(cell=>cell.textContent));
+ const profileRequests=p.state.requests.length,profileSave=raw(p);
+ profileButton(rookiePick.player.id).click();
+ assert.equal(q(p,'#player-overview').open,true);
+ assert.equal(profileText('name'),rookiePick.player.name);
+ assert.equal(profileText('position'),rookiePick.player.position);
+ assert.equal(profileText('age'),String(rookiePick.player.age));
+ assert.equal(profileText('current'),String(rookiePick.player.current_rating));
+ assert.equal(profileText('potential'),String(rookiePick.player.potential_rating));
+ assert.match(profileText('height'),/^\d′ \d{1,2}″$/);
+ assert.match(profileText('weight'),/^\d{3} lb$/);
+ const profileMeasurements=[profileText('height'),profileText('weight')];
+ assert.equal(profileText('draft'),`Round ${rookiePick.round} · #${rookiePick.overall} overall`);
+ assert.equal(salaryRows()[0][1],'Provisional');
+ assert.equal(p.d.activeElement,q(p,'#player-overview-close'));
+ q(p,'#player-overview-close').click();
+ assert.equal(q(p,'#player-overview').open,false);
+ assert.equal(p.state.requests.length,profileRequests);
+ assert.equal(raw(p),profileSave);
  function assertPendingBlocked(){
   assert.equal(q(p,'#next-season').textContent,'Finish own-player signing');
   for(const selector of ['#next-season','#own-signing-finish']){
@@ -119,6 +142,23 @@ async function checks(){
  p.dom.window.close();p=await page(next,leagueCheckpoint);assert.deepEqual(save(p),next);assert.ok(q(p,`#roster-groups [data-player-id="${id}"]`));
  assert.equal(p.state.calls.find(call=>call.action==='profile').checkpoint,stored.token);
  assert.equal(p.w.localStorage.getItem(checkpointKey),leagueCheckpoint);
+ q(p,'#view-roster').click();
+ profileButton(rookiePick.player.id).click();
+ assert.deepEqual([profileText('height'),profileText('weight')],profileMeasurements);
+ assert.equal(profileText('draft'),`Round ${rookiePick.round} · #${rookiePick.overall} overall`);
+ assert.equal(salaryRows()[0][1],'Current');
+ q(p,'#player-overview-close').click();
+ const retained=p.state.profile.roster.find(player=>player.contract
+  && next.playerContractHistory[0].contracts.some(contract=>contract.playerId===player.id));
+ assert.ok(retained);
+ const past=next.playerContractHistory[0].contracts.find(contract=>contract.playerId===retained.id);
+ q(p,'#roster-stats-button').click();
+ q(p,`#roster-groups .roster-season-player[data-player-id="${retained.id}"] .player-profile-button`).click();
+ const term=(start,end)=>start===end?String(start):`${start}–${end}`;
+ assert.deepEqual(salaryRows()[0],['1','Past',term(past.start,past.end),`$${(past.annualSalary/1e6).toFixed(2)}M`]);
+ const deal=retained.contract;
+ assert.deepEqual(salaryRows()[1],['2','Current',term(deal.signed_season,deal.expires_after_season),`$${(deal.annual_salary/1e6).toFixed(2)}M`]);
+ q(p,'#player-overview-close').click();
  assert.ok(!p.state.calls.some(c=>c.action==='camp'));p.dom.window.close();
  console.log('Simple offseason UI passed: own-player signing and rookies, failure/retry, duplicate guards, fixed-price market with no pass or camp, CPU competition, payroll review, trades, automatic development, saves and Season 2 replay.');
 }

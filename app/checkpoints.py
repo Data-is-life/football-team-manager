@@ -46,11 +46,19 @@ def encode_checkpoint(career_key, context):
 
 
 def _player(data):
+    contract = PlayerContract(**data["contract"]) if data["contract"] else None
+    rookie_offer = (
+        PlayerContract(**data["rookie_offer"]) if data["rookie_offer"] else None
+    )
+    original_terms = rookie_offer or contract
     return Player(**{
         **data,
+        "draft_pick": data.get("draft_pick") or (
+            original_terms.overall_pick if original_terms else None
+        ),
         "attributes": PlayerAttributes(**data["attributes"]),
-        "contract": PlayerContract(**data["contract"]) if data["contract"] else None,
-        "rookie_offer": PlayerContract(**data["rookie_offer"]) if data["rookie_offer"] else None,
+        "contract": contract,
+        "rookie_offer": rookie_offer,
     })
 
 

@@ -15,6 +15,7 @@ from .rules import LineupRules, MAX_LINEUP_RULES
 from .league import GROUPS, TEAM_BY_ID, generate_schedule, rotating_group, schedule_payload, teams_payload, validate_standings
 from .playoffs import playoffs_through_round
 from .player_stats import aggregate_player_stats
+from .player_bio import player_measurements
 from .leaders import league_leaders
 from .simulation import roster_for, simulate_through_week, team_ratings, roster_rules, roster_limit, roster_minimum
 from .attributes import ATTRIBUTE_INFO, attribute_keys
@@ -97,6 +98,7 @@ def profile_payload(team_id, players, run_seed, roster_context=(), preferred=(),
         "roster": [{**public_player_fields(player,roster_context,
             development_states=development_states, renewal_payroll=renewal_payroll,
             renewal_owner=team_id),
+            **player_measurements(player.id, player.position, run_seed),
             **({"release_preview": release_preview(players,player,team_id,payroll_season,run_seed,roster_context)}
                if release_previews and getattr(roster_context,"lineup_rules",1)>=16 else {}), **rating_payload(player,roster_context,development_states), "attributes": {
             key: getattr(player.attributes, key) for key in attribute_keys(player.position)

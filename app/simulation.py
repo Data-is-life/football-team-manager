@@ -82,6 +82,7 @@ class Player:
     rookie_offer: PlayerContract | None = None
     # Display provenance follows the player through releases and market deals.
     rookie_origin: str | None = None
+    draft_pick: int | None = None
 
 
 @dataclass(frozen=True)

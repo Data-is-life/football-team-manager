@@ -10,7 +10,7 @@ from unittest import TestCase
 from pydantic import TypeAdapter, ValidationError
 
 from simple_offseason_fixtures import simple_fixture
-from snapshot_metadata import without_rookie_origin
+from snapshot_metadata import without_display_metadata
 from app.main import CareerRequest, career_action
 from app.lineups import lineup_context
 from app.simple_offseason import run
@@ -28,7 +28,7 @@ def snapshot_value(value):
 
 def digest(value):
     encoded = json.dumps(value, sort_keys=True, separators=(',', ':'), default=snapshot_value)
-    encoded = json.dumps(json.loads(encoded,object_hook=without_rookie_origin),
+    encoded = json.dumps(json.loads(encoded,object_hook=without_display_metadata),
                          sort_keys=True,separators=(',', ':'))
     return hashlib.sha256(encoded.encode()).hexdigest()
 

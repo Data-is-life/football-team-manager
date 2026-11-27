@@ -377,6 +377,8 @@ def public_player_fields(player, context=(), *, development_states=None, renewal
     result = asdict(player)
     result.pop('contract')
     result.pop('rookie_offer')
+    if result['draft_pick'] is None:
+        result.pop('draft_pick')
     if result['rookie_origin'] is None:
         result.pop('rookie_origin')
     if getattr(context,'lineup_rules',1) >= 15 and player.contract is not None:

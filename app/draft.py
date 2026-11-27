@@ -252,7 +252,7 @@ def _draft_result(team_id: str, season: int, run_seed: int, choices: tuple[str, 
                 resolved_choices.append(prospect.id)
         del available[prospect.id]
         depth = 1 + max((p.depth for p in rosters[owner] if p.position == prospect.position),default=0)
-        signed = replace(prospect, depth=depth)
+        signed = replace(prospect, depth=depth, draft_pick=overall)
         if getattr(roster_context,'lineup_rules',1) >= 15:
             terms = rookie_contract((overall-1)//len(order)+1,overall,season+1,roster_context.lineup_rules, run_seed=run_seed)
             signed = replace(signed,rookie_offer=terms) if roster_context.lineup_rules >= 19 else replace(signed,contract=terms)
