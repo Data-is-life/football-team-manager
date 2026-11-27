@@ -270,7 +270,7 @@ tr.selected-team td { color: var(--cyan); background: rgba(72,230,210,0.07); }
 }
 
 #draft-picks { max-height: 30vh; overflow: auto; padding-left: 32px; line-height: 1.8; }
-.your-draft-pick { color: var(--cyan); font-weight: 700; }
+.your-draft-pick, .your-fa-signing { color: var(--cyan); font-weight: 700; }
 
 .roster-player.is-starter td:first-child { border-left: 3px solid var(--cyan); }
 .roster-player.is-starter td:nth-child(4) { font-weight: 800; color: var(--cyan); }
@@ -302,7 +302,7 @@ tr.selected-team td { color: var(--cyan); background: rgba(72,230,210,0.07); }
 
 .draft-recap { margin: 18px 0; padding: 16px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px; }
 .draft-recap h3 { margin: 0 0 10px; font-size: 1.15rem; }
-.draft-recap-table { font-size: 1rem; }
+.offseason-recap-table { font-size: 1rem; }
 .draft-recap-table caption { text-align: left; color: var(--muted); padding-bottom: 10px; font-size: 0.9rem; }
 .draft-recap-table th:nth-child(3), .draft-recap-table td:nth-child(3),
 .draft-recap-table th:nth-child(4), .draft-recap-table td:nth-child(4) { text-align: left; }
@@ -431,7 +431,9 @@ tr.selected-team td { color: var(--cyan); background: rgba(72,230,210,0.07); }
 .fa-filters label { display: block; margin-bottom: 6px; }
 #free-agency .fa-filters select, #free-agency .fa-filters input { width: 100%; min-width: 0; max-width: 100%; margin: 0; min-height: 44px; }
 #free-agency button { margin: 4px; }
-#fa-order, #fa-log { overflow-wrap: anywhere; }
+#fa-order { overflow-wrap: anywhere; }
+.fa-log-table { color: var(--ink); }
+.fa-log-table th:nth-child(2), .fa-log-table td:nth-child(2) { text-align: left; }
 #free-agency .table-wrap:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
 
 .rankings-table { font-variant-numeric: tabular-nums; }

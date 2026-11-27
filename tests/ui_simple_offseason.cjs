@@ -77,11 +77,16 @@ async function checks(){
  assert.match(q(p,'#fa-status').textContent,/Fixed asking prices/);assert.doesNotMatch(q(p,'#fa-status').textContent,/Wave|undefined/);
  const prices=new Map([...p.d.querySelectorAll('#fa-players tr')].map(r=>[r.querySelector('[data-fa-id]').dataset.faId,r.children[5].textContent]));
  const sign=q(p,'#fa-players button:not([disabled])');assert.ok(sign);const id=sign.dataset.faId;
+ const signingRow=[...sign.closest('tr').cells].map(cell=>cell.textContent);
  sign.click();q(p,'#fa-confirm').click();q(p,'#fa-confirm').click();await until(()=>save(p).freeAgency.length===1&&!q(p,'#fa-finish').disabled);
  assert.equal(save(p).freeAgency[0].player_id,id);
  for(const row of p.d.querySelectorAll('#fa-players tr'))assert.equal(row.children[5].textContent,prices.get(row.querySelector('[data-fa-id]').dataset.faId));
  assert.ok(q(p,`#roster-groups [data-player-id="${id}"]`));
  const marketSave=save(p);p.dom.window.close();p=await page(marketSave);
+ const recap=q(p,'#fa-log .your-fa-signing');
+ assert.ok(recap);
+ assert.equal(q(p,'#fa-log-wave').hidden,true);
+ assert.deepEqual([...recap.cells].slice(1).map(cell=>cell.textContent),[signingRow[0],signingRow[5]]);
  assert.equal(q(p,'#fa-pass').hidden,true);assert.match(q(p,'#fa-status').textContent,/Fixed asking prices/);assertDraftNavigation(p,false);
  // A different draft order can leave a position short after the initial signing.
  for(let i=0;i<31&&draftRules>=48;i++){

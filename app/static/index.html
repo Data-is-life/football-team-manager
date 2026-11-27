@@ -150,7 +150,17 @@
           <button id="fa-pass" type="button">Pass to next wave</button>
           <button id="fa-finish" type="button">Finish free agency</button>
           <p id="fa-error" role="alert" hidden></p>
-          <details><summary>League turns and signings</summary><p id="fa-order"></p><p id="fa-log"></p></details>
+          <details class="attribute-guide">
+            <summary>League turns and signings</summary>
+            <p id="fa-order"></p>
+            <p id="fa-log-empty">No signings yet.</p>
+            <div id="fa-log-wrap" class="table-wrap" tabindex="0" role="region" aria-label="League signings" hidden>
+              <table class="offseason-recap-table fa-log-table" aria-label="League signings">
+                <thead><tr><th scope="col">Team</th><th scope="col">Player</th><th scope="col">Salary/year</th><th id="fa-log-wave" scope="col" hidden>Wave</th></tr></thead>
+                <tbody id="fa-log"></tbody>
+              </table>
+            </div>
+          </details>
         </section>
           </div>
           <div id="panel-trades" class="view-panel" role="tabpanel" aria-labelledby="view-trades" tabindex="0" hidden>
@@ -182,7 +192,7 @@
               <h3 id="draft-recap-title">Your draft class</h3>
               <p id="draft-recap-empty" class="roster-note">Your selections will appear here after your first pick.</p>
               <div id="draft-recap-table-wrap" class="table-wrap" tabindex="0" role="region" aria-labelledby="draft-recap-title" hidden>
-                <table class="draft-recap-table">
+                <table class="offseason-recap-table draft-recap-table">
                   <caption id="draft-recap-caption"></caption>
                   <thead><tr><th scope="col">Round</th><th scope="col">Pick</th><th scope="col">Player</th><th scope="col">Position</th><th scope="col">Current</th><th scope="col">Potential</th></tr></thead>
                   <tbody id="draft-recap-rows"></tbody>
