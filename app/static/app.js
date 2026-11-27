@@ -616,6 +616,7 @@ async function resumeProgress() {
     return;
   }
   if (!save) return;
+  save.restoreId = globalThis.crypto?.randomUUID?.();
   const savedSeasonDrops = save.seasonDrops ?? [];
   const validDrops = drops => Array.isArray(drops)&&drops.length<=44&&drops.every((d,i)=>Number.isInteger(d.week)&&d.week>=1&&d.week<=22&&typeof d.player_id==='string'&&d.player_id.length>0&&(!i||d.week>=drops[i-1].week));
   if(!validDrops(savedSeasonDrops)||savedSeasonDrops.some(d=>d.week>(save.week<17?save.week+1:18+(save.playoffRound??0)))||!save.career.every(step=>validDrops(step.season_drops??[])))throw new Error('Invalid release history');
@@ -2212,6 +2213,7 @@ async function careerRequest(action, extra = {}, context = null) {
   const response = await fetch(`/api/career/${teamId}`, {
     method: "POST", headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ action,
+      ...(context?.restoreId ? {restore_id: context.restoreId} : {}),
       ...((context?.lineupRules??activeLineupRules)>=42 && ['own_players','free_agency','cuts','trades'].includes(action) ? {own_actions:context?.ownActions??activeOwnActions} : {}),
       ...((context?.lineupRules??activeLineupRules)>=41 && ["own_players","free_agency","camp","cuts","resign","trades"].includes(action) ? {trade_actions:context?.tradeActions??activeTradeActions} : {}),
       ...((context?.lineupRules??activeLineupRules)>=31 && ['own_players','free_agency','camp','cuts','resign','trades'].includes(action) ? {free_agency:context?.freeAgency??activeFreeAgency??[],pre_camp_actions:context?.preCampActions??activePreCampActions,camp_actions:context?.campActions??activeCampActions} : {}), roster_actions: context?.rosterActions ?? activeRosterActions, training_camp: context?.trainingCamp ?? activeTrainingCamp, draft_rounds: context?.draftRounds ?? activeDraftRounds, season: context?.season ?? activeSeason,

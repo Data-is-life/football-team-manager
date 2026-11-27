@@ -45,6 +45,29 @@ class LeagueCheckpointTests(unittest.TestCase):
                              self.week)
             self.assertEqual(career_action(self.team, CareerRequest(action='draft', **self.body)), self.draft)
 
+    def test_restore_logs_sources_and_timings_without_checkpoint_contents(self):
+        restore_id = 'f25cac9b-fb74-4957-a994-a12473ede1b5'
+        with self.assertLogs(main.restore_logger, level='INFO') as entries:
+            for action, token in (
+                ('profile', 'invalid-token-marker'),
+                ('profile', self.token),
+                ('week', None),
+            ):
+                career_action(self.team, CareerRequest(
+                    action=action, checkpoint=token, restore_id=restore_id,
+                    week=3, **self.body,
+                ))
+        for entry, source in zip(entries.output, (
+            'context_source=history_replay checkpoint=rejected',
+            'context_source=checkpoint checkpoint=accepted',
+            'context_source=memory checkpoint=missing',
+        ), strict=True):
+            self.assertIn(source, entry)
+            self.assertIn(f'id={restore_id}', entry)
+            self.assertRegex(entry, r'context_ms=\d+\.\d stage_ms=\d+\.\d')
+            self.assertNotIn('invalid-token-marker', entry)
+            self.assertNotIn(self.token, entry)
+
     def test_invalid_token_falls_back_and_is_replaced(self):
         replacement = ('X' if self.token[10] != 'X' else 'Y')
         tampered = self.token[:10] + replacement + self.token[11:]

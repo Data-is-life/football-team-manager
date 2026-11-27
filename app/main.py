@@ -1,7 +1,10 @@
 import json
 from dataclasses import asdict
+from logging import getLogger
 from pathlib import Path
+from time import perf_counter
 from typing import Annotated, Literal
+from uuid import UUID
 
 from fastapi import FastAPI, HTTPException, Query
 from pydantic import BaseModel, Field, StrictInt, StrictBool, model_validator
@@ -28,6 +31,7 @@ from .starter_choices import StarterPlan, with_starters, selected_roster, curren
 
 BASE_DIR = Path(__file__).resolve().parent
 STATIC_DIR = BASE_DIR / "static"
+restore_logger = getLogger("uvicorn.error.career_restore")
 
 app = FastAPI(title="Arcade League", version="0.1.0")
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
@@ -339,6 +343,7 @@ class CareerRequest(BaseModel):
     view_team: str | None = None
     checkpoint: str | None = None
     save_checkpoint: StrictBool = False
+    restore_id: UUID | None = None
 
 
 def ranks_context(ranks):
@@ -349,6 +354,11 @@ def ranks_context(ranks):
 def career_action(team_id: str, request: CareerRequest) -> dict:
     if team_id not in TEAM_BY_ID or (request.view_team is not None and request.view_team not in TEAM_BY_ID):
         raise HTTPException(status_code=404, detail='Team not found')
+    restore_started = perf_counter() if request.restore_id is not None else None
+    context_ready = None
+    context_source = "unresolved"
+    checkpoint_state = "missing"
+    checkpoint_encode_ms = 0.0
     try:
         if request.own_actions and (request.lineup_rules<42 or request.action not in ('own_players','free_agency','cuts','trades')):
             raise ValueError('Own-player decisions require the simplified offseason')
@@ -383,10 +393,19 @@ def career_action(team_id: str, request: CareerRequest) -> dict:
         if request.lineup_rules >= 42 and steps:
             token = request.checkpoint if request.action == 'profile' else None
             base_context, checkpoint_used = restored_context(career_key, token)
+            if token:
+                checkpoint_state = "accepted" if checkpoint_used else "rejected"
+            if base_context is not None:
+                context_source = "checkpoint" if checkpoint_used else "memory"
             if base_context is None:
                 base_context = replay_from_previous_checkpoint(career_key)
+                if base_context is not None:
+                    context_source = "previous_checkpoint"
         if base_context is None:
             base_context = replay_career(*career_key)
+            context_source = "history_replay" if steps else "initial_roster"
+        if restore_started is not None:
+            context_ready = perf_counter()
         changes = tuple((change.week, tuple(change.starters)) for change in request.lineup_changes)
         context = with_starters(base_context, team_id, request.run_seed, changes)
         from .season_drops import with_season_drops
@@ -486,9 +505,25 @@ def career_action(team_id: str, request: CareerRequest) -> dict:
             return {**draft, 'profile': profile_payload(viewed, rosters[viewed], request.run_seed, context, payroll_season=request.season+1, league_rosters=rosters)}
         profile = profile_payload(viewed, list(roster_for(viewed, request.run_seed, context).values()), request.run_seed, context)
         if request.action == 'profile' and request.save_checkpoint and not checkpoint_used and viewed == team_id and steps:
+            encode_started = perf_counter() if restore_started is not None else None
             token = encode_checkpoint(career_key, base_context)
+            if encode_started is not None:
+                checkpoint_encode_ms = (perf_counter() - encode_started) * 1000
             if token:
                 profile['checkpoint'] = token
         return profile
     except ValueError as error:
         raise HTTPException(status_code=422, detail=str(error)) from error
+    finally:
+        if restore_started is not None:
+            ended = perf_counter()
+            split = context_ready if context_ready is not None else ended
+            restore_logger.info(
+                "career_restore id=%s stage=%s season=%d history_steps=%d "
+                "context_source=%s checkpoint=%s context_ms=%.1f "
+                "stage_ms=%.1f checkpoint_encode_ms=%.1f total_ms=%.1f",
+                request.restore_id, request.action, request.season,
+                len(request.career), context_source, checkpoint_state,
+                (split - restore_started) * 1000, (ended - split) * 1000,
+                checkpoint_encode_ms, (ended - restore_started) * 1000,
+            )

@@ -79,6 +79,18 @@ issues a replacement snapshot. This also happens once after changing the secret.
 Bump the checkpoint version when a change affects the serialized state or the
 reconstruction of historical careers.
 
+To investigate slow reloads, search the Render service logs for
+`career_restore`. Entries with the same `id` belong to the same browser
+reload. The profile entry reports whether the supplied checkpoint was
+accepted, rejected, or missing. `context_source` identifies where the league
+state came from. `history_replay` means the replay function supplied the
+context, which may have been cached in memory. `context_ms` measures the work
+through league-state resolution. `stage_ms` covers the remaining work for
+that request, including `checkpoint_encode_ms` when a replacement checkpoint
+is created. These server timings exclude service wake-up, network transfer,
+response serialization, and browser rendering. Logs omit checkpoint contents,
+seeds, and save data.
+
 ## Where things live
 
 | Path | Purpose |

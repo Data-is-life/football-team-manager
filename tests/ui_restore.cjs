@@ -6,13 +6,15 @@ const checkpoint=JSON.parse(fs.readFileSync(path.join(root,'benchmarks/year4.jso
 async function until(check){for(let i=0;i<2000;i++){if(check())return;await new Promise(r=>setTimeout(r,10))}throw new Error('Restore UI state timed out')}
 const q=(p,s)=>p.d.querySelector(s),raw=p=>p.w.localStorage.getItem(key);
 function page({hold=false,holdWeek=false,fail=null}={}){
- const dom=new JSDOM(html,{url:base,runScripts:'outside-only'}),w=dom.window,d=w.document,state={actions:[],profileReady:false,fail};
+ const dom=new JSDOM(html,{url:base,runScripts:'outside-only'}),w=dom.window,d=w.document,state={actions:[],restoreIds:[],profileReady:false,fail};
  w.localStorage.setItem(key,JSON.stringify(checkpoint));w.HTMLElement.prototype.scrollIntoView=()=>{};
  w.HTMLDialogElement.prototype.close=function(){this.open=false};w.HTMLDialogElement.prototype.showModal=function(){this.open=true};
  let release;const gate=hold?new Promise(r=>release=r):Promise.resolve();state.release=release;
  let releaseWeek;const weekGate=holdWeek?new Promise(r=>releaseWeek=r):Promise.resolve();state.releaseWeek=releaseWeek;
  w.fetch=async(url,init)=>{
-  const action=init?JSON.parse(init.body).action:null;
+  const body=init?JSON.parse(init.body):null;
+  const action=body?.action;
+  if(action)state.restoreIds.push(body.restore_id);
   if(action){state.actions.push(action);if(action==='profile')await gate;else assert.equal(state.profileReady,true,'Dependent endpoints must wait for career reconstruction');}
   if(action==='week')await weekGate;
   if(action&&state.fail===action)return {ok:false,json:async()=>({detail:'Injected restore failure'})};
@@ -27,6 +29,8 @@ async function checks(){
  assert.deepEqual(p.state.actions,['profile']);assert.equal(raw(p),JSON.stringify(checkpoint));assert.equal(q(p,'#schedule-section').hidden,true);
  p.state.release();await until(()=>/restored/.test(q(p,'#save-status').textContent));
  assert.deepEqual(p.state.actions,['profile','week','playoffs','cuts']);assert.equal(raw(p),JSON.stringify(checkpoint));
+ assert.match(p.state.restoreIds[0],/^[0-9a-f-]{36}$/);
+ assert.deepEqual(p.state.restoreIds,Array(4).fill(p.state.restoreIds[0]));
  const expected=snapshot(p);assert.equal(p.d.querySelectorAll('#roster-groups .roster-player').length,38);p.dom.window.close();
  p=page({holdWeek:true});await until(()=>p.state.actions.includes('cuts'));
  assert.equal(/restored/.test(q(p,'#save-status').textContent),false);
