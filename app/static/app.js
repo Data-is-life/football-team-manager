@@ -3015,7 +3015,26 @@ function renderFreeAgency() {
   document.querySelector("#fa-pass").disabled = freeAgencyBusy || cutBusy || campBusy;
   document.querySelector("#fa-finish").disabled = freeAgencyBusy || cutBusy || campBusy || data.complete;
   document.querySelector("#fa-order").textContent = `${activeLineupRules>=42 ? "CPU signing priority" : "Turn order"}: ${data.order.map(t => t.city).join(' → ')}`;
-  document.querySelector("#fa-log").textContent = data.transactions.slice(-30).map(t => `${activeLineupRules>=42 ? "" : `Wave ${t.wave}: `}${t.team.city} signed ${t.name} for ${faMoney(t.annual_salary)}/year`).join(' · ') || "No signings yet.";
+  renderFreeAgencySignings(data.transactions);
+}
+function renderFreeAgencySignings(transactions) {
+  const showWave = activeLineupRules < 42;
+  const rows = transactions.map(signing => {
+    const row = document.createElement("tr");
+    const ownSigning = signing.team.id === activeTeamId;
+    row.classList.toggle("your-fa-signing", ownSigning);
+    const team = ownSigning ? `${signing.team.city} (your team)` : signing.team.city;
+    const values = [team, signing.name, faMoney(signing.annual_salary)];
+    if (showWave) values.push(signing.wave);
+    for (const value of values) {
+      row.insertCell().textContent = value;
+    }
+    return row;
+  });
+  document.querySelector("#fa-log").replaceChildren(...rows);
+  document.querySelector("#fa-log-wave").hidden = !showWave;
+  document.querySelector("#fa-log-wrap").hidden = rows.length === 0;
+  document.querySelector("#fa-log-empty").hidden = rows.length > 0;
 }
 async function loadFreeAgency(kind=null, player_id='') {
   if (freeAgencyBusy || cutBusy || campBusy || careerEnded() || activeLineupRules < 29 || (activeLineupRules<31 && !activeTrainingCamp) || (freeAgencyState?.complete && activeLineupRules<48) || activeTradeActions.length>0) return;

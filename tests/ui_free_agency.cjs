@@ -58,6 +58,8 @@ async function checks(){
  q(p,'#fa-position').value='';q(p,'#fa-position').dispatchEvent(new p.w.Event('change'));
  const filterSave=raw(p),filterCalls=p.state.calls;
  const pool=p.state.market.free_agency??p.state.market;
+ assert.equal(q(p,'#fa-log-wrap').hidden,true);
+ assert.equal(q(p,'#fa-log-empty').hidden,false);
  const age=pool.available[0].age;
  for(const id of ['fa-age-min','fa-age-max']){q(p,'#'+id).value=String(age);q(p,'#'+id).dispatchEvent(new p.w.Event('input'));}
  q(p,'#fa-cap-space').value='fits';q(p,'#fa-cap-space').dispatchEvent(new p.w.Event('change'));
@@ -90,6 +92,12 @@ async function checks(){
  p.state.fail=false;confirm.click();confirm.click();await until(()=>save(p).freeAgency.length===1);
  assert.equal(p.state.calls,filterCalls+2);assert.equal(confirmation.hidden,true);
  assert.equal(save(p).freeAgency[0].player_id,id);assert.equal(q(p,`[data-fa-id="${id}"]`),null);assert.ok(q(p,`#roster-groups [data-player-id="${id}"]`));
+ const transactions=(p.state.market.free_agency??p.state.market).transactions;
+ assert.equal(q(p,'#fa-log-wrap').hidden,false);
+ assert.equal(q(p,'#fa-log-empty').hidden,true);
+ assert.equal(q(p,'#fa-log-wave').hidden,false);
+ assert.deepEqual([...p.d.querySelectorAll('#fa-log tr')].map(row=>[...row.cells].map(cell=>cell.textContent)),
+  transactions.map(t=>[t.team.id==='seattle'?`${t.team.city} (your team)`:t.team.city,t.name,money(t.annual_salary),String(t.wave)]));
  checkFreeAgentBadge(p,id);
  assert.match(q(p,'#fa-status').textContent,/Wave 2.*110%/);const signed=save(p);p.dom.window.close();p=await page(signed);
  checkMarketTab(p);
